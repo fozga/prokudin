@@ -17,7 +17,10 @@ VENV_MARKER = VENV_DIR / ".requirements-hash"
 
 def get_requirements_hash() -> str:
     """Get hash of requirements-dev.txt."""
-    with open("requirements-dev.txt", "rb") as f:
+    req_file = Path("requirements-dev.txt")
+    if not req_file.exists():
+        raise FileNotFoundError("requirements-dev.txt not found. Run this script from the project root.")
+    with open(req_file, "rb") as f:
         return hashlib.md5(f.read()).hexdigest()
 
 
@@ -52,12 +55,12 @@ def install_dependencies() -> None:
 def run_checks() -> int:
     """Run all code quality checks."""
     checks = [
-        ("black", ["black", "src/"]),
-        ("isort", ["isort", "src/"]),
+        ("black", ["black", "--check", "src/"]),
+        ("isort", ["isort", "--check-only", "src/"]),
         ("flake8", ["flake8", "src/", "--max-line-length=120"]),
         ("pylint", ["pylint", "src/"]),
         ("mypy", ["mypy", "src/"]),
-        ("interrogate", ["interrogate", "--ignore-init-method", "--fail-under=100", "."]),
+        ("interrogate", ["interrogate", "--ignore-init-method", "--fail-under=100", "--exclude=.venv", "src/"]),
     ]
 
     failed = []
