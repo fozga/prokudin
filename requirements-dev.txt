@@ -1,0 +1,15 @@
+# Runtime dependencies
+numpy==1.26.4
+opencv-python-headless==4.9.0.80
+Pillow==10.2.0
+rawpy==0.26.1
+PyQt5==5.15.10
+
+# Dev tools
+black==24.1.1
+isort==5.13.2
+flake8==7.0.0
+pylint==3.0.3
+mypy==1.8.0
+interrogate==1.5.0
+setuptools==69.1.0
