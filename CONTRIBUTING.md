@@ -23,57 +23,26 @@ This repository uses GitHub Actions workflows to automatically check code qualit
 
 ## Running Checks Locally
 
-Before submitting a pull request, please run the following checks locally to catch issues early:
-
-### 1. Formatting
+Before submitting a pull request, run all checks locally with a single command:
 
 ```sh
-pip install black isort
-black src/
-isort src/
+python3 run_checks.py
 ```
 
-### 2. PEP 8 Compliance
+This script automatically:
+- Creates and manages a virtual environment (`.venv/`)
+- Installs all dev tools on first run
+- Caches dependencies — subsequent runs are fast (~35s)
+- Runs all quality checks: black, isort, flake8, pylint, mypy, interrogate
+- Works cross-platform (Linux, macOS, Windows)
 
-```sh
-pip install flake8
-flake8 src/ --max-line-length=120
-```
+The virtual environment is created in `.venv/` and is ignored by git. On first run with fresh dependencies, it takes ~1.5 minutes. Subsequent runs skip the install step.
 
-### 3. Static Analysis
+If you want to run individual checks, activate the venv manually:
+- **Linux/macOS**: `source .venv/bin/activate`
+- **Windows**: `.venv\Scripts\activate`
 
-```sh
-pip install pylint
-pylint src/
-```
-
-### 4. Type Checking
-
-```sh
-pip install mypy
-mypy src/
-```
-
-### 5. Documentation Coverage
-
-```sh
-pip install interrogate
-interrogate --ignore-init-method --fail-under=100 .
-```
-
-### 6. Build Documentation
-
-```sh
-pip install pdoc
-pdoc --html --output-dir docs Prokudin
-```
-
-### 7. License Compliance
-
-```sh
-pip install pip-licenses
-pip-licenses --from=mixed --fail-on=restricted
-```
+Then run any check tool directly: `black src/`, `isort src/`, etc.
 
 ---
 
