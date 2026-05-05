@@ -54,8 +54,8 @@ def save_preset(main_window: "MainWindow") -> None:
 
     preset_data = {"name": name, "channels": channels}
 
-    os.makedirs(main_window.presets_dir, exist_ok=True)
-    json_path = os.path.join(main_window.presets_dir, f"{safe_name}.json")
+    os.makedirs(main_window.presets_dir, exist_ok=True)  # type: ignore[arg-type]
+    json_path = os.path.join(main_window.presets_dir, f"{safe_name}.json")  # type: ignore[arg-type]
 
     try:
         with open(json_path, "w", encoding="utf-8") as f:
@@ -69,16 +69,16 @@ def save_preset(main_window: "MainWindow") -> None:
         pixmap = main_window.viewer.photo.pixmap()
         if pixmap and not pixmap.isNull():
             try:
-                thumb = pixmap.scaled(120, 80, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                thumb_path = os.path.join(main_window.presets_dir, f"{safe_name}.png")
+                thumb = pixmap.scaled(
+                    120, 80, Qt.KeepAspectRatio, Qt.SmoothTransformation  # type: ignore[attr-defined]
+                )
+                thumb_path = os.path.join(main_window.presets_dir, f"{safe_name}.png")  # type: ignore[arg-type]
                 thumb.save(thumb_path)
-            except Exception:
+            except OSError:
                 pass  # Thumbnail is optional; preset still works without it
 
     main_window.preset_panel.reload_presets()
-    main_window.status_handler.set_message(
-        f"Preset '{name}' saved", main_window.status_handler.MEDIUM_TIMEOUT
-    )
+    main_window.status_handler.set_message(f"Preset '{name}' saved", main_window.status_handler.MEDIUM_TIMEOUT)
 
 
 def apply_preset(main_window: "MainWindow", preset_data: dict) -> None:
@@ -86,7 +86,7 @@ def apply_preset(main_window: "MainWindow", preset_data: dict) -> None:
     Apply a preset by setting all controller sliders and refreshing the display.
     Blocks controller signals while setting sliders so only one adjust_channel call fires per channel.
     """
-    from .channels import adjust_channel  # local import to avoid circular dependency
+    from .channels import adjust_channel  # pylint: disable=import-outside-toplevel
 
     channels = preset_data.get("channels", {})
 
@@ -105,6 +105,4 @@ def apply_preset(main_window: "MainWindow", preset_data: dict) -> None:
         adjust_channel(main_window, i)
 
     name = preset_data.get("name", "preset")
-    main_window.status_handler.set_message(
-        f"Applied preset '{name}'", main_window.status_handler.MEDIUM_TIMEOUT
-    )
+    main_window.status_handler.set_message(f"Applied preset '{name}'", main_window.status_handler.MEDIUM_TIMEOUT)

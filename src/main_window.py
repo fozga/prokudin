@@ -131,7 +131,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
 
         # Path to the presets folder with fallback strategy
         # Try to find the project root by looking for requirements.txt
-        def find_project_root():
+        def find_project_root() -> str:
             current = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             for _ in range(5):  # Search up to 5 levels
                 if os.path.exists(os.path.join(current, "requirements.txt")):
@@ -155,12 +155,13 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
                 os.makedirs(preset_path, exist_ok=True)
                 self.presets_dir = preset_path
                 break
-            except (OSError, PermissionError) as e:
+            except (OSError, PermissionError):
                 continue
 
         if self.presets_dir is None:
             raise RuntimeError("Failed to create presets directory in any location")
 
+        assert self.presets_dir is not None
         self.init_ui()
 
         # Update the mode based on initial state
@@ -235,7 +236,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         # Left sidebar: preset panel + grid button
         left_sidebar = QVBoxLayout()
 
-        self.preset_panel = PresetPanel(self.presets_dir)
+        self.preset_panel = PresetPanel(self.presets_dir)  # type: ignore[arg-type]
         self.preset_panel.preset_selected.connect(lambda data: apply_preset(self, data))
         self.preset_panel.save_requested.connect(lambda: save_preset(self))
         left_sidebar.addWidget(self.preset_panel)
@@ -695,7 +696,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
             screen_geometry = screen.availableGeometry()
         else:
             # Fallback if screen is not available
-            screen_geometry = QApplication.desktop().availableGeometry()
+            screen_geometry = QApplication.desktop().availableGeometry()  # type: ignore[union-attr]
 
         dialog_width = self.grid_settings_dialog.width()
         dialog_height = self.grid_settings_dialog.height()
@@ -744,7 +745,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
             if message is None:
                 self.viewer.grid_overlay.set_enabled(False)
                 self.status_handler.set_message("Unsupported grid type selected", self.status_handler.SHORT_TIMEOUT)
-                self.viewer.viewport().update()
+                self.viewer.viewport().update()  # type: ignore[union-attr]
                 return
 
             self.viewer.grid_overlay.set_enabled(True)
@@ -753,12 +754,12 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
             except ValueError:
                 self.viewer.grid_overlay.set_enabled(False)
                 self.status_handler.set_message("Unsupported grid type selected", self.status_handler.SHORT_TIMEOUT)
-                self.viewer.viewport().update()
+                self.viewer.viewport().update()  # type: ignore[union-attr]
                 return
             self.status_handler.set_message(message, self.status_handler.SHORT_TIMEOUT)
 
         # Refresh the display
-        self.viewer.viewport().update()
+        self.viewer.viewport().update()  # type: ignore[union-attr]
 
     def on_grid_line_width_changed(self, width: int) -> None:
         """
@@ -774,7 +775,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self.viewer.grid_overlay.set_line_width(width)
 
         # Refresh the display
-        self.viewer.viewport().update()
+        self.viewer.viewport().update()  # type: ignore[union-attr]
         self.status_handler.set_message(f"Grid line width: {width}px", self.status_handler.SHORT_TIMEOUT)
 
     def update_save_button_state(self) -> None:
@@ -798,7 +799,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         # Update mode indicator based on loaded channels
         self._update_mode_from_state()
 
-    def keyPressEvent(self, event: QKeyEvent) -> None:  # pylint: disable=C0103
+    def keyPressEvent(self, event: Union[QKeyEvent, None]) -> None:  # pylint: disable=C0103
         """
         Handle key press events for channel switching and display mode.
 
@@ -817,16 +818,19 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
             - cancel_crop
             - apply_crop
         """
-        if self.crop_mode:
-            if event.key() == Qt.Key.Key_Escape:
-                self.cancel_crop()
-            elif event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
-                self.apply_crop()
-            # Do not allow toggling crop mode with 'C' while in crop mode
+        if event is not None:
+            if self.crop_mode:
+                if event.key() == Qt.Key.Key_Escape:
+                    self.cancel_crop()
+                elif event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
+                    self.apply_crop()
+                # Do not allow toggling crop mode with 'C' while in crop mode
+                else:
+                    super().keyPressEvent(event)
             else:
-                super().keyPressEvent(event)
+                if event.key() == Qt.Key.Key_C:
+                    self.toggle_crop_mode()
+                elif not handle_key_press(self, event):
+                    super().keyPressEvent(event)
         else:
-            if event.key() == Qt.Key.Key_C:
-                self.toggle_crop_mode()
-            elif not handle_key_press(self, event):
-                super().keyPressEvent(event)
+            super().keyPressEvent(event)

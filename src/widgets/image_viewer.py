@@ -167,12 +167,12 @@ class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attribute
         self.resetTransform()
 
         # Force viewport update to refresh display
-        self.viewport().update()
+        self.viewport().update()  # type: ignore[union-attr]
 
         # Ensure scrollbars are hidden
         self.setSceneRect(0, 0, 1, 1)
 
-    def wheelEvent(self, event: QWheelEvent) -> None:  # pylint: disable=C0103
+    def wheelEvent(self, event: Union[QWheelEvent, None]) -> None:  # pylint: disable=C0103
         """
         Handles mouse wheel events for zooming.
 
@@ -204,7 +204,7 @@ class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attribute
         else:
             super().wheelEvent(event)
 
-    def resizeEvent(self, event: QResizeEvent) -> None:  # pylint: disable=C0103
+    def resizeEvent(self, event: Union[QResizeEvent, None]) -> None:  # pylint: disable=C0103
         """
         Handles widget resize events.
 
@@ -221,7 +221,7 @@ class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attribute
             self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
         super().resizeEvent(event)
 
-    def mousePressEvent(self, event: QMouseEvent) -> None:  # pylint: disable=C0103
+    def mousePressEvent(self, event: Union[QMouseEvent, None]) -> None:  # pylint: disable=C0103
         """
         Handles mouse press events.
 
@@ -243,7 +243,7 @@ class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attribute
                 self.setDragMode(QGraphicsView.ScrollHandDrag)
         super().mousePressEvent(event)
 
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:  # pylint: disable=C0103
+    def mouseReleaseEvent(self, event: Union[QMouseEvent, None]) -> None:  # pylint: disable=C0103
         """
         Handles mouse release events.
 
@@ -264,7 +264,7 @@ class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attribute
             self.setDragMode(QGraphicsView.NoDrag)
         super().mouseReleaseEvent(event)
 
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:  # pylint: disable=C0103
+    def mouseMoveEvent(self, event: Union[QMouseEvent, None]) -> None:  # pylint: disable=C0103
         """
         Handles mouse move events.
 
@@ -277,18 +277,18 @@ class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attribute
 
         - Delegates crop-related events to the crop handler.
         """
-        if self._crop_handler.handle_mouse_move(event, self.photo):
+        if event is not None and self._crop_handler.handle_mouse_move(event, self.photo):
             return
         super().mouseMoveEvent(event)
 
-    def enterEvent(self, event: QEvent) -> None:  # pylint: disable=C0103
+    def enterEvent(self, event: Union[QEvent, None]) -> None:  # pylint: disable=C0103
         """Handle mouse enter events to ensure cursor is updated."""
         if self._crop_handler.is_crop_mode() and isinstance(event, QMouseEvent):
             handle = self._crop_handler.get_handle_at(event.pos())
             self._crop_handler.update_cursor_for_handle(handle)
         super().enterEvent(event)
 
-    def leaveEvent(self, event: QEvent) -> None:  # pylint: disable=C0103
+    def leaveEvent(self, event: Union[QEvent, None]) -> None:  # pylint: disable=C0103
         """Handle mouse leave events to reset cursor."""
         if self._crop_handler.is_crop_mode() and isinstance(event, QMouseEvent):
             self.setCursor(Qt.CursorShape.ArrowCursor)
@@ -338,7 +338,7 @@ class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attribute
                 self.zoom = 1.0
 
                 # Force update
-                self.viewport().update()
+                self.viewport().update()  # type: ignore[union-attr]
 
     def cancel_crop(self) -> None:
         """
@@ -382,7 +382,8 @@ class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attribute
         """
         self._crop_handler.set_crop_ratio(ratio, self.photo)
 
-    def drawForeground(self, painter: QPainter, rect: QRectF) -> None:  # pylint: disable=C0103, unused-argument
+    # pylint: disable=C0103
+    def drawForeground(self, painter: Union[QPainter, None], rect: QRectF) -> None:  # pylint: disable=unused-argument
         """
         Draws the crop rectangle and handles when in crop mode.
 
@@ -394,12 +395,13 @@ class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attribute
             None
         """
         # Draw crop overlay first
-        self._crop_handler.draw_foreground(painter, rect, self.sceneRect())
+        if painter is not None:
+            self._crop_handler.draw_foreground(painter, rect, self.sceneRect())
 
-        # Draw grid overlay
-        # If in crop mode, draw grid only in crop area (handled by crop_handler)
-        # Otherwise, draw grid on entire image
-        if not self._crop_handler.is_crop_mode() and self.photo and self.photo.pixmap():
-            # Draw grid on the entire displayed image
-            image_rect = self.photo.boundingRect()
-            self._grid_overlay.draw_grid(painter, image_rect)
+            # Draw grid overlay
+            # If in crop mode, draw grid only in crop area (handled by crop_handler)
+            # Otherwise, draw grid on entire image
+            if not self._crop_handler.is_crop_mode() and self.photo and self.photo.pixmap():
+                # Draw grid on the entire displayed image
+                image_rect = self.photo.boundingRect()
+                self._grid_overlay.draw_grid(painter, image_rect)

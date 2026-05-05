@@ -135,10 +135,10 @@ class ChannelController(QGroupBox):  # pylint: disable=too-many-instance-attribu
         for name, config in slider_configs.items():
             # Add the label in first column
             label = QLabel(f"{config['label']}:")
-            label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)  # type: ignore[attr-defined]
             adjustments_layout.addWidget(label, row, 0)
 
-            slider = ResetSlider(Qt.Horizontal)
+            slider = ResetSlider(Qt.Horizontal)  # type: ignore[attr-defined]
 
             # Ensure numeric values are used for slider operations
             assert isinstance(config["min"], int)
@@ -156,7 +156,7 @@ class ChannelController(QGroupBox):  # pylint: disable=too-many-instance-attribu
             text_input = QLineEdit()
             text_input.setText(str(config["default"]))
             text_input.setFixedWidth(35)
-            text_input.setAlignment(Qt.AlignRight)
+            text_input.setAlignment(Qt.AlignRight)  # type: ignore[attr-defined]
             self.text_inputs[name] = text_input
             adjustments_layout.addWidget(text_input, row, 2)
 

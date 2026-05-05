@@ -15,6 +15,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Prokudin.  If not, see <https://www.gnu.org/licenses/>.
 
+# pylint: disable=too-few-public-methods
+
 """
 Preset panel widget providing a scrollable list of saved presets with thumbnails.
 Users can save current slider values as a named preset, and apply any preset by clicking it.
@@ -23,17 +25,9 @@ Users can save current slider values as a named preset, and apply any preset by 
 import json
 import os
 
-from PyQt5.QtCore import Qt, pyqtSignal
-from PyQt5.QtGui import QPixmap
-from PyQt5.QtWidgets import (
-    QFrame,
-    QLabel,
-    QPushButton,
-    QScrollArea,
-    QSizePolicy,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtCore import QEvent, Qt, pyqtSignal
+from PyQt5.QtGui import QMouseEvent, QPixmap
+from PyQt5.QtWidgets import QFrame, QLabel, QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 THUMBNAIL_W = 120
 THUMBNAIL_H = 80
@@ -48,7 +42,7 @@ class PresetItem(QFrame):
         super().__init__(parent)
         self.preset_data = preset_data
         self.setFrameShape(QFrame.NoFrame)
-        self.setCursor(Qt.PointingHandCursor)
+        self.setCursor(Qt.PointingHandCursor)  # type: ignore[attr-defined]
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         self.setStyleSheet("")
 
@@ -58,32 +52,35 @@ class PresetItem(QFrame):
 
         thumb_label = QLabel()
         thumb_label.setFixedSize(THUMBNAIL_W, THUMBNAIL_H)
-        thumb_label.setAlignment(Qt.AlignCenter)
+        thumb_label.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
         thumb_label.setStyleSheet("border: none; background-color: transparent;")
         if os.path.exists(thumbnail_path):
             pixmap = QPixmap(thumbnail_path).scaled(
-                THUMBNAIL_W, THUMBNAIL_H, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                THUMBNAIL_W, THUMBNAIL_H, Qt.KeepAspectRatio, Qt.SmoothTransformation  # type: ignore[attr-defined]
             )
             thumb_label.setPixmap(pixmap)
         else:
             thumb_label.setText("No image")
-        layout.addWidget(thumb_label, alignment=Qt.AlignCenter)
+        layout.addWidget(thumb_label, alignment=Qt.AlignCenter)  # type: ignore[attr-defined]
 
         name_label = QLabel(preset_data.get("name", "Unnamed"))
-        name_label.setAlignment(Qt.AlignCenter)
+        name_label.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
         name_label.setWordWrap(True)
         name_label.setStyleSheet("font-size: 10pt;")
         layout.addWidget(name_label)
 
-    def mousePressEvent(self, event) -> None:  # type: ignore[override]
+    def mousePressEvent(self, event: QMouseEvent | None) -> None:  # pylint: disable=invalid-name
+        """Emit clicked signal when preset is clicked."""
         self.clicked.emit(self.preset_data)
         super().mousePressEvent(event)
 
-    def enterEvent(self, event) -> None:  # type: ignore[override]
+    def enterEvent(self, event: QEvent | None) -> None:  # pylint: disable=invalid-name
+        """Highlight preset on mouse enter."""
         self.setStyleSheet("QFrame { background-color: rgba(100, 150, 255, 0.15); }")
         super().enterEvent(event)
 
-    def leaveEvent(self, event) -> None:  # type: ignore[override]
+    def leaveEvent(self, event: QEvent | None) -> None:  # pylint: disable=invalid-name
+        """Remove highlight on mouse leave."""
         self.setStyleSheet("QFrame { background-color: transparent; }")
         super().leaveEvent(event)
 
@@ -110,7 +107,7 @@ class PresetPanel(QWidget):
         layout.setSpacing(4)
 
         title = QLabel("Presets")
-        title.setAlignment(Qt.AlignCenter)
+        title.setAlignment(Qt.AlignCenter)  # type: ignore[attr-defined]
         title.setStyleSheet("font-weight: bold; font-size: 11pt;")
         layout.addWidget(title)
 
@@ -120,7 +117,7 @@ class PresetPanel(QWidget):
 
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
-        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)  # type: ignore[attr-defined]
 
         self._list_widget = QWidget()
         self._list_layout = QVBoxLayout(self._list_widget)
@@ -139,8 +136,9 @@ class PresetPanel(QWidget):
         """Clear and repopulate the list from the presets directory."""
         while self._list_layout.count() > 1:
             item = self._list_layout.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            widget = item.widget() if item else None
+            if widget:
+                widget.deleteLater()  # type: ignore[union-attr]
 
         if not os.path.isdir(self.presets_dir):
             return

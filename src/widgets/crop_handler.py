@@ -133,7 +133,7 @@ class CropHandler:  # pylint: disable=too-many-public-methods
             # Discard temporary crop rectangle when exiting crop mode
             self._rectangles["current"] = None
             self.view.setCursor(Qt.CursorShape.ArrowCursor)
-        self.view.viewport().update()
+        self.view.viewport().update()  # type: ignore[union-attr]
 
     def is_crop_mode(self) -> bool:
         """Return whether crop mode is enabled."""
@@ -175,7 +175,7 @@ class CropHandler:  # pylint: disable=too-many-public-methods
             rect: The crop rectangle to set, or None to clear it.
         """
         self._rectangles["current"] = rect
-        self.view.viewport().update()
+        self.view.viewport().update()  # type: ignore[union-attr]
 
     def set_crop_ratio(self, ratio: Union[tuple[int, int], None], photo: Union[QGraphicsPixmapItem, None]) -> None:
         """Set the aspect ratio for the crop rectangle."""
@@ -226,7 +226,7 @@ class CropHandler:  # pylint: disable=too-many-public-methods
             new_rect.setHeight(int(new_rect.width() / target_ratio))
 
         self._rectangles["current"] = new_rect
-        self.view.viewport().update()
+        self.view.viewport().update()  # type: ignore[union-attr]
 
     def get_handle_at(self, pos: QPoint) -> Union[str, None]:
         """Determine which crop handle is under the given mouse position."""
@@ -887,7 +887,7 @@ class CropHandler:  # pylint: disable=too-many-public-methods
                 handle = self._drag_info["handle"] if isinstance(self._drag_info["handle"], str) else None
                 self.resize_crop_rect_from_anchor(handle, current_pos, photo)
             self.constrain_crop_rect(photo)
-            self.view.viewport().update()
+            self.view.viewport().update()  # type: ignore[union-attr]
             event.accept()
             return True
 

@@ -83,7 +83,7 @@ class GridSettingsDialog(QFrame):
             parent: Parent widget.
         """
         super().__init__(parent)
-        self.setWindowFlags(Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)
+        self.setWindowFlags(Qt.WindowType.Popup | Qt.WindowType.FramelessWindowHint)  # type: ignore[arg-type]
         self.setFrameStyle(QFrame.Shape.StyledPanel | QFrame.Shadow.Raised)
         self.setLineWidth(2)
         self._current_width = current_width
