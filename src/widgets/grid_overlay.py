@@ -26,8 +26,7 @@ from typing import Callable, Dict, Union
 from PyQt5.QtCore import QLineF, QRect, QRectF, Qt
 from PyQt5.QtGui import QColor, QPainter, QPen
 
-# Import grid type constants from grid_settings_dialog to avoid duplication
-from src.widgets.grid_settings_dialog import (
+from .grid_types import (
     GRID_TYPE_3X3,
     GRID_TYPE_DIAGONAL_1_1,
     GRID_TYPE_DIAGONAL_2_3,
@@ -145,6 +144,8 @@ class GridOverlay:
         Args:
             grid_type: The grid type to use (GRID_TYPE_3X3 or GRID_TYPE_GOLDEN_RATIO).
         """
+        if grid_type not in self._grid_drawing_methods:
+            raise ValueError(f"Unsupported grid type: {grid_type}")
         self._grid_type = grid_type
 
     def get_grid_type(self) -> str:
@@ -171,6 +172,10 @@ class GridOverlay:
         if isinstance(rect, QRect):
             rect = QRectF(rect)
 
+        # Nothing to draw for invalid or zero-area rectangles.
+        if rect.width() <= 0 or rect.height() <= 0:
+            return
+
         # Save the current painter state
         painter.save()
 
@@ -182,9 +187,8 @@ class GridOverlay:
         painter.setBrush(Qt.BrushStyle.NoBrush)
 
         # Draw grid based on type using dictionary dispatch
-        draw_method = self._grid_drawing_methods.get(self._grid_type)
-        if draw_method:
-            draw_method(painter, rect)
+        draw_method = self._grid_drawing_methods.get(self._grid_type, self._draw_3x3_grid)
+        draw_method(painter, rect)
 
         # Restore the painter state
         painter.restore()
@@ -471,67 +475,7 @@ class GridOverlay:
             painter: QPainter object to draw with.
             rect: The rectangle area to draw the grid on.
         """
-        left = rect.left()
-        top = rect.top()
-        right = rect.right()
-        bottom = rect.bottom()
-        width = rect.width()
-        height = rect.height()
-
-        # For 2:3 ratio, for every 3 units horizontally, we go 2 units vertically
-        # slope = 2/3 ≈ 0.667
-
-        # Diagonal from top-left corner (going down-right at ~33.69°)
-        if width * 2 <= height * 3:
-            # Hits right edge first: dx = width, dy = width * 2/3
-            end_x1 = right
-            end_y1 = top + width * 2.0 / 3.0
-        else:
-            # Hits bottom edge first: dy = height, dx = height * 3/2
-            end_x1 = left + height * 3.0 / 2.0
-            end_y1 = bottom
-
-        line1 = QLineF(left, top, end_x1, end_y1)
-        painter.drawLine(line1)
-
-        # Diagonal from top-right corner (going down-left)
-        if width * 2 <= height * 3:
-            # Hits left edge first
-            end_x2 = left
-            end_y2 = top + width * 2.0 / 3.0
-        else:
-            # Hits bottom edge first
-            end_x2 = right - height * 3.0 / 2.0
-            end_y2 = bottom
-
-        line2 = QLineF(right, top, end_x2, end_y2)
-        painter.drawLine(line2)
-
-        # Diagonal from bottom-left corner (going up-right)
-        if width * 2 <= height * 3:
-            # Hits right edge first
-            end_x3 = right
-            end_y3 = bottom - width * 2.0 / 3.0
-        else:
-            # Hits top edge first
-            end_x3 = left + height * 3.0 / 2.0
-            end_y3 = top
-
-        line3 = QLineF(left, bottom, end_x3, end_y3)
-        painter.drawLine(line3)
-
-        # Diagonal from bottom-right corner (going up-left)
-        if width * 2 <= height * 3:
-            # Hits left edge first
-            end_x4 = left
-            end_y4 = bottom - width * 2.0 / 3.0
-        else:
-            # Hits top edge first
-            end_x4 = right - height * 3.0 / 2.0
-            end_y4 = top
-
-        line4 = QLineF(right, bottom, end_x4, end_y4)
-        painter.drawLine(line4)
+        self._draw_diagonal_ratio_grid(painter, rect, vertical_ratio=2.0, horizontal_ratio=3.0)
 
     def _draw_diagonal_3_2_grid(self, painter: QPainter, rect: QRectF) -> None:  # pylint: disable=too-many-locals
         """
@@ -544,67 +488,7 @@ class GridOverlay:
             painter: QPainter object to draw with.
             rect: The rectangle area to draw the grid on.
         """
-        left = rect.left()
-        top = rect.top()
-        right = rect.right()
-        bottom = rect.bottom()
-        width = rect.width()
-        height = rect.height()
-
-        # For 3:2 ratio, for every 2 units horizontally, we go 3 units vertically
-        # slope = 3/2 = 1.5
-
-        # Diagonal from top-left corner (going down-right at ~56.31°)
-        if width * 3 <= height * 2:
-            # Hits right edge first: dx = width, dy = width * 3/2
-            end_x1 = right
-            end_y1 = top + width * 3.0 / 2.0
-        else:
-            # Hits bottom edge first: dy = height, dx = height * 2/3
-            end_x1 = left + height * 2.0 / 3.0
-            end_y1 = bottom
-
-        line1 = QLineF(left, top, end_x1, end_y1)
-        painter.drawLine(line1)
-
-        # Diagonal from top-right corner (going down-left)
-        if width * 3 <= height * 2:
-            # Hits left edge first
-            end_x2 = left
-            end_y2 = top + width * 3.0 / 2.0
-        else:
-            # Hits bottom edge first
-            end_x2 = right - height * 2.0 / 3.0
-            end_y2 = bottom
-
-        line2 = QLineF(right, top, end_x2, end_y2)
-        painter.drawLine(line2)
-
-        # Diagonal from bottom-left corner (going up-right)
-        if width * 3 <= height * 2:
-            # Hits right edge first
-            end_x3 = right
-            end_y3 = bottom - width * 3.0 / 2.0
-        else:
-            # Hits top edge first
-            end_x3 = left + height * 2.0 / 3.0
-            end_y3 = top
-
-        line3 = QLineF(left, bottom, end_x3, end_y3)
-        painter.drawLine(line3)
-
-        # Diagonal from bottom-right corner (going up-left)
-        if width * 3 <= height * 2:
-            # Hits left edge first
-            end_x4 = left
-            end_y4 = bottom - width * 3.0 / 2.0
-        else:
-            # Hits top edge first
-            end_x4 = right - height * 2.0 / 3.0
-            end_y4 = top
-
-        line4 = QLineF(right, bottom, end_x4, end_y4)
-        painter.drawLine(line4)
+        self._draw_diagonal_ratio_grid(painter, rect, vertical_ratio=3.0, horizontal_ratio=2.0)
 
     def _draw_diagonal_3_4_grid(self, painter: QPainter, rect: QRectF) -> None:  # pylint: disable=too-many-locals
         """
@@ -617,68 +501,7 @@ class GridOverlay:
             painter: QPainter object to draw with.
             rect: The rectangle area to draw the grid on.
         """
-        left = rect.left()
-        top = rect.top()
-        right = rect.right()
-        bottom = rect.bottom()
-        width = rect.width()
-        height = rect.height()
-
-        # For 3:4 ratio, for every 4 units horizontally, we go 3 units vertically
-        # slope = 3/4 = 0.75
-
-        # Diagonal from top-left corner (going down-right at 36.87°)
-        # dx/dy = 4/3, so dx = 4 * (dy/3)
-        if width * 3 <= height * 4:
-            # Hits right edge first: dx = width, dy = width * 3/4
-            end_x1 = right
-            end_y1 = top + width * 3.0 / 4.0
-        else:
-            # Hits bottom edge first: dy = height, dx = height * 4/3
-            end_x1 = left + height * 4.0 / 3.0
-            end_y1 = bottom
-
-        line1 = QLineF(left, top, end_x1, end_y1)
-        painter.drawLine(line1)
-
-        # Diagonal from top-right corner (going down-left at 143.13°)
-        if width * 3 <= height * 4:
-            # Hits left edge first
-            end_x2 = left
-            end_y2 = top + width * 3.0 / 4.0
-        else:
-            # Hits bottom edge first
-            end_x2 = right - height * 4.0 / 3.0
-            end_y2 = bottom
-
-        line2 = QLineF(right, top, end_x2, end_y2)
-        painter.drawLine(line2)
-
-        # Diagonal from bottom-left corner (going up-right at -36.87°/323.13°)
-        if width * 3 <= height * 4:
-            # Hits right edge first
-            end_x3 = right
-            end_y3 = bottom - width * 3.0 / 4.0
-        else:
-            # Hits top edge first
-            end_x3 = left + height * 4.0 / 3.0
-            end_y3 = top
-
-        line3 = QLineF(left, bottom, end_x3, end_y3)
-        painter.drawLine(line3)
-
-        # Diagonal from bottom-right corner (going up-left at -143.13°/216.87°)
-        if width * 3 <= height * 4:
-            # Hits left edge first
-            end_x4 = left
-            end_y4 = bottom - width * 3.0 / 4.0
-        else:
-            # Hits top edge first
-            end_x4 = right - height * 4.0 / 3.0
-            end_y4 = top
-
-        line4 = QLineF(right, bottom, end_x4, end_y4)
-        painter.drawLine(line4)
+        self._draw_diagonal_ratio_grid(painter, rect, vertical_ratio=3.0, horizontal_ratio=4.0)
 
     def _draw_diagonal_4_3_grid(self, painter: QPainter, rect: QRectF) -> None:  # pylint: disable=too-many-locals
         """
@@ -691,6 +514,15 @@ class GridOverlay:
             painter: QPainter object to draw with.
             rect: The rectangle area to draw the grid on.
         """
+        self._draw_diagonal_ratio_grid(painter, rect, vertical_ratio=4.0, horizontal_ratio=3.0)
+
+    def _draw_diagonal_ratio_grid(
+        self, painter: QPainter, rect: QRectF, vertical_ratio: float, horizontal_ratio: float
+    ) -> None:
+        """Draw corner-to-edge diagonal lines for a parameterized vertical:horizontal ratio."""
+        if vertical_ratio <= 0 or horizontal_ratio <= 0:
+            return
+
         left = rect.left()
         top = rect.top()
         right = rect.right()
@@ -698,58 +530,14 @@ class GridOverlay:
         width = rect.width()
         height = rect.height()
 
-        # For 4:3 ratio, for every 3 units horizontally, we go 4 units vertically
-        # slope = 4/3 ≈ 1.333
-
-        # Diagonal from top-left corner (going down-right at 53.13°)
-        # dx/dy = 3/4, so dx = 3 * (dy/4)
-        if width * 4 <= height * 3:
-            # Hits right edge first: dx = width, dy = width * 4/3
-            end_x1 = right
-            end_y1 = top + width * 4.0 / 3.0
+        if width * vertical_ratio <= height * horizontal_ratio:
+            x_offset = width
+            y_offset = width * vertical_ratio / horizontal_ratio
         else:
-            # Hits bottom edge first: dy = height, dx = height * 3/4
-            end_x1 = left + height * 3.0 / 4.0
-            end_y1 = bottom
+            x_offset = height * horizontal_ratio / vertical_ratio
+            y_offset = height
 
-        line1 = QLineF(left, top, end_x1, end_y1)
-        painter.drawLine(line1)
-
-        # Diagonal from top-right corner (going down-left at 126.87°)
-        if width * 4 <= height * 3:
-            # Hits left edge first
-            end_x2 = left
-            end_y2 = top + width * 4.0 / 3.0
-        else:
-            # Hits bottom edge first
-            end_x2 = right - height * 3.0 / 4.0
-            end_y2 = bottom
-
-        line2 = QLineF(right, top, end_x2, end_y2)
-        painter.drawLine(line2)
-
-        # Diagonal from bottom-left corner (going up-right at -53.13°/306.87°)
-        if width * 4 <= height * 3:
-            # Hits right edge first
-            end_x3 = right
-            end_y3 = bottom - width * 4.0 / 3.0
-        else:
-            # Hits top edge first
-            end_x3 = left + height * 3.0 / 4.0
-            end_y3 = top
-
-        line3 = QLineF(left, bottom, end_x3, end_y3)
-        painter.drawLine(line3)
-
-        # Diagonal from bottom-right corner (going up-left at -126.87°/233.13°)
-        if width * 4 <= height * 3:
-            # Hits left edge first
-            end_x4 = left
-            end_y4 = bottom - width * 4.0 / 3.0
-        else:
-            # Hits top edge first
-            end_x4 = right - height * 3.0 / 4.0
-            end_y4 = top
-
-        line4 = QLineF(right, bottom, end_x4, end_y4)
-        painter.drawLine(line4)
+        painter.drawLine(QLineF(left, top, left + x_offset, top + y_offset))
+        painter.drawLine(QLineF(right, top, right - x_offset, top + y_offset))
+        painter.drawLine(QLineF(left, bottom, left + x_offset, bottom - y_offset))
+        painter.drawLine(QLineF(right, bottom, right - x_offset, bottom - y_offset))
