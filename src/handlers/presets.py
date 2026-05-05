@@ -27,6 +27,8 @@ from typing import TYPE_CHECKING
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QInputDialog, QMessageBox
 
+from .channels import adjust_channel
+
 if TYPE_CHECKING:
     from ..main_window import MainWindow
 
@@ -86,15 +88,17 @@ def apply_preset(main_window: "MainWindow", preset_data: dict) -> None:
     Apply a preset by setting all controller sliders and refreshing the display.
     Blocks controller signals while setting sliders so only one adjust_channel call fires per channel.
     """
-    from .channels import adjust_channel  # pylint: disable=import-outside-toplevel
-
     channels = preset_data.get("channels", {})
+    if not isinstance(channels, dict):
+        channels = {}
 
     for i, ctrl in enumerate(main_window.controllers):
         ch_data = channels.get(_CHANNEL_NAMES[i], {})
+        if not isinstance(ch_data, dict):
+            ch_data = {}
         ctrl.blockSignals(True)
         for slider_name, value in ch_data.items():
-            if slider_name in ctrl.sliders:
+            if slider_name in ctrl.sliders and isinstance(value, int):
                 slider = ctrl.sliders[slider_name]
                 slider.setValue(value)
                 if slider_name in ctrl.text_inputs:

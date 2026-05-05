@@ -818,19 +818,18 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
             - cancel_crop
             - apply_crop
         """
-        if event is not None:
-            if self.crop_mode:
-                if event.key() == Qt.Key.Key_Escape:
-                    self.cancel_crop()
-                elif event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
-                    self.apply_crop()
-                # Do not allow toggling crop mode with 'C' while in crop mode
-                else:
-                    super().keyPressEvent(event)
+        if event is None:
+            return
+        if self.crop_mode:
+            if event.key() == Qt.Key.Key_Escape:
+                self.cancel_crop()
+            elif event.key() == Qt.Key.Key_Return or event.key() == Qt.Key.Key_Enter:
+                self.apply_crop()
+            # Do not allow toggling crop mode with 'C' while in crop mode
             else:
-                if event.key() == Qt.Key.Key_C:
-                    self.toggle_crop_mode()
-                elif not handle_key_press(self, event):
-                    super().keyPressEvent(event)
+                super().keyPressEvent(event)
         else:
-            super().keyPressEvent(event)
+            if event.key() == Qt.Key.Key_C:
+                self.toggle_crop_mode()
+            elif not handle_key_press(self, event):
+                super().keyPressEvent(event)

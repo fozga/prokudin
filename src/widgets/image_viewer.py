@@ -187,20 +187,19 @@ class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attribute
         - Exits fit-to-view mode on manual zoom.
         - Otherwise, passes the event to the base class.
         """
-        if event is not None:
-            if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-                zoom_factor = 1.25
-                if event.angleDelta().y() > 0:
-                    self.scale(zoom_factor, zoom_factor)
-                    self.zoom *= zoom_factor
-                    self.fit_to_view = False  # Exit fit-to-view on manual zoom
-                else:
-                    self.scale(1 / zoom_factor, 1 / zoom_factor)
-                    self.zoom /= zoom_factor
-                    self.fit_to_view = False
-                event.accept()
+        if event is None:
+            return
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            zoom_factor = 1.25
+            if event.angleDelta().y() > 0:
+                self.scale(zoom_factor, zoom_factor)
+                self.zoom *= zoom_factor
+                self.fit_to_view = False  # Exit fit-to-view on manual zoom
             else:
-                super().wheelEvent(event)
+                self.scale(1 / zoom_factor, 1 / zoom_factor)
+                self.zoom /= zoom_factor
+                self.fit_to_view = False
+            event.accept()
         else:
             super().wheelEvent(event)
 
@@ -219,6 +218,8 @@ class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attribute
         """
         if self.fit_to_view:
             self.fitInView(self.sceneRect(), Qt.AspectRatioMode.KeepAspectRatio)
+        if event is None:
+            return
         super().resizeEvent(event)
 
     def mousePressEvent(self, event: Union[QMouseEvent, None]) -> None:  # pylint: disable=C0103
@@ -235,12 +236,13 @@ class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attribute
         - Delegates crop-related events to the crop handler.
         - Enables scroll-hand drag mode on left mouse button press.
         """
-        if event is not None:
-            # First check if crop handler wants to handle this event
-            if self._crop_handler.handle_mouse_press(event):
-                return
-            if event.button() == Qt.MouseButton.LeftButton:
-                self.setDragMode(QGraphicsView.ScrollHandDrag)
+        if event is None:
+            return
+        # First check if crop handler wants to handle this event
+        if self._crop_handler.handle_mouse_press(event):
+            return
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.setDragMode(QGraphicsView.ScrollHandDrag)
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event: Union[QMouseEvent, None]) -> None:  # pylint: disable=C0103
@@ -257,11 +259,12 @@ class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attribute
         - Delegates crop-related events to the crop handler.
         - Disables drag mode when the mouse is released.
         """
-        if event is not None:
-            # First check if crop handler wants to handle this event
-            if self._crop_handler.handle_mouse_release(event):
-                return
-            self.setDragMode(QGraphicsView.NoDrag)
+        if event is None:
+            return
+        # First check if crop handler wants to handle this event
+        if self._crop_handler.handle_mouse_release(event):
+            return
+        self.setDragMode(QGraphicsView.NoDrag)
         super().mouseReleaseEvent(event)
 
     def mouseMoveEvent(self, event: Union[QMouseEvent, None]) -> None:  # pylint: disable=C0103
@@ -277,12 +280,16 @@ class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attribute
 
         - Delegates crop-related events to the crop handler.
         """
-        if event is not None and self._crop_handler.handle_mouse_move(event, self.photo):
+        if event is None:
+            return
+        if self._crop_handler.handle_mouse_move(event, self.photo):
             return
         super().mouseMoveEvent(event)
 
     def enterEvent(self, event: Union[QEvent, None]) -> None:  # pylint: disable=C0103
         """Handle mouse enter events to ensure cursor is updated."""
+        if event is None:
+            return
         if self._crop_handler.is_crop_mode() and isinstance(event, QMouseEvent):
             handle = self._crop_handler.get_handle_at(event.pos())
             self._crop_handler.update_cursor_for_handle(handle)
@@ -290,6 +297,8 @@ class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attribute
 
     def leaveEvent(self, event: Union[QEvent, None]) -> None:  # pylint: disable=C0103
         """Handle mouse leave events to reset cursor."""
+        if event is None:
+            return
         if self._crop_handler.is_crop_mode() and isinstance(event, QMouseEvent):
             self.setCursor(Qt.CursorShape.ArrowCursor)
         super().leaveEvent(event)

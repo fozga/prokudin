@@ -72,16 +72,22 @@ class PresetItem(QFrame):
     def mousePressEvent(self, event: QMouseEvent | None) -> None:  # pylint: disable=invalid-name
         """Emit clicked signal when preset is clicked."""
         self.clicked.emit(self.preset_data)
+        if event is None:
+            return
         super().mousePressEvent(event)
 
     def enterEvent(self, event: QEvent | None) -> None:  # pylint: disable=invalid-name
         """Highlight preset on mouse enter."""
         self.setStyleSheet("QFrame { background-color: rgba(100, 150, 255, 0.15); }")
+        if event is None:
+            return
         super().enterEvent(event)
 
     def leaveEvent(self, event: QEvent | None) -> None:  # pylint: disable=invalid-name
         """Remove highlight on mouse leave."""
         self.setStyleSheet("QFrame { background-color: transparent; }")
+        if event is None:
+            return
         super().leaveEvent(event)
 
 
@@ -100,7 +106,6 @@ class PresetPanel(QWidget):
     def __init__(self, presets_dir: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.presets_dir = presets_dir
-        os.makedirs(self.presets_dir, exist_ok=True)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(2, 2, 2, 2)
