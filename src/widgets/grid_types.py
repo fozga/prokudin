@@ -1,0 +1,16 @@
+"""
+Shared grid type constants used by grid-related widgets.
+"""
+
+GRID_TYPE_NONE = "none"
+GRID_TYPE_3X3 = "3x3"
+GRID_TYPE_GOLDEN_RATIO = "golden_ratio"
+GRID_TYPE_DIAGONAL_1_1 = "diagonal_1_1"
+GRID_TYPE_DIAGONAL_2_3 = "diagonal_2_3"
+GRID_TYPE_DIAGONAL_3_2 = "diagonal_3_2"
+GRID_TYPE_DIAGONAL_3_4 = "diagonal_3_4"
+GRID_TYPE_DIAGONAL_4_3 = "diagonal_4_3"
+GRID_TYPE_DIAGONAL_THIRDS_V = "diagonal_thirds_v"
+GRID_TYPE_DIAGONAL_THIRDS_H = "diagonal_thirds_h"
+GRID_TYPE_DIAGONAL_GOLDEN_V = "diagonal_golden_v"
+GRID_TYPE_DIAGONAL_GOLDEN_H = "diagonal_golden_h"

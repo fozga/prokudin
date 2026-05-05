@@ -24,12 +24,20 @@ from typing import Optional
 from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtWidgets import QFrame, QHBoxLayout, QLabel, QListWidget, QPushButton, QVBoxLayout, QWidget
 
-# Grid type constants
-GRID_TYPE_NONE = "none"
-GRID_TYPE_3X3 = "3x3"
-GRID_TYPE_GOLDEN_RATIO = "golden_ratio"
-# Future grid types can be added here:
-# GRID_TYPE_DIAGONAL = "diagonal"
+from .grid_types import (
+    GRID_TYPE_3X3,
+    GRID_TYPE_DIAGONAL_1_1,
+    GRID_TYPE_DIAGONAL_2_3,
+    GRID_TYPE_DIAGONAL_3_2,
+    GRID_TYPE_DIAGONAL_3_4,
+    GRID_TYPE_DIAGONAL_4_3,
+    GRID_TYPE_DIAGONAL_GOLDEN_H,
+    GRID_TYPE_DIAGONAL_GOLDEN_V,
+    GRID_TYPE_DIAGONAL_THIRDS_H,
+    GRID_TYPE_DIAGONAL_THIRDS_V,
+    GRID_TYPE_GOLDEN_RATIO,
+    GRID_TYPE_NONE,
+)
 
 
 class GridSettingsDialog(QFrame):
@@ -51,8 +59,16 @@ class GridSettingsDialog(QFrame):
         ("None", GRID_TYPE_NONE),
         ("3x3 Grid", GRID_TYPE_3X3),
         ("Golden Ratio", GRID_TYPE_GOLDEN_RATIO),
+        ("Diagonal 1:1", GRID_TYPE_DIAGONAL_1_1),
+        ("Diagonal 2:3", GRID_TYPE_DIAGONAL_2_3),
+        ("Diagonal 3:2", GRID_TYPE_DIAGONAL_3_2),
+        ("Diagonal 3:4", GRID_TYPE_DIAGONAL_3_4),
+        ("Diagonal 4:3", GRID_TYPE_DIAGONAL_4_3),
+        ("Diagonal + Thirds V", GRID_TYPE_DIAGONAL_THIRDS_V),
+        ("Diagonal + Thirds H", GRID_TYPE_DIAGONAL_THIRDS_H),
+        ("Diagonal + Golden V", GRID_TYPE_DIAGONAL_GOLDEN_V),
+        ("Diagonal + Golden H", GRID_TYPE_DIAGONAL_GOLDEN_H),
         # Future grid types can be added here:
-        # ("Diagonal Lines", GRID_TYPE_DIAGONAL),
     ]
 
     def __init__(
