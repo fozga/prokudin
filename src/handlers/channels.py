@@ -113,8 +113,11 @@ def load_channel(main_window: "MainWindow", channel_idx: int) -> None:
         main_window.channel_paths[channel_idx] = file_path
         _process_channel_image(main_window, channel_idx, rgb_image)
     else:
-        if err_msg and err_msg != "No file selected":
-            main_window.status_handler.set_message(err_msg, main_window.status_handler.LONG_TIMEOUT)
+        if err_msg != "No file selected":
+            main_window.status_handler.set_message(
+                err_msg or "Failed to load image. Please try again.",
+                main_window.status_handler.LONG_TIMEOUT,
+            )
 
 
 def load_channel_from_path(main_window: "MainWindow", channel_idx: int, file_path: str) -> None:
@@ -126,10 +129,15 @@ def load_channel_from_path(main_window: "MainWindow", channel_idx: int, file_pat
         channel_idx (int): Index of the channel to load (0=R, 1=G, 2=B).
         file_path (str): Absolute path to the ARW file.
     """
-    rgb_image, _ = load_raw_image_from_path(file_path)
+    rgb_image, err_msg = load_raw_image_from_path(file_path)
     if rgb_image is not None:
         main_window.channel_paths[channel_idx] = file_path
         _process_channel_image(main_window, channel_idx, rgb_image)
+    elif err_msg:
+        main_window.status_handler.set_message(
+            f"Failed to restore {_CHANNEL_NAMES.get(channel_idx, 'Unknown')} channel: {err_msg}",
+            main_window.status_handler.LONG_TIMEOUT,
+        )
 
 
 def adjust_channel(main_window: "MainWindow", channel_idx: int) -> None:

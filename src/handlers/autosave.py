@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from typing import TYPE_CHECKING
 
@@ -60,8 +61,8 @@ def save_autosave(main_window: "MainWindow") -> None:
     try:
         with open(_autosave_path(main_window), "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
-    except OSError:
-        pass
+    except OSError as e:
+        logging.warning("Autosave write failed: %s", e)
 
 
 def restore_autosave(main_window: "MainWindow") -> None:  # pylint: disable=too-many-locals,too-many-branches
@@ -79,7 +80,7 @@ def restore_autosave(main_window: "MainWindow") -> None:  # pylint: disable=too-
     for i, name in enumerate(_CHANNEL_NAMES):
         ch_data = data.get("channels", {}).get(name, {})
         filepath = ch_data.get("path")
-        if filepath and os.path.exists(filepath):
+        if isinstance(filepath, str) and os.path.exists(filepath):
             load_channel_from_path(main_window, i, filepath)
 
     for i, name in enumerate(_CHANNEL_NAMES):
@@ -105,8 +106,8 @@ def restore_autosave(main_window: "MainWindow") -> None:  # pylint: disable=too-
         y = crop_data.get("y", 0)
         w = crop_data.get("width", 0)
         h = crop_data.get("height", 0)
-        if w > 0 and h > 0:
-            crop_rect = QRect(x, y, w, h)
+        if all(isinstance(v, (int, float)) for v in [x, y, w, h]) and w > 0 and h > 0:
+            crop_rect = QRect(int(x), int(y), int(w), int(h))
             main_window.viewer.set_saved_crop_rect(crop_rect)
             for i in range(3):
                 update_channel_preview(main_window, i)
