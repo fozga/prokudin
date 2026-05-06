@@ -38,7 +38,7 @@ _SLIDER_NAMES = ["brightness", "contrast", "intensity"]
 
 def _autosave_path(main_window: "MainWindow") -> str:
     """Return the absolute path to the autosave JSON file."""
-    return os.path.join(main_window.presets_dir, _AUTOSAVE_FILENAME)  # type: ignore[arg-type]
+    return os.path.join(main_window.config_dir, _AUTOSAVE_FILENAME)  # type: ignore[arg-type]
 
 
 def save_autosave(main_window: "MainWindow") -> None:

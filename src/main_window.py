@@ -133,39 +133,10 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         # Grid settings dialog (initially None, created on demand)
         self.grid_settings_dialog: Union[GridSettingsDialog, None] = None
 
-        # Path to the presets folder with fallback strategy
-        # Try to find the project root by looking for requirements.txt
-        def find_project_root() -> str:
-            current = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            for _ in range(5):  # Search up to 5 levels
-                if os.path.exists(os.path.join(current, "requirements.txt")):
-                    return current
-                parent = os.path.dirname(current)
-                if parent == current:  # Reached filesystem root
-                    break
-                current = parent
-            return current
-
-        project_root = find_project_root()
-        preset_options = [
-            "/app/presets",  # Container workspace (mounted as read-write)
-            os.path.join(project_root, "presets"),  # Project directory
-            os.path.expanduser("~/.config/prokudin/presets"),  # User home
-        ]
-
-        self.presets_dir = None
-        for preset_path in preset_options:
-            try:
-                os.makedirs(preset_path, exist_ok=True)
-                self.presets_dir = preset_path
-                break
-            except (OSError, PermissionError):
-                continue
-
-        if self.presets_dir is None:
-            raise RuntimeError("Failed to create presets directory in any location")
+        self.presets_dir, self.config_dir = self._resolve_dirs()
 
         assert self.presets_dir is not None
+        assert self.config_dir is not None
         self.init_ui()
 
         # Debounce timer: autosave fires 500 ms after the last slider change
@@ -179,6 +150,44 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
 
         # Restore previous session (loads images, sets sliders, applies crop)
         restore_autosave(self)
+
+    def _resolve_dirs(self) -> tuple[str, str]:
+        """
+        Locate writable presets and config directories, trying container paths first then local fallbacks.
+
+        Returns:
+            tuple: (presets_dir, config_dir) absolute paths.
+        """
+        current = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        project_root = current
+        for _ in range(5):
+            if os.path.exists(os.path.join(current, "requirements.txt")):
+                project_root = current
+                break
+            parent = os.path.dirname(current)
+            if parent == current:
+                break
+            current = parent
+
+        def _first_writable(candidates: list[str], label: str) -> str:
+            """Return the first candidate path that can be created with write permissions."""
+            for path in candidates:
+                try:
+                    os.makedirs(path, exist_ok=True)
+                    return path
+                except (OSError, PermissionError):
+                    continue
+            raise RuntimeError(f"Failed to create {label} directory in any location")
+
+        presets_dir = _first_writable(
+            ["/app/presets", os.path.join(project_root, "presets"), os.path.expanduser("~/.config/prokudin/presets")],
+            "presets",
+        )
+        config_dir = _first_writable(
+            ["/app/config", os.path.join(project_root, "config"), os.path.expanduser("~/.config/prokudin")],
+            "config",
+        )
+        return presets_dir, config_dir
 
     def init_ui(self) -> None:  # pylint: disable=too-many-statements
         """

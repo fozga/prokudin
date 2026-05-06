@@ -42,4 +42,4 @@ processed_images/
 checks/
 
 # Session/runtime state
-presets/autosave.json
+config/autosave.json

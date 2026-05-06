@@ -23,10 +23,10 @@ COPY requirements.txt /opt/app/
 WORKDIR /opt/app
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Set up user workspace (only input/output/presets will be visible here)
+# Set up user workspace (only input/output/presets/config will be visible here)
 WORKDIR /app
-RUN mkdir -p /app/input /app/output /app/presets && \
-    chown qtuser:qtuser /app/input /app/output /app/presets
+RUN mkdir -p /app/input /app/output /app/presets /app/config && \
+    chown qtuser:qtuser /app/input /app/output /app/presets /app/config
 
 # Add application to Python path so it can be imported
 ENV PYTHONPATH="/opt/app:$PYTHONPATH"

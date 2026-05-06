@@ -79,14 +79,22 @@ if [[ ! -d "$PRESETS_DIR" ]]; then
     create_directory_as_user "$PRESETS_DIR"
 fi
 
+CONFIG_DIR="$SCRIPT_DIR/config"
+if [[ ! -d "$CONFIG_DIR" ]]; then
+    echo "Creating config directory: $CONFIG_DIR"
+    create_directory_as_user "$CONFIG_DIR"
+fi
+
 # Final validation that directories are accessible
 validate_directory "$INPUT_DIR" "Input"
 validate_directory "$OUTPUT_DIR" "Output"
 validate_directory "$PRESETS_DIR" "Presets"
+validate_directory "$CONFIG_DIR" "Config"
 
 echo "Using input directory: $INPUT_DIR"
 echo "Using output directory: $OUTPUT_DIR"
 echo "Using presets directory: $PRESETS_DIR"
+echo "Using config directory: $CONFIG_DIR"
 
 # Enable X server access for Docker
 xhost +local:docker &>/dev/null || {
@@ -94,7 +102,7 @@ xhost +local:docker &>/dev/null || {
     exit 1
 }
 
-# Run container with GUI support and mounted input/output/presets folders
+# Run container with GUI support and mounted input/output/presets/config folders
 # All folders are mounted as read-write for data I/O
 # Source code is mounted as read-only
 docker run -it --rm \
@@ -104,6 +112,7 @@ docker run -it --rm \
     -v "$INPUT_DIR:/app/input:ro" \
     -v "$OUTPUT_DIR:/app/output" \
     -v "$PRESETS_DIR:/app/presets" \
+    -v "$CONFIG_DIR:/app/config" \
     -v "$SCRIPT_DIR/src:/opt/app/src:ro" \
     pyqt-app python3 -m src.main
 
