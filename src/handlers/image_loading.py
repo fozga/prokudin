@@ -27,48 +27,19 @@ import rawpy  # type: ignore
 from PyQt5.QtWidgets import QFileDialog, QWidget
 
 
-def load_raw_image(parent: QWidget) -> Union[tuple[np.ndarray, None], tuple[None, str]]:
+def load_raw_image_from_path(file_path: str) -> Union[tuple[np.ndarray, None], tuple[None, str]]:
     """
-    Opens a file dialog for the user to select a Sony ARW RAW image,
-    loads the image using rawpy, and processes it to an 8-bit RGB image.
+    Load a Sony ARW RAW image from a known file path without opening a file dialog.
 
     Args:
-        parent (QWidget): The parent widget for the QFileDialog (typically the main window).
+        file_path (str): Absolute path to the ARW file.
 
     Returns:
-        tuple: Either (numpy.ndarray, None) with the 3D RGB image as a NumPy array
-        (dtype=uint8, shape: HxWx3) and no error, or (None, str) with an error message
-        if loading fails or is cancelled.
-
-    Workflow:
-        1. Opens a QFileDialog for ARW file selection.
-        2. Loads the selected file with rawpy and applies camera white balance.
-        3. Disables automatic brightness correction, outputs 8 bits per sample.
-        4. Returns the RGB image directly for further processing.
-        5. Handles errors gracefully, returning None and an error message.
-
-    Example:
-        rgb_image, error = load_raw_image(self)
-        if error:
-            print(error)
-        elif rgb_image is not None:
-            # Convert to grayscale if needed
-            gray_image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)
-            # Proceed with processing
-
-    Cross-references:
-        - handlers.channels.load_channel
+        tuple: Either (numpy.ndarray, None) on success or (None, str) with an error message.
     """
-    options = QFileDialog.Options()
-    filename, _ = QFileDialog.getOpenFileName(parent, "Select ARW File", "", "Sony RAW Files (*.arw)", options=options)
-
-    if not filename:
-        return None, "No file selected"
-
     try:
-        with rawpy.imread(filename) as raw:
+        with rawpy.imread(file_path) as raw:
             rgb = raw.postprocess(use_camera_wb=True, no_auto_bright=True, output_bps=8)
-        # Return the RGB image directly without converting to grayscale
         result: np.ndarray = rgb
         return result, None
     except (
@@ -77,5 +48,30 @@ def load_raw_image(parent: QWidget) -> Union[tuple[np.ndarray, None], tuple[None
         FileNotFoundError,
         PermissionError,
     ) as e:  # pylint: disable=E1101
-        error_message = f"Error loading ARW file: {e}"
-        return None, error_message
+        return None, f"Error loading ARW file: {e}"
+
+
+def load_raw_image(parent: QWidget) -> Union[tuple[np.ndarray, str, None], tuple[None, None, str]]:
+    """
+    Opens a file dialog for the user to select a Sony ARW RAW image,
+    loads the image using rawpy, and processes it to an 8-bit RGB image.
+
+    Args:
+        parent (QWidget): The parent widget for the QFileDialog (typically the main window).
+
+    Returns:
+        tuple: Either (numpy.ndarray, path, None) on success or (None, None, str) with an error.
+
+    Cross-references:
+        - handlers.channels.load_channel
+    """
+    options = QFileDialog.Options()
+    filename, _ = QFileDialog.getOpenFileName(parent, "Select ARW File", "", "Sony RAW Files (*.arw)", options=options)
+
+    if not filename:
+        return None, None, "No file selected"
+
+    rgb_image, err = load_raw_image_from_path(filename)
+    if rgb_image is not None:
+        return rgb_image, filename, None
+    return None, None, err or "Unknown error"

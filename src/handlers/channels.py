@@ -37,109 +37,99 @@ if TYPE_CHECKING:
 from ..core.align import align_images
 from ..core.image_processing import apply_adjustments
 from .display import update_main_display
-from .image_loading import load_raw_image
+from .image_loading import load_raw_image, load_raw_image_from_path
+
+_CHANNEL_NAMES = {0: "Red", 1: "Green", 2: "Blue"}
 
 
-def load_channel(main_window: "MainWindow", channel_idx: int) -> None:  # pylint: disable=too-many-locals
+def _process_channel_image(main_window: "MainWindow", channel_idx: int, rgb_image: np.ndarray) -> None:
+    """Store and process a loaded RGB image for the given channel, triggering alignment when all 3 are ready."""
+
+    original_rgb_images: List[Optional[np.ndarray]] = list(main_window.original_rgb_images)
+    original_rgb_images[channel_idx] = rgb_image
+    main_window.original_rgb_images = original_rgb_images  # type: ignore
+
+    image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)  # pylint: disable=E1101
+
+    original_images: List[Optional[np.ndarray]] = list(main_window.original_images)
+    processed: List[Optional[np.ndarray]] = list(main_window.processed)
+
+    original_images[channel_idx] = image
+    processed[channel_idx] = image.copy()
+
+    main_window.original_images = original_images  # type: ignore
+    main_window.processed = processed  # type: ignore
+
+    main_window.status_handler.set_message(
+        f"Successfully loaded image into {_CHANNEL_NAMES.get(channel_idx, 'Unknown')} channel",
+        main_window.status_handler.MEDIUM_TIMEOUT,
+    )
+
+    if all(img is not None for img in main_window.original_images):
+        gray_images: List[np.ndarray] = []
+        rgb_images: List[np.ndarray] = []
+
+        for i in range(3):
+            if main_window.original_images[i] is not None and main_window.original_rgb_images[i] is not None:
+                gray_img = cast(np.ndarray, main_window.original_images[i])
+                rgb_img = cast(np.ndarray, main_window.original_rgb_images[i])
+                gray_images.append(gray_img)
+                rgb_images.append(rgb_img)
+
+        if len(gray_images) == 3 and len(rgb_images) == 3:
+            main_window.status_handler.set_message("Aligning images, please wait...")
+            aligned_gray, aligned_rgb = align_images(gray_images, rgb_images)
+
+            main_window.aligned = aligned_gray  # type: ignore
+            main_window.aligned_rgb = aligned_rgb  # type: ignore
+
+            new_processed: List[Optional[np.ndarray]] = [img.copy() for img in aligned_gray]
+            main_window.processed = new_processed  # type: ignore
+
+            for i in range(3):
+                adjust_channel(main_window, i)
+                update_channel_preview(main_window, i)
+            main_window.status_handler.set_message(
+                "All channels loaded successfully - Ready for editing!", main_window.status_handler.NO_TIMEOUT
+            )
+    else:
+        update_channel_preview(main_window, channel_idx)
+
+    update_main_display(main_window)
+    main_window.update_save_button_state()
+
+
+def load_channel(main_window: "MainWindow", channel_idx: int) -> None:
     """
-    Loads a raw image file for the specified color channel, updates the application's state,
-    and triggers alignment and preview updates.
+    Opens a file dialog, loads a raw image for the specified channel, and updates application state.
 
     Args:
-        main_window (MainWindow): Reference to the main application window containing image state and UI.
+        main_window (MainWindow): Reference to the main application window.
         channel_idx (int): Index of the channel to load (0=R, 1=G, 2=B).
-
-    Returns:
-        None
-
-    Cross-references:
-        - load_raw_image
-        - align_images
-        - adjust_channel
-        - update_channel_preview
-        - update_main_display
     """
-    # Channel names for status messages
-    channel_names = {0: "Red", 1: "Green", 2: "Blue"}
-    channel_name = channel_names.get(channel_idx, "Unknown")
+    rgb_image, file_path, err_msg = load_raw_image(main_window)
 
-    # Load the RGB image
-    rgb_image, err_msg = load_raw_image(main_window)
-
-    if rgb_image is not None:
-        # Create a new list to avoid assignment issues
-        original_rgb_images: List[Optional[np.ndarray]] = list(main_window.original_rgb_images)
-        original_rgb_images[channel_idx] = rgb_image
-        main_window.original_rgb_images = original_rgb_images  # type: ignore
-
-        # Convert RGB to grayscale
-        image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)  # pylint: disable=E1101
-
-        # Create new lists with proper type annotations to avoid assignment issues
-        original_images: List[Optional[np.ndarray]] = list(main_window.original_images)
-        processed: List[Optional[np.ndarray]] = list(main_window.processed)
-
-        original_images[channel_idx] = image
-        processed[channel_idx] = image.copy()
-
-        # Assign back to main_window
-        main_window.original_images = original_images  # type: ignore
-        main_window.processed = processed  # type: ignore
-
-        # Display status message showing which channel was loaded
-        main_window.status_handler.set_message(
-            f"Successfully loaded image into {channel_name} channel", main_window.status_handler.MEDIUM_TIMEOUT
-        )
-
-        if all(img is not None for img in main_window.original_images):
-            # Create arrays of ndarray images only, with explicit type casting for mypy
-            gray_images: List[np.ndarray] = []
-            rgb_images: List[np.ndarray] = []
-
-            # Only include non-None images and cast them to numpy arrays
-            for i in range(3):
-                if main_window.original_images[i] is not None and main_window.original_rgb_images[i] is not None:
-                    gray_img = cast(np.ndarray, main_window.original_images[i])
-                    rgb_img = cast(np.ndarray, main_window.original_rgb_images[i])
-                    gray_images.append(gray_img)
-                    rgb_images.append(rgb_img)
-
-            # Ensure we have exactly 3 images for each channel
-            if len(gray_images) == 3 and len(rgb_images) == 3:
-                # Align both grayscale and RGB images
-                main_window.status_handler.set_message("Aligning images, please wait...")
-                aligned_gray, aligned_rgb = align_images(gray_images, rgb_images)
-
-                # Store aligned grayscale images
-                main_window.aligned = aligned_gray  # type: ignore
-
-                # Store aligned RGB images
-                main_window.aligned_rgb = aligned_rgb  # type: ignore
-
-                # Create new list with copies of aligned images
-                new_processed: List[Optional[np.ndarray]] = []
-                for img in aligned_gray:
-                    new_processed.append(img.copy())
-
-                main_window.processed = new_processed  # type: ignore
-
-                for i in range(3):
-                    adjust_channel(main_window, i)
-                    update_channel_preview(main_window, i)
-                main_window.status_handler.set_message(
-                    "All channels loaded successfully - Ready for editing!", main_window.status_handler.NO_TIMEOUT
-                )
-        else:
-            update_channel_preview(main_window, channel_idx)
-        update_main_display(main_window)
-
-        # After successfully loading a channel, update save button state
-        main_window.update_save_button_state()
+    if rgb_image is not None and file_path is not None:
+        main_window.channel_paths[channel_idx] = file_path
+        _process_channel_image(main_window, channel_idx, rgb_image)
     else:
-        # Display error message if loading failed
-        if err_msg is None:
-            err_msg = "Failed to load image. Please try again."
-        main_window.status_handler.set_message(err_msg, main_window.status_handler.LONG_TIMEOUT)
+        if err_msg and err_msg != "No file selected":
+            main_window.status_handler.set_message(err_msg, main_window.status_handler.LONG_TIMEOUT)
+
+
+def load_channel_from_path(main_window: "MainWindow", channel_idx: int, file_path: str) -> None:
+    """
+    Load a channel from a known file path without opening a dialog (used for session restore).
+
+    Args:
+        main_window (MainWindow): Reference to the main application window.
+        channel_idx (int): Index of the channel to load (0=R, 1=G, 2=B).
+        file_path (str): Absolute path to the ARW file.
+    """
+    rgb_image, _ = load_raw_image_from_path(file_path)
+    if rgb_image is not None:
+        main_window.channel_paths[channel_idx] = file_path
+        _process_channel_image(main_window, channel_idx, rgb_image)
 
 
 def adjust_channel(main_window: "MainWindow", channel_idx: int) -> None:

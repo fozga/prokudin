@@ -23,7 +23,7 @@ Handles state management, user interactions, and connects UI components to proce
 import os
 from typing import Callable, Union
 
-from PyQt5.QtCore import QRect, Qt
+from PyQt5.QtCore import QRect, Qt, QTimer
 from PyQt5.QtGui import QKeyEvent, QMouseEvent
 from PyQt5.QtWidgets import (
     QApplication,
@@ -38,6 +38,7 @@ from PyQt5.QtWidgets import (
 )
 
 from .default_state import DefaultState
+from .handlers.autosave import clear_autosave, restore_autosave, save_autosave
 from .handlers.channels import adjust_channel, load_channel, show_single_channel, update_channel_preview
 from .handlers.display import show_combined_image, show_single_channel_image, update_main_display
 from .handlers.image_saving import save_image_with_dialog
@@ -117,6 +118,9 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self.original_rgb_images = [None, None, None]
         self.aligned_rgb = [None, None, None]
 
+        # File paths for loaded channels (used for autosave/restore)
+        self.channel_paths: list[str | None] = [None, None, None]
+
         # Display state - use defaults from DefaultState
         self.show_combined = DefaultState.SHOW_COMBINED
         self.current_channel = DefaultState.CURRENT_CHANNEL
@@ -164,8 +168,17 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         assert self.presets_dir is not None
         self.init_ui()
 
+        # Debounce timer: autosave fires 500 ms after the last slider change
+        self._autosave_timer = QTimer()
+        self._autosave_timer.setSingleShot(True)
+        self._autosave_timer.setInterval(500)
+        self._autosave_timer.timeout.connect(lambda: save_autosave(self))
+
         # Update the mode based on initial state
         self._update_mode_from_state()
+
+        # Restore previous session (loads images, sets sliders, applies crop)
+        restore_autosave(self)
 
     def init_ui(self) -> None:  # pylint: disable=too-many-statements
         """
@@ -276,9 +289,11 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         for idx, controller in enumerate(self.controllers):
             # Connect load button and sliders to handlers
             controller.btn_load.clicked.connect(lambda _, i=idx: load_channel(self, i))
+            controller.btn_load.clicked.connect(lambda _, i=idx: save_autosave(self))
 
             # Connect controller value changes to adjust channel (handles both slider and text input)
             controller.value_changed.connect(lambda i=idx: adjust_channel(self, i))
+            controller.value_changed.connect(self._schedule_autosave)
 
             # Fix the mousePressEvent assignment with properly typed functions
             # Pass controller as an argument to avoid cell-var-from-loop issue
@@ -575,6 +590,8 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         else:
             show_single_channel_image(self)
 
+        save_autosave(self)
+
     def save_images(self) -> None:
         """
         Handle save button click by opening save dialog and saving images.
@@ -622,6 +639,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self.processed = [None, None, None]
         self.original_rgb_images = [None, None, None]
         self.aligned_rgb = [None, None, None]
+        self.channel_paths = [None, None, None]
 
         # Reset display state to defaults
         self.show_combined = DefaultState.SHOW_COMBINED
@@ -657,6 +675,8 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
 
         # Update UI state (manages save and crop button states, and mode indicator)
         self.update_save_button_state()
+
+        clear_autosave(self)
 
         # Show status message
         self.status_handler.set_message("Application reset to default state", self.status_handler.MEDIUM_TIMEOUT)
@@ -777,6 +797,10 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         # Refresh the display
         self.viewer.viewport().update()  # type: ignore[union-attr]
         self.status_handler.set_message(f"Grid line width: {width}px", self.status_handler.SHORT_TIMEOUT)
+
+    def _schedule_autosave(self) -> None:
+        """Restart the debounce timer so autosave fires 500 ms after the last slider change."""
+        self._autosave_timer.start()
 
     def update_save_button_state(self) -> None:
         """
