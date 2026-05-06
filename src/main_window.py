@@ -20,6 +20,7 @@ Main application window and UI layout for Prokudin.
 Handles state management, user interactions, and connects UI components to processing logic.
 """
 
+import os
 from typing import Callable, Union
 
 from PyQt5.QtCore import QRect, Qt
@@ -41,6 +42,7 @@ from .handlers.channels import adjust_channel, load_channel, show_single_channel
 from .handlers.display import show_combined_image, show_single_channel_image, update_main_display
 from .handlers.image_saving import save_image_with_dialog
 from .handlers.keyboard import handle_key_press
+from .handlers.presets import apply_preset, save_preset
 from .widgets.channel_controller import ChannelController
 from .widgets.grid_settings_dialog import GridSettingsDialog
 from .widgets.grid_types import (
@@ -58,6 +60,7 @@ from .widgets.grid_types import (
     GRID_TYPE_NONE,
 )
 from .widgets.image_viewer import ImageViewer
+from .widgets.preset_panel import PresetPanel
 from .widgets.status_bar import StatusBarHandler
 
 
@@ -126,6 +129,39 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         # Grid settings dialog (initially None, created on demand)
         self.grid_settings_dialog: Union[GridSettingsDialog, None] = None
 
+        # Path to the presets folder with fallback strategy
+        # Try to find the project root by looking for requirements.txt
+        def find_project_root() -> str:
+            current = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            for _ in range(5):  # Search up to 5 levels
+                if os.path.exists(os.path.join(current, "requirements.txt")):
+                    return current
+                parent = os.path.dirname(current)
+                if parent == current:  # Reached filesystem root
+                    break
+                current = parent
+            return current
+
+        project_root = find_project_root()
+        preset_options = [
+            "/app/presets",  # Container workspace (mounted as read-write)
+            os.path.join(project_root, "presets"),  # Project directory
+            os.path.expanduser("~/.config/prokudin/presets"),  # User home
+        ]
+
+        self.presets_dir = None
+        for preset_path in preset_options:
+            try:
+                os.makedirs(preset_path, exist_ok=True)
+                self.presets_dir = preset_path
+                break
+            except (OSError, PermissionError):
+                continue
+
+        if self.presets_dir is None:
+            raise RuntimeError("Failed to create presets directory in any location")
+
+        assert self.presets_dir is not None
         self.init_ui()
 
         # Update the mode based on initial state
@@ -197,16 +233,20 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         crop_controls_layout.addWidget(self.cancel_crop_btn)
         self.crop_controls_widget.setVisible(False)
 
-        # Left sidebar for tool buttons
+        # Left sidebar: preset panel + grid button
         left_sidebar = QVBoxLayout()
-        left_sidebar.addStretch()  # Push button to bottom
+
+        self.preset_panel = PresetPanel(self.presets_dir)  # type: ignore[arg-type]
+        self.preset_panel.preset_selected.connect(lambda data: apply_preset(self, data))
+        self.preset_panel.save_requested.connect(lambda: save_preset(self))
+        left_sidebar.addWidget(self.preset_panel)
 
         # Grid button at the bottom
         self.grid_btn = QPushButton("Grid")
         self.grid_btn.clicked.connect(self.open_grid_settings)
         left_sidebar.addWidget(self.grid_btn)
 
-        main_layout.addLayout(left_sidebar, 5)
+        main_layout.addLayout(left_sidebar, 18)
 
         # Center panel for image viewer
         center_panel = QVBoxLayout()
@@ -223,7 +263,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self.viewer = ImageViewer()
         center_panel.addWidget(self.viewer, 70)
 
-        main_layout.addLayout(center_panel, 70)
+        main_layout.addLayout(center_panel, 65)
 
         # Right panel with channel controllers
         right_panel = QVBoxLayout()
@@ -656,7 +696,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
             screen_geometry = screen.availableGeometry()
         else:
             # Fallback if screen is not available
-            screen_geometry = QApplication.desktop().availableGeometry()
+            screen_geometry = QApplication.desktop().availableGeometry()  # type: ignore[union-attr]
 
         dialog_width = self.grid_settings_dialog.width()
         dialog_height = self.grid_settings_dialog.height()
@@ -705,7 +745,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
             if message is None:
                 self.viewer.grid_overlay.set_enabled(False)
                 self.status_handler.set_message("Unsupported grid type selected", self.status_handler.SHORT_TIMEOUT)
-                self.viewer.viewport().update()
+                self.viewer.viewport().update()  # type: ignore[union-attr]
                 return
 
             self.viewer.grid_overlay.set_enabled(True)
@@ -714,12 +754,12 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
             except ValueError:
                 self.viewer.grid_overlay.set_enabled(False)
                 self.status_handler.set_message("Unsupported grid type selected", self.status_handler.SHORT_TIMEOUT)
-                self.viewer.viewport().update()
+                self.viewer.viewport().update()  # type: ignore[union-attr]
                 return
             self.status_handler.set_message(message, self.status_handler.SHORT_TIMEOUT)
 
         # Refresh the display
-        self.viewer.viewport().update()
+        self.viewer.viewport().update()  # type: ignore[union-attr]
 
     def on_grid_line_width_changed(self, width: int) -> None:
         """
@@ -735,7 +775,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self.viewer.grid_overlay.set_line_width(width)
 
         # Refresh the display
-        self.viewer.viewport().update()
+        self.viewer.viewport().update()  # type: ignore[union-attr]
         self.status_handler.set_message(f"Grid line width: {width}px", self.status_handler.SHORT_TIMEOUT)
 
     def update_save_button_state(self) -> None:
@@ -759,7 +799,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         # Update mode indicator based on loaded channels
         self._update_mode_from_state()
 
-    def keyPressEvent(self, event: QKeyEvent) -> None:  # pylint: disable=C0103
+    def keyPressEvent(self, event: Union[QKeyEvent, None]) -> None:  # pylint: disable=C0103
         """
         Handle key press events for channel switching and display mode.
 
@@ -778,6 +818,8 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
             - cancel_crop
             - apply_crop
         """
+        if event is None:
+            return
         if self.crop_mode:
             if event.key() == Qt.Key.Key_Escape:
                 self.cancel_crop()

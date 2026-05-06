@@ -30,6 +30,13 @@ else
 fi
 OUTPUT_DIR="$USER_HOME/prokudin/output"
 
+# Get the script's directory (project root) early
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -z "$SCRIPT_DIR" ]]; then
+    echo "ERROR: Failed to determine script directory."
+    exit 1
+fi
+
 # Validate and set input directory
 if [[ -n "$1" ]]; then
     # User provided an input directory argument
@@ -55,7 +62,7 @@ else
     INPUT_DIR="$DEFAULT_INPUT_DIR"
 fi
 
-# Ensure input and output directories exist with correct ownership
+# Ensure input, output, and presets directories exist with correct ownership
 if [[ ! -d "$INPUT_DIR" ]]; then
     echo "Creating input directory: $INPUT_DIR"
     create_directory_as_user "$INPUT_DIR"
@@ -66,12 +73,20 @@ if [[ ! -d "$OUTPUT_DIR" ]]; then
     create_directory_as_user "$OUTPUT_DIR"
 fi
 
+PRESETS_DIR="$SCRIPT_DIR/presets"
+if [[ ! -d "$PRESETS_DIR" ]]; then
+    echo "Creating presets directory: $PRESETS_DIR"
+    create_directory_as_user "$PRESETS_DIR"
+fi
+
 # Final validation that directories are accessible
 validate_directory "$INPUT_DIR" "Input"
 validate_directory "$OUTPUT_DIR" "Output"
+validate_directory "$PRESETS_DIR" "Presets"
 
 echo "Using input directory: $INPUT_DIR"
 echo "Using output directory: $OUTPUT_DIR"
+echo "Using presets directory: $PRESETS_DIR"
 
 # Enable X server access for Docker
 xhost +local:docker &>/dev/null || {
@@ -79,23 +94,16 @@ xhost +local:docker &>/dev/null || {
     exit 1
 }
 
-# Get the script's directory (project root)
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -z "$SCRIPT_DIR" ]]; then
-    echo "ERROR: Failed to determine script directory."
-    exit 1
-fi
-
-# Run container with GUI support and mounted input/output folders
-# Input folder is mounted as read-only (:ro), output folder is read-write
-# Source code is mounted so changes are reflected without rebuilding
+# Run container with GUI support and mounted input/output/presets folders
+# All folders are mounted as read-write for data I/O
+# Source code is mounted as read-only
 docker run -it --rm \
     -e XDG_RUNTIME_DIR=/tmp/runtime-root \
     -e DISPLAY=$DISPLAY \
     -v /tmp/.X11-unix:/tmp/.X11-unix \
     -v "$INPUT_DIR:/app/input:ro" \
     -v "$OUTPUT_DIR:/app/output" \
+    -v "$PRESETS_DIR:/app/presets" \
     -v "$SCRIPT_DIR/src:/opt/app/src:ro" \
     pyqt-app python3 -m src.main
 
