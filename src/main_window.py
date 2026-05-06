@@ -24,13 +24,14 @@ import os
 from typing import Callable, Union
 
 from PyQt5.QtCore import QRect, Qt, QTimer
-from PyQt5.QtGui import QKeyEvent, QMouseEvent
+from PyQt5.QtGui import QCloseEvent, QKeyEvent, QMouseEvent
 from PyQt5.QtWidgets import (
     QApplication,
     QComboBox,
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QStatusBar,
     QVBoxLayout,
@@ -831,6 +832,33 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
 
         # Update mode indicator based on loaded channels
         self._update_mode_from_state()
+
+    def closeEvent(self, event: Union[QCloseEvent, None]) -> None:  # pylint: disable=C0103
+        """
+        Prompt the user to save session state when closing the window.
+
+        If the user chooses not to save, the autosave file is cleared so the
+        next launch opens with a clean state. Choosing Cancel aborts the close.
+
+        Args:
+            event: The close event.
+        """
+        if event is None:
+            return
+        if any(img is not None for img in self.original_images):
+            reply = QMessageBox.question(
+                self,
+                "Save Session",
+                "Save session state for next launch?",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,  # type: ignore[attr-defined]
+                QMessageBox.Yes,  # type: ignore[attr-defined]
+            )
+            if reply == QMessageBox.Cancel:  # type: ignore[attr-defined]
+                event.ignore()
+                return
+            if reply == QMessageBox.No:  # type: ignore[attr-defined]
+                clear_autosave(self)
+        event.accept()
 
     def keyPressEvent(self, event: Union[QKeyEvent, None]) -> None:  # pylint: disable=C0103
         """
