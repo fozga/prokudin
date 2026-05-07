@@ -142,7 +142,7 @@ class ImageProcessorService:  # pylint: disable=too-few-public-methods
         assert img is not None
         if crop is not None:
             x, y, w, h = crop
-            return img[y : y + h, x : x + w].copy()
+            return cast(np.ndarray, img[y : y + h, x : x + w].copy())
         return img
 
     def get_combined(
@@ -166,7 +166,7 @@ class ImageProcessorService:  # pylint: disable=too-few-public-methods
 
         if crop is not None:
             x, y, w, h = crop
-            return combined[y : y + h, x : x + w].copy()
+            return cast(np.ndarray, combined[y : y + h, x : x + w].copy())
         return combined
 
     def has_aligned_channels(self) -> bool:
