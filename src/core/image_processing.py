@@ -15,15 +15,11 @@
 # You should have received a copy of the GNU General Public License
 # along with Prokudin.  If not, see <https://www.gnu.org/licenses/>.
 
-"""
-Image processing utilities for channel adjustment, combination, and conversion for display.
-Includes brightness/contrast adjustment, channel combination, and conversion to QImage.
-"""
+"""Image processing utilities for channel adjustment and combination."""
 
 from typing import List, Union
 
 import numpy as np
-from PyQt5.QtGui import QImage
 
 
 def apply_adjustments(
@@ -83,28 +79,3 @@ def combine_channels(channels: List[Union[np.ndarray, None]], intensities: List[
         combined[:, :, i] = valid_channels[i].astype(np.float32) * (intensities[i] / 100)
 
     return np.clip(combined, 0, 255).astype(np.uint8)
-
-
-def convert_to_qimage(image: Union[np.ndarray, None]) -> QImage:
-    """
-    Converts numpy image to QImage for PyQt5 display.
-
-    Args:
-        image (numpy.ndarray | None):
-            - Grayscale: HxW (uint8)
-            - RGB: HxWx3 (uint8)
-
-    Returns:
-        QImage: Empty QImage if input invalid, otherwise formatted image.
-
-    Cross-references:
-        - handlers.display.show_combined_image
-        - handlers.display.show_single_channel_image
-    """
-    if image is None:
-        return QImage()
-
-    if len(image.shape) == 2:  # Grayscale
-        return QImage(image.data, image.shape[1], image.shape[0], image.strides[0], QImage.Format_Grayscale8)
-
-    return QImage(image.data, image.shape[1], image.shape[0], image.strides[0], QImage.Format_RGB888)

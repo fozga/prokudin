@@ -96,7 +96,7 @@ def restore_autosave(main_window: "MainWindow") -> None:  # pylint: disable=too-
         ctrl.blockSignals(False)
 
     for i in range(3):
-        if main_window.state.aligned[i] is not None:
+        if main_window.svc.aligned[i] is not None:
             adjust_channel(main_window, i)
         update_channel_preview(main_window, i)
 

@@ -26,8 +26,8 @@ from PyQt5.QtCore import QEvent, QRect, QRectF, Qt
 from PyQt5.QtGui import QMouseEvent, QPainter, QPixmap, QResizeEvent, QWheelEvent
 from PyQt5.QtWidgets import QGraphicsPixmapItem, QGraphicsScene, QGraphicsView, QWidget
 
-from src.widgets.crop_handler import CropHandler
-from src.widgets.grid_overlay import GridOverlay
+from .crop_handler import CropHandler
+from .grid_overlay import GridOverlay
 
 
 class ImageViewer(QGraphicsView):  # pylint: disable=too-many-instance-attributes,too-many-public-methods

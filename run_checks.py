@@ -70,7 +70,10 @@ def run_checks() -> int:
         print(f"Running {check_name}...")
         print("=" * 50)
         try:
-            subprocess.check_call([str(PYTHON_EXE), "-m"] + cmd)
+            if check_name == "pip-licenses":
+                subprocess.check_call([str(VENV_BIN / "pip-licenses")] + cmd[1:])
+            else:
+                subprocess.check_call([str(PYTHON_EXE), "-m"] + cmd)
         except subprocess.CalledProcessError:
             failed.append(check_name)
 

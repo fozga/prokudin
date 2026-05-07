@@ -27,7 +27,7 @@ from PyQt5.QtCore import QPoint, QPointF, QRect, QRectF, Qt
 from PyQt5.QtGui import QColor, QMouseEvent, QPainter, QPen, QPixmap
 from PyQt5.QtWidgets import QApplication, QGraphicsPixmapItem, QGraphicsView
 
-from src.widgets.grid_overlay import GridOverlay
+from .grid_overlay import GridOverlay
 
 
 @dataclass
