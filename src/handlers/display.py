@@ -30,7 +30,8 @@ from PyQt5.QtGui import QPixmap
 if TYPE_CHECKING:
     from ..main_window import MainWindow
 
-from ..core.image_processing import combine_channels, convert_to_qimage
+from ..core.image_processing import combine_channels
+from ..ui.qt_utils import convert_to_qimage
 
 
 def update_main_display(main_window: "MainWindow") -> None:
