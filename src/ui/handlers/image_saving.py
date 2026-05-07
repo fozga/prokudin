@@ -151,17 +151,23 @@ def save_image_with_dialog(main_window: "MainWindow") -> Tuple[bool, str]:
         return False, "No file extension provided or determined from filter"
 
     saved_crop_rect = main_window.viewer.get_saved_crop_rect() if main_window.viewer else None
-    crop_rect = None if main_window.state.crop_mode else (
-        (saved_crop_rect.left(), saved_crop_rect.top(), saved_crop_rect.width(), saved_crop_rect.height())
-        if saved_crop_rect
-        else None
+    crop_rect = (
+        None
+        if main_window.state.crop_mode
+        else (
+            (saved_crop_rect.left(), saved_crop_rect.top(), saved_crop_rect.width(), saved_crop_rect.height())
+            if saved_crop_rect
+            else None
+        )
     )
 
     results = []
     channel_names = ["ir", "vis", "uv"]
 
     if any(img is not None for img in main_window.svc.aligned_rgb):
-        results.extend(_save_cropped_images(main_window.svc.aligned_rgb, filepath, channel_names, crop_rect, file_format))
+        results.extend(
+            _save_cropped_images(main_window.svc.aligned_rgb, filepath, channel_names, crop_rect, file_format)
+        )
 
     combined = _create_combined_image(main_window.svc.aligned, crop_rect)
 

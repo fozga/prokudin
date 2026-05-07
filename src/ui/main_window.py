@@ -38,6 +38,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+from ..services.processor import ImageProcessorService
 from .app_state import AppState
 from .handlers.autosave import clear_autosave, restore_autosave, save_autosave
 from .handlers.channels import adjust_channel, load_channel, show_single_channel, update_channel_preview
@@ -64,7 +65,6 @@ from .widgets.grid_types import (
 from .widgets.image_viewer import ImageViewer
 from .widgets.preset_panel import PresetPanel
 from .widgets.status_bar import StatusBarHandler
-from ..services.processor import ImageProcessorService
 
 
 class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes

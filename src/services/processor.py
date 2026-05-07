@@ -20,7 +20,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, cast
 
 import cv2  # type: ignore
 import numpy as np
@@ -87,8 +87,8 @@ class ImageProcessorService:  # pylint: disable=too-few-public-methods
 
         if len(gray_images) == 3 and len(rgb_images) == 3:
             aligned_gray, aligned_rgb = align_images(gray_images, rgb_images)
-            self.aligned = aligned_gray
-            self.aligned_rgb = aligned_rgb
+            self.aligned = cast(List[Optional[np.ndarray]], aligned_gray)
+            self.aligned_rgb = cast(List[Optional[np.ndarray]], aligned_rgb)
             self.processed = [img.copy() for img in aligned_gray]
 
     def adjust_channel(self, channel_idx: int, brightness: int, contrast: int) -> None:
@@ -125,9 +125,7 @@ class ImageProcessorService:  # pylint: disable=too-few-public-methods
         """
         return self.processed[channel_idx]
 
-    def get_channel(
-        self, channel_idx: int, crop: Optional[Tuple[int, int, int, int]] = None
-    ) -> Optional[np.ndarray]:
+    def get_channel(self, channel_idx: int, crop: Optional[Tuple[int, int, int, int]] = None) -> Optional[np.ndarray]:
         """Get a single channel image, optionally cropped.
 
         Args:
@@ -141,6 +139,7 @@ class ImageProcessorService:  # pylint: disable=too-few-public-methods
             return None
 
         img = self.processed[channel_idx]
+        assert img is not None
         if crop is not None:
             x, y, w, h = crop
             return img[y : y + h, x : x + w].copy()
@@ -194,7 +193,7 @@ class ImageProcessorService:  # pylint: disable=too-few-public-methods
         """
         for img in self.processed:
             if img is not None:
-                return img.shape[:2]
+                return cast(Tuple[int, int], img.shape[:2])
         return None
 
     def reset(self) -> None:

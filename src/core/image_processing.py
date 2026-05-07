@@ -79,5 +79,3 @@ def combine_channels(channels: List[Union[np.ndarray, None]], intensities: List[
         combined[:, :, i] = valid_channels[i].astype(np.float32) * (intensities[i] / 100)
 
     return np.clip(combined, 0, 255).astype(np.uint8)
-
-
