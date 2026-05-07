@@ -57,10 +57,11 @@ def run_checks() -> int:
     checks = [
         ("black", ["black", "--check", "src/"]),
         ("isort", ["isort", "--check-only", "src/"]),
-        ("flake8", ["flake8", "src/", "--max-line-length=120"]),
+        ("flake8", ["flake8", "src/"]),
         ("pylint", ["pylint", "src/"]),
-        ("mypy", ["mypy", "src/"]),
-        ("interrogate", ["interrogate", "--ignore-init-method", "--fail-under=100", "--exclude=.venv", "src/"]),
+        ("mypy", ["mypy", "--explicit-package-bases", "src/"]),
+        ("interrogate", ["interrogate", "--ignore-init-method", "--fail-under=100", "--exclude=.venv", "-vv", "."]),
+        ("pip-licenses", ["pip-licenses", "--from=mixed", "--fail-on=restricted"]),
     ]
 
     failed = []
