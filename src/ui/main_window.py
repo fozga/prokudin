@@ -39,15 +39,15 @@ from PyQt5.QtWidgets import (
 )
 
 from .app_state import AppState
-from .ui.handlers.autosave import clear_autosave, restore_autosave, save_autosave
-from .ui.handlers.channels import adjust_channel, load_channel, show_single_channel, update_channel_preview
-from .ui.handlers.display import show_combined_image, show_single_channel_image, update_main_display
-from .ui.handlers.image_saving import save_image_with_dialog
-from .ui.handlers.keyboard import handle_key_press
-from .ui.handlers.presets import apply_preset, save_preset
-from .ui.widgets.channel_controller import ChannelController
-from .ui.widgets.grid_settings_dialog import GridSettingsDialog
-from .ui.widgets.grid_types import (
+from .handlers.autosave import clear_autosave, restore_autosave, save_autosave
+from .handlers.channels import adjust_channel, load_channel, show_single_channel, update_channel_preview
+from .handlers.display import show_combined_image, show_single_channel_image, update_main_display
+from .handlers.image_saving import save_image_with_dialog
+from .handlers.keyboard import handle_key_press
+from .handlers.presets import apply_preset, save_preset
+from .widgets.channel_controller import ChannelController
+from .widgets.grid_settings_dialog import GridSettingsDialog
+from .widgets.grid_types import (
     GRID_TYPE_3X3,
     GRID_TYPE_DIAGONAL_1_1,
     GRID_TYPE_DIAGONAL_2_3,
@@ -61,9 +61,9 @@ from .ui.widgets.grid_types import (
     GRID_TYPE_GOLDEN_RATIO,
     GRID_TYPE_NONE,
 )
-from .ui.widgets.image_viewer import ImageViewer
-from .ui.widgets.preset_panel import PresetPanel
-from .ui.widgets.status_bar import StatusBarHandler
+from .widgets.image_viewer import ImageViewer
+from .widgets.preset_panel import PresetPanel
+from .widgets.status_bar import StatusBarHandler
 
 
 class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
