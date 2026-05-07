@@ -23,7 +23,6 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
 if TYPE_CHECKING:
-    import numpy as np
     from PyQt5.QtCore import QRect
 
     from .widgets.grid_settings_dialog import GridSettingsDialog
@@ -33,17 +32,13 @@ from .default_state import DefaultState
 
 @dataclass
 class AppState:  # pylint: disable=too-few-public-methods,too-many-instance-attributes
-    """Centralised mutable state owned by MainWindow.
+    """UI-only state owned by MainWindow.
 
-    All fields are initialised to their default values on construction.
-    Call reset() to restore defaults after a session ends.
+    Image arrays are owned by ImageProcessorService. This dataclass holds
+    only UI-specific state: display mode, channel selection, crop settings,
+    and file paths for autosave.
     """
 
-    original_images: List[Optional[np.ndarray]] = field(default_factory=lambda: [None, None, None])
-    aligned: List[Optional[np.ndarray]] = field(default_factory=lambda: [None, None, None])
-    processed: List[Optional[np.ndarray]] = field(default_factory=lambda: [None, None, None])
-    original_rgb_images: List[Optional[np.ndarray]] = field(default_factory=lambda: [None, None, None])
-    aligned_rgb: List[Optional[np.ndarray]] = field(default_factory=lambda: [None, None, None])
     channel_paths: List[Optional[str]] = field(default_factory=lambda: [None, None, None])
     show_combined: bool = DefaultState.SHOW_COMBINED
     current_channel: int = DefaultState.CURRENT_CHANNEL
@@ -54,11 +49,6 @@ class AppState:  # pylint: disable=too-few-public-methods,too-many-instance-attr
 
     def reset(self) -> None:
         """Restore every field to its default value."""
-        self.original_images = [None, None, None]
-        self.aligned = [None, None, None]
-        self.processed = [None, None, None]
-        self.original_rgb_images = [None, None, None]
-        self.aligned_rgb = [None, None, None]
         self.channel_paths = [None, None, None]
         self.show_combined = DefaultState.SHOW_COMBINED
         self.current_channel = DefaultState.CURRENT_CHANNEL

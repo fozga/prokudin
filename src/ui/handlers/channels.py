@@ -15,27 +15,17 @@
 # You should have received a copy of the GNU General Public License
 # along with Prokudin.  If not, see <https://www.gnu.org/licenses/>.
 
-"""
-Handlers for loading, adjusting, and displaying individual color channels in the application.
-Provides functions to load raw images, apply adjustments, update previews, and manage display modes.
-"""
+"""Handlers for loading, adjusting, and displaying individual color channels."""
 
 from __future__ import annotations
 
-# Standard library imports
-from typing import TYPE_CHECKING, List, Optional, cast
+from typing import TYPE_CHECKING
 
-# Third-party imports
-import cv2
 import numpy as np
 
-# Conditional imports for type checking
 if TYPE_CHECKING:
     from ..main_window import MainWindow
 
-# Local application imports
-from ..core.align import align_images
-from ..core.image_processing import apply_adjustments
 from .display import update_main_display
 from .image_loading import load_raw_image, load_raw_image_from_path
 
@@ -43,58 +33,21 @@ _CHANNEL_NAMES = {0: "Red", 1: "Green", 2: "Blue"}
 
 
 def _process_channel_image(main_window: "MainWindow", channel_idx: int, rgb_image: np.ndarray) -> None:
-    """Store and process a loaded RGB image for the given channel, triggering alignment when all 3 are ready."""
-
-    original_rgb_images: List[Optional[np.ndarray]] = list(main_window.state.original_rgb_images)
-    original_rgb_images[channel_idx] = rgb_image
-    main_window.state.original_rgb_images = original_rgb_images  # type: ignore
-
-    image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)  # pylint: disable=E1101
-
-    original_images: List[Optional[np.ndarray]] = list(main_window.state.original_images)
-    processed: List[Optional[np.ndarray]] = list(main_window.state.processed)
-
-    original_images[channel_idx] = image
-    processed[channel_idx] = image.copy()
-
-    main_window.state.original_images = original_images  # type: ignore
-    main_window.state.processed = processed  # type: ignore
+    """Load an RGB image into the service and update UI after alignment."""
+    main_window.svc.load_channel_from_array(channel_idx, rgb_image)
 
     main_window.status_handler.set_message(
         f"Successfully loaded image into {_CHANNEL_NAMES.get(channel_idx, 'Unknown')} channel",
         main_window.status_handler.MEDIUM_TIMEOUT,
     )
 
-    if all(img is not None for img in main_window.state.original_images):
-        gray_images: List[np.ndarray] = []
-        rgb_images: List[np.ndarray] = []
-
+    if main_window.svc.has_aligned_channels():
         for i in range(3):
-            if (
-                main_window.state.original_images[i] is not None
-                and main_window.state.original_rgb_images[i] is not None
-            ):
-                gray_img = cast(np.ndarray, main_window.state.original_images[i])
-                rgb_img = cast(np.ndarray, main_window.state.original_rgb_images[i])
-                gray_images.append(gray_img)
-                rgb_images.append(rgb_img)
-
-        if len(gray_images) == 3 and len(rgb_images) == 3:
-            main_window.status_handler.set_message("Aligning images, please wait...")
-            aligned_gray, aligned_rgb = align_images(gray_images, rgb_images)
-
-            main_window.state.aligned = aligned_gray  # type: ignore
-            main_window.state.aligned_rgb = aligned_rgb  # type: ignore
-
-            new_processed: List[Optional[np.ndarray]] = [img.copy() for img in aligned_gray]
-            main_window.state.processed = new_processed  # type: ignore
-
-            for i in range(3):
-                adjust_channel(main_window, i)
-                update_channel_preview(main_window, i)
-            main_window.status_handler.set_message(
-                "All channels loaded successfully - Ready for editing!", main_window.status_handler.NO_TIMEOUT
-            )
+            adjust_channel(main_window, i)
+            update_channel_preview(main_window, i)
+        main_window.status_handler.set_message(
+            "All channels loaded successfully - Ready for editing!", main_window.status_handler.NO_TIMEOUT
+        )
     else:
         update_channel_preview(main_window, channel_idx)
 
@@ -103,13 +56,7 @@ def _process_channel_image(main_window: "MainWindow", channel_idx: int, rgb_imag
 
 
 def load_channel(main_window: "MainWindow", channel_idx: int) -> None:
-    """
-    Opens a file dialog, loads a raw image for the specified channel, and updates application state.
-
-    Args:
-        main_window (MainWindow): Reference to the main application window.
-        channel_idx (int): Index of the channel to load (0=R, 1=G, 2=B).
-    """
+    """Open file dialog and load a raw image for the specified channel."""
     rgb_image, file_path, err_msg = load_raw_image(main_window)
 
     if rgb_image is not None and file_path is not None:
@@ -124,14 +71,7 @@ def load_channel(main_window: "MainWindow", channel_idx: int) -> None:
 
 
 def load_channel_from_path(main_window: "MainWindow", channel_idx: int, file_path: str) -> None:
-    """
-    Load a channel from a known file path without opening a dialog (used for session restore).
-
-    Args:
-        main_window (MainWindow): Reference to the main application window.
-        channel_idx (int): Index of the channel to load (0=R, 1=G, 2=B).
-        file_path (str): Absolute path to the ARW file.
-    """
+    """Load a channel from a file path without dialog (used for session restore)."""
     rgb_image, err_msg = load_raw_image_from_path(file_path)
     if rgb_image is not None:
         main_window.state.channel_paths[channel_idx] = file_path
@@ -144,74 +84,26 @@ def load_channel_from_path(main_window: "MainWindow", channel_idx: int, file_pat
 
 
 def adjust_channel(main_window: "MainWindow", channel_idx: int) -> None:
-    """
-    Applies brightness and contrast adjustments to the specified channel and updates its preview.
-
-    Args:
-        main_window ("MainWindow"): Reference to the main application window.
-        channel_idx (int): Index of the channel to adjust (0=R, 1=G, 2=B).
-
-    Returns:
-        None
-
-    Cross-references:
-        - apply_adjustments
-        - update_channel_preview
-        - update_main_display
-    """
-    if main_window.state.aligned[channel_idx] is not None:
+    """Read slider values and apply brightness/contrast adjustments."""
+    if main_window.svc.aligned[channel_idx] is not None:
         main_window.status_handler.set_message("Processing image, please wait...")
         brightness: int = main_window.controllers[channel_idx].sliders["brightness"].value()
         contrast: int = main_window.controllers[channel_idx].sliders["contrast"].value()
-        result = apply_adjustments(main_window.state.aligned[channel_idx], brightness, contrast)
-        if result is not None:
-            # Create a new list to avoid assignment issues
-            processed: List[Optional[np.ndarray]] = list(main_window.state.processed)
-            processed[channel_idx] = result
-            main_window.state.processed = processed  # type: ignore
-
-            update_channel_preview(main_window, channel_idx)
-            update_main_display(main_window)
-        main_window.status_handler.set_message("")  # No timeout needed for clearing message
+        main_window.svc.adjust_channel(channel_idx, brightness, contrast)
+        update_channel_preview(main_window, channel_idx)
+        update_main_display(main_window)
+        main_window.status_handler.set_message("")
 
 
 def update_channel_preview(main_window: "MainWindow", channel_idx: int) -> None:
-    """
-    Updates the preview image for a specific channel controller.
-
-    Args:
-        main_window ("MainWindow"): Reference to the main application window.
-        channel_idx (int): Index of the channel to update (0=R, 1=G, 2=B).
-
-    Returns:
-        None
-
-    Cross-references:
-        - ChannelController.update_preview
-    """
+    """Update the preview image for a channel controller."""
     controller = main_window.controllers[channel_idx]
-    controller.processed_image = main_window.state.processed[channel_idx]  # type: ignore[assignment]
+    controller.processed_image = main_window.svc.get_channel_preview(channel_idx)  # type: ignore[assignment]
     controller.update_preview()
 
 
 def show_single_channel(main_window: "MainWindow", channel_idx: int) -> None:
-    """
-    Updates the main window to display a single channel.
-
-    This function sets the main window to show only the specified channel
-    by disabling the combined view and updating the current channel index.
-    It then refreshes the main display to reflect the changes.
-
-    Args:
-        main_window ("MainWindow"): Reference to the main application window.
-        channel_idx (int): Index of the channel to display (0=R, 1=G, 2=B).
-
-    Returns:
-        None
-
-    Cross-references:
-        - update_main_display
-    """
+    """Display a single channel in the main viewer."""
     main_window.state.show_combined = False
     main_window.state.current_channel = channel_idx
     update_main_display(main_window)

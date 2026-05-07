@@ -64,6 +64,7 @@ from .widgets.grid_types import (
 from .widgets.image_viewer import ImageViewer
 from .widgets.preset_panel import PresetPanel
 from .widgets.status_bar import StatusBarHandler
+from ..services.processor import ImageProcessorService
 
 
 class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
@@ -111,6 +112,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self.setWindowTitle("Prokudin")
         self.setGeometry(100, 100, 1200, 800)
 
+        self.svc = ImageProcessorService()
         self.state = AppState()
 
         self.presets_dir, self.config_dir = self._resolve_dirs()
@@ -346,66 +348,37 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self.update_save_button_state()
 
     def _update_mode_from_state(self) -> None:
-        """
-        Updates the mode indicator based on the current application state.
-
-        Args:
-            self (MainWindow): The instance of the main window.
-
-        Returns:
-            None
-        """
-        loaded_channels = sum(1 for img in self.state.original_images if img is not None)
+        """Update the mode indicator based on the current application state."""
+        loaded_channels = sum(1 for img in self.svc.original_images if img is not None)
         self.status_handler.update_mode_from_state(loaded_channels, self.state.crop_mode)
 
     def toggle_crop_mode(self) -> None:
-        """
-        Toggles the crop mode in the application.
-
-        Args:
-            self (MainWindow): The instance of the main window.
-
-        Returns:
-            None
-
-        - Enables crop mode if currently disabled.
-        - Displays crop controls and initializes the crop rectangle.
-        - Uses the last saved crop rectangle if available.
-
-        Cross-references:
-            - ImageViewer.set_crop_mode
-            - update_main_display
-        """
+        """Toggle crop mode; initializes default crop rect from image dimensions."""
         if self.state.crop_mode:
             return
-        if not any(img is not None for img in self.state.processed):
-            return  # Add error message in UI
+        if not self.svc.has_processed_channels():
+            return
         self.state.crop_mode = True
         self.crop_mode_btn.setVisible(False)
         self.crop_controls_widget.setVisible(True)
-        # Use last saved crop rectangle if available
         saved_crop_rect = self.viewer.get_saved_crop_rect() if self.viewer else None
         if saved_crop_rect:
             self.state.crop_rect = QRect(saved_crop_rect)
         else:
-            if any(img is not None for img in self.state.processed):
-                for img in self.state.processed:
-                    if img is not None:
-                        img_w, img_h = img.shape[1], img.shape[0]
-                        rect_w = int(img_w * 0.8)
-                        rect_h = int(img_h * 0.8)
-                        x = (img_w - rect_w) // 2
-                        y = (img_h - rect_h) // 2
-                        self.state.crop_rect = QRect(x, y, rect_w, rect_h)
-                        break
+            dims = self.svc.get_image_dimensions()
+            if dims:
+                img_h, img_w = dims
+                rect_w = int(img_w * 0.8)
+                rect_h = int(img_h * 0.8)
+                x = (img_w - rect_w) // 2
+                y = (img_h - rect_h) // 2
+                self.state.crop_rect = QRect(x, y, rect_w, rect_h)
                 if self.state.crop_ratio and self.state.crop_rect is not None:
                     self.state.crop_rect = self._get_aspect_crop_rect(self.state.crop_rect, self.state.crop_ratio)
         self.viewer.set_crop_mode(self.state.crop_mode)
         if self.state.crop_rect:
             self.viewer.set_crop_rect(self.state.crop_rect)
         update_main_display(self)
-
-        # Update mode indicator and status message
         self._update_mode_from_state()
         self.status_handler.set_message("Crop mode activated - Select region to crop", self.status_handler.NO_TIMEOUT)
 
@@ -528,7 +501,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
             - update_main_display
         """
         crop_rect = self.viewer.get_crop_rect() if self.viewer else self.state.crop_rect
-        if not crop_rect or not any(img is not None for img in self.state.processed):
+        if not crop_rect or not self.svc.has_processed_channels():
             return
 
         crop_rect = self.viewer.get_crop_rect()
@@ -536,15 +509,11 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         if saved_rect is None:
             return
 
-        # Make sure rectangle is valid and within bounds
-        for i in range(3):
-            if self.state.processed[i] is not None:
-                img = self.state.processed[i]
-                if img is not None:  # Double-check to satisfy type checker
-                    img_height, img_width = img.shape[:2]
-                    valid_rect = QRect(0, 0, img_width, img_height).intersected(saved_rect)
-                    saved_rect = valid_rect
-                    break
+        dims = self.svc.get_image_dimensions()
+        if dims:
+            img_height, img_width = dims
+            valid_rect = QRect(0, 0, img_width, img_height).intersected(saved_rect)
+            saved_rect = valid_rect
 
         if not saved_rect.isValid() or saved_rect.width() <= 0 or saved_rect.height() <= 0:
             return
@@ -778,24 +747,9 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self._autosave_timer.start()
 
     def update_save_button_state(self) -> None:
-        """
-        Update the enabled state of the save button and crop button based on image availability.
-
-        Args:
-            self (MainWindow): The instance of the main window.
-
-        Returns:
-            None
-        """
-        # Enable save button if at least one channel image is available
-        has_images = any(img is not None for img in self.state.aligned)
-        self.save_btn.setEnabled(has_images)
-
-        # Enable crop button if at least one processed image is available
-        has_processed = any(img is not None for img in self.state.processed)
-        self.crop_mode_btn.setEnabled(has_processed)
-
-        # Update mode indicator based on loaded channels
+        """Update save and crop button states based on loaded images."""
+        self.save_btn.setEnabled(self.svc.has_aligned_channels())
+        self.crop_mode_btn.setEnabled(self.svc.has_processed_channels())
         self._update_mode_from_state()
 
     def closeEvent(self, event: Union[QCloseEvent, None]) -> None:  # pylint: disable=C0103
@@ -810,7 +764,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         """
         if event is None:
             return
-        if any(img is not None for img in self.state.original_images):
+        if self.svc.has_processed_channels():
             reply = QMessageBox.question(
                 self,
                 "Save Session",
