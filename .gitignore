@@ -40,3 +40,6 @@ processed_images/
 
 # Check logs
 checks/
+
+# Session/runtime state
+config/autosave.json

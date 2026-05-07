@@ -23,14 +23,15 @@ Handles state management, user interactions, and connects UI components to proce
 import os
 from typing import Callable, Union
 
-from PyQt5.QtCore import QRect, Qt
-from PyQt5.QtGui import QKeyEvent, QMouseEvent
+from PyQt5.QtCore import QRect, Qt, QTimer
+from PyQt5.QtGui import QCloseEvent, QKeyEvent, QMouseEvent
 from PyQt5.QtWidgets import (
     QApplication,
     QComboBox,
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QStatusBar,
     QVBoxLayout,
@@ -38,6 +39,7 @@ from PyQt5.QtWidgets import (
 )
 
 from .default_state import DefaultState
+from .handlers.autosave import clear_autosave, restore_autosave, save_autosave
 from .handlers.channels import adjust_channel, load_channel, show_single_channel, update_channel_preview
 from .handlers.display import show_combined_image, show_single_channel_image, update_main_display
 from .handlers.image_saving import save_image_with_dialog
@@ -117,6 +119,9 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self.original_rgb_images = [None, None, None]
         self.aligned_rgb = [None, None, None]
 
+        # File paths for loaded channels (used for autosave/restore)
+        self.channel_paths: list[str | None] = [None, None, None]
+
         # Display state - use defaults from DefaultState
         self.show_combined = DefaultState.SHOW_COMBINED
         self.current_channel = DefaultState.CURRENT_CHANNEL
@@ -129,43 +134,61 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         # Grid settings dialog (initially None, created on demand)
         self.grid_settings_dialog: Union[GridSettingsDialog, None] = None
 
-        # Path to the presets folder with fallback strategy
-        # Try to find the project root by looking for requirements.txt
-        def find_project_root() -> str:
-            current = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            for _ in range(5):  # Search up to 5 levels
-                if os.path.exists(os.path.join(current, "requirements.txt")):
-                    return current
-                parent = os.path.dirname(current)
-                if parent == current:  # Reached filesystem root
-                    break
-                current = parent
-            return current
-
-        project_root = find_project_root()
-        preset_options = [
-            "/app/presets",  # Container workspace (mounted as read-write)
-            os.path.join(project_root, "presets"),  # Project directory
-            os.path.expanduser("~/.config/prokudin/presets"),  # User home
-        ]
-
-        self.presets_dir = None
-        for preset_path in preset_options:
-            try:
-                os.makedirs(preset_path, exist_ok=True)
-                self.presets_dir = preset_path
-                break
-            except (OSError, PermissionError):
-                continue
-
-        if self.presets_dir is None:
-            raise RuntimeError("Failed to create presets directory in any location")
+        self.presets_dir, self.config_dir = self._resolve_dirs()
 
         assert self.presets_dir is not None
+        assert self.config_dir is not None
         self.init_ui()
+
+        # Debounce timer: autosave fires 500 ms after the last slider change
+        self._autosave_timer = QTimer()
+        self._autosave_timer.setSingleShot(True)
+        self._autosave_timer.setInterval(500)
+        self._autosave_timer.timeout.connect(lambda: save_autosave(self))
 
         # Update the mode based on initial state
         self._update_mode_from_state()
+
+        # Restore previous session (loads images, sets sliders, applies crop)
+        restore_autosave(self)
+
+    def _resolve_dirs(self) -> tuple[str, str]:
+        """
+        Locate writable presets and config directories, trying container paths first then local fallbacks.
+
+        Returns:
+            tuple: (presets_dir, config_dir) absolute paths.
+        """
+        current = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        project_root = current
+        for _ in range(5):
+            if os.path.exists(os.path.join(current, "requirements.txt")):
+                project_root = current
+                break
+            parent = os.path.dirname(current)
+            if parent == current:
+                break
+            current = parent
+
+        def _first_writable(candidates: list[str], label: str) -> str:
+            """Return the first candidate path that can be created with write permissions."""
+            for path in candidates:
+                try:
+                    os.makedirs(path, exist_ok=True)
+                    return path
+                except (OSError, PermissionError):
+                    continue
+            raise RuntimeError(f"Failed to create {label} directory in any location")
+
+        presets_dir = _first_writable(
+            ["/app/presets", os.path.join(project_root, "presets"), os.path.expanduser("~/.config/prokudin/presets")],
+            "presets",
+        )
+        config_dir = _first_writable(
+            ["/app/config", os.path.join(project_root, "config"), os.path.expanduser("~/.config/prokudin")],
+            "config",
+        )
+        return presets_dir, config_dir
 
     def init_ui(self) -> None:  # pylint: disable=too-many-statements
         """
@@ -276,9 +299,11 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         for idx, controller in enumerate(self.controllers):
             # Connect load button and sliders to handlers
             controller.btn_load.clicked.connect(lambda _, i=idx: load_channel(self, i))
+            controller.btn_load.clicked.connect(lambda _, i=idx: save_autosave(self))
 
             # Connect controller value changes to adjust channel (handles both slider and text input)
             controller.value_changed.connect(lambda i=idx: adjust_channel(self, i))
+            controller.value_changed.connect(self._schedule_autosave)
 
             # Fix the mousePressEvent assignment with properly typed functions
             # Pass controller as an argument to avoid cell-var-from-loop issue
@@ -575,6 +600,8 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         else:
             show_single_channel_image(self)
 
+        save_autosave(self)
+
     def save_images(self) -> None:
         """
         Handle save button click by opening save dialog and saving images.
@@ -622,6 +649,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self.processed = [None, None, None]
         self.original_rgb_images = [None, None, None]
         self.aligned_rgb = [None, None, None]
+        self.channel_paths = [None, None, None]
 
         # Reset display state to defaults
         self.show_combined = DefaultState.SHOW_COMBINED
@@ -657,6 +685,8 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
 
         # Update UI state (manages save and crop button states, and mode indicator)
         self.update_save_button_state()
+
+        clear_autosave(self)
 
         # Show status message
         self.status_handler.set_message("Application reset to default state", self.status_handler.MEDIUM_TIMEOUT)
@@ -778,6 +808,10 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self.viewer.viewport().update()  # type: ignore[union-attr]
         self.status_handler.set_message(f"Grid line width: {width}px", self.status_handler.SHORT_TIMEOUT)
 
+    def _schedule_autosave(self) -> None:
+        """Restart the debounce timer so autosave fires 500 ms after the last slider change."""
+        self._autosave_timer.start()
+
     def update_save_button_state(self) -> None:
         """
         Update the enabled state of the save button and crop button based on image availability.
@@ -798,6 +832,33 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
 
         # Update mode indicator based on loaded channels
         self._update_mode_from_state()
+
+    def closeEvent(self, event: Union[QCloseEvent, None]) -> None:  # pylint: disable=C0103
+        """
+        Prompt the user to save session state when closing the window.
+
+        If the user chooses not to save, the autosave file is cleared so the
+        next launch opens with a clean state. Choosing Cancel aborts the close.
+
+        Args:
+            event: The close event.
+        """
+        if event is None:
+            return
+        if any(img is not None for img in self.original_images):
+            reply = QMessageBox.question(
+                self,
+                "Save Session",
+                "Save session state for next launch?",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,  # type: ignore[attr-defined]
+                QMessageBox.Yes,  # type: ignore[attr-defined]
+            )
+            if reply == QMessageBox.Cancel:  # type: ignore[attr-defined]
+                event.ignore()
+                return
+            if reply == QMessageBox.No:  # type: ignore[attr-defined]
+                clear_autosave(self)
+        event.accept()
 
     def keyPressEvent(self, event: Union[QKeyEvent, None]) -> None:  # pylint: disable=C0103
         """
