@@ -57,28 +57,28 @@ def handle_key_press(main_window: "MainWindow", event: QKeyEvent) -> bool:
         - main_window.MainWindow
     """
     if event.key() == Qt.Key.Key_1:
-        main_window.show_combined = False
-        main_window.current_channel = 0
+        main_window.state.show_combined = False
+        main_window.state.current_channel = 0
         main_window.status_handler.set_message("Viewing Red channel", main_window.status_handler.MEDIUM_TIMEOUT)
         update_main_display(main_window)
         event.accept()
         return True
     if event.key() == Qt.Key.Key_2:
-        main_window.show_combined = False
-        main_window.current_channel = 1
+        main_window.state.show_combined = False
+        main_window.state.current_channel = 1
         main_window.status_handler.set_message("Viewing Green channel", main_window.status_handler.MEDIUM_TIMEOUT)
         update_main_display(main_window)
         event.accept()
         return True
     if event.key() == Qt.Key.Key_3:
-        main_window.show_combined = False
-        main_window.current_channel = 2
+        main_window.state.show_combined = False
+        main_window.state.current_channel = 2
         main_window.status_handler.set_message("Viewing Blue channel", main_window.status_handler.MEDIUM_TIMEOUT)
         update_main_display(main_window)
         event.accept()
         return True
     if event.key() == Qt.Key.Key_A:
-        main_window.show_combined = True
+        main_window.state.show_combined = True
         main_window.status_handler.set_message(
             "Viewing combined RGB channel", main_window.status_handler.MEDIUM_TIMEOUT
         )

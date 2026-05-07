@@ -215,7 +215,7 @@ def save_image_with_dialog(main_window: "MainWindow") -> Tuple[bool, str]:
             - String with status message
     """
     # Check if there are any images to save
-    if not hasattr(main_window, "aligned") or not any(img is not None for img in main_window.aligned):
+    if not any(img is not None for img in main_window.state.aligned):
         return False, "No images to save"
 
     # Create file format options
@@ -237,11 +237,13 @@ def save_image_with_dialog(main_window: "MainWindow") -> Tuple[bool, str]:
     channel_names = ["ir", "vis", "uv"]
 
     # Save RGB channel images if available
-    if hasattr(main_window, "aligned_rgb") and any(img is not None for img in main_window.aligned_rgb):
-        results.extend(_save_cropped_images(main_window.aligned_rgb, filepath, channel_names, crop_rect, file_format))
+    if any(img is not None for img in main_window.state.aligned_rgb):
+        results.extend(
+            _save_cropped_images(main_window.state.aligned_rgb, filepath, channel_names, crop_rect, file_format)
+        )
 
     # Create and save combined image from grayscale channels
-    combined = _create_combined_image(main_window.aligned, crop_rect)
+    combined = _create_combined_image(main_window.state.aligned, crop_rect)
 
     if combined is not None:
         success, message = save_image(combined, filepath, file_format, is_bgr=False)

@@ -43,7 +43,7 @@ def update_main_display(main_window: "MainWindow") -> None:
     Returns:
         None
     """
-    if main_window.show_combined:
+    if main_window.state.show_combined:
         show_combined_image(main_window)
     else:
         show_single_channel_image(main_window)
@@ -64,14 +64,14 @@ def show_combined_image(main_window: "MainWindow") -> None:
     Returns:
         None
     """
-    if any(img is None for img in main_window.processed):
+    if any(img is None for img in main_window.state.processed):
         return
 
     # If not in crop mode and a crop rectangle is set, crop the processed images on-the-fly
     saved_crop_rect = main_window.viewer.get_saved_crop_rect()
-    if not main_window.crop_mode and saved_crop_rect is not None:
+    if not main_window.state.crop_mode and saved_crop_rect is not None:
         cropped_channels: List[np.ndarray | None] = []
-        for img in main_window.processed:
+        for img in main_window.state.processed:
             if img is not None:
                 cropped = img[
                     saved_crop_rect.top() : saved_crop_rect.bottom() + 1,
@@ -88,7 +88,7 @@ def show_combined_image(main_window: "MainWindow") -> None:
 
     # Otherwise use full images
     channels: List[np.ndarray | None] = []
-    for img in main_window.processed:
+    for img in main_window.state.processed:
         if img is not None:
             channels.append(img.copy())
         else:
@@ -112,11 +112,11 @@ def show_single_channel_image(main_window: "MainWindow") -> None:
     Returns:
         None
     """
-    img = main_window.processed[main_window.current_channel]
+    img = main_window.state.processed[main_window.state.current_channel]
     if img is not None:
         # If not in crop mode and a crop rectangle is set, crop the processed image on-the-fly
         saved_crop_rect = main_window.viewer.get_saved_crop_rect()
-        if not main_window.crop_mode and saved_crop_rect is not None:
+        if not main_window.state.crop_mode and saved_crop_rect is not None:
             img = img[
                 saved_crop_rect.top() : saved_crop_rect.bottom() + 1,
                 saved_crop_rect.left() : saved_crop_rect.right() + 1,
