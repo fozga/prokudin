@@ -45,34 +45,37 @@ _CHANNEL_NAMES = {0: "Red", 1: "Green", 2: "Blue"}
 def _process_channel_image(main_window: "MainWindow", channel_idx: int, rgb_image: np.ndarray) -> None:
     """Store and process a loaded RGB image for the given channel, triggering alignment when all 3 are ready."""
 
-    original_rgb_images: List[Optional[np.ndarray]] = list(main_window.original_rgb_images)
+    original_rgb_images: List[Optional[np.ndarray]] = list(main_window.state.original_rgb_images)
     original_rgb_images[channel_idx] = rgb_image
-    main_window.original_rgb_images = original_rgb_images  # type: ignore
+    main_window.state.original_rgb_images = original_rgb_images  # type: ignore
 
     image = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2GRAY)  # pylint: disable=E1101
 
-    original_images: List[Optional[np.ndarray]] = list(main_window.original_images)
-    processed: List[Optional[np.ndarray]] = list(main_window.processed)
+    original_images: List[Optional[np.ndarray]] = list(main_window.state.original_images)
+    processed: List[Optional[np.ndarray]] = list(main_window.state.processed)
 
     original_images[channel_idx] = image
     processed[channel_idx] = image.copy()
 
-    main_window.original_images = original_images  # type: ignore
-    main_window.processed = processed  # type: ignore
+    main_window.state.original_images = original_images  # type: ignore
+    main_window.state.processed = processed  # type: ignore
 
     main_window.status_handler.set_message(
         f"Successfully loaded image into {_CHANNEL_NAMES.get(channel_idx, 'Unknown')} channel",
         main_window.status_handler.MEDIUM_TIMEOUT,
     )
 
-    if all(img is not None for img in main_window.original_images):
+    if all(img is not None for img in main_window.state.original_images):
         gray_images: List[np.ndarray] = []
         rgb_images: List[np.ndarray] = []
 
         for i in range(3):
-            if main_window.original_images[i] is not None and main_window.original_rgb_images[i] is not None:
-                gray_img = cast(np.ndarray, main_window.original_images[i])
-                rgb_img = cast(np.ndarray, main_window.original_rgb_images[i])
+            if (
+                main_window.state.original_images[i] is not None
+                and main_window.state.original_rgb_images[i] is not None
+            ):
+                gray_img = cast(np.ndarray, main_window.state.original_images[i])
+                rgb_img = cast(np.ndarray, main_window.state.original_rgb_images[i])
                 gray_images.append(gray_img)
                 rgb_images.append(rgb_img)
 
@@ -80,11 +83,11 @@ def _process_channel_image(main_window: "MainWindow", channel_idx: int, rgb_imag
             main_window.status_handler.set_message("Aligning images, please wait...")
             aligned_gray, aligned_rgb = align_images(gray_images, rgb_images)
 
-            main_window.aligned = aligned_gray  # type: ignore
-            main_window.aligned_rgb = aligned_rgb  # type: ignore
+            main_window.state.aligned = aligned_gray  # type: ignore
+            main_window.state.aligned_rgb = aligned_rgb  # type: ignore
 
             new_processed: List[Optional[np.ndarray]] = [img.copy() for img in aligned_gray]
-            main_window.processed = new_processed  # type: ignore
+            main_window.state.processed = new_processed  # type: ignore
 
             for i in range(3):
                 adjust_channel(main_window, i)
@@ -110,7 +113,7 @@ def load_channel(main_window: "MainWindow", channel_idx: int) -> None:
     rgb_image, file_path, err_msg = load_raw_image(main_window)
 
     if rgb_image is not None and file_path is not None:
-        main_window.channel_paths[channel_idx] = file_path
+        main_window.state.channel_paths[channel_idx] = file_path
         _process_channel_image(main_window, channel_idx, rgb_image)
     else:
         if err_msg != "No file selected":
@@ -131,7 +134,7 @@ def load_channel_from_path(main_window: "MainWindow", channel_idx: int, file_pat
     """
     rgb_image, err_msg = load_raw_image_from_path(file_path)
     if rgb_image is not None:
-        main_window.channel_paths[channel_idx] = file_path
+        main_window.state.channel_paths[channel_idx] = file_path
         _process_channel_image(main_window, channel_idx, rgb_image)
     elif err_msg:
         main_window.status_handler.set_message(
@@ -156,16 +159,16 @@ def adjust_channel(main_window: "MainWindow", channel_idx: int) -> None:
         - update_channel_preview
         - update_main_display
     """
-    if main_window.aligned[channel_idx] is not None:
+    if main_window.state.aligned[channel_idx] is not None:
         main_window.status_handler.set_message("Processing image, please wait...")
         brightness: int = main_window.controllers[channel_idx].sliders["brightness"].value()
         contrast: int = main_window.controllers[channel_idx].sliders["contrast"].value()
-        result = apply_adjustments(main_window.aligned[channel_idx], brightness, contrast)
+        result = apply_adjustments(main_window.state.aligned[channel_idx], brightness, contrast)
         if result is not None:
             # Create a new list to avoid assignment issues
-            processed: List[Optional[np.ndarray]] = list(main_window.processed)
+            processed: List[Optional[np.ndarray]] = list(main_window.state.processed)
             processed[channel_idx] = result
-            main_window.processed = processed  # type: ignore
+            main_window.state.processed = processed  # type: ignore
 
             update_channel_preview(main_window, channel_idx)
             update_main_display(main_window)
@@ -187,7 +190,7 @@ def update_channel_preview(main_window: "MainWindow", channel_idx: int) -> None:
         - ChannelController.update_preview
     """
     controller = main_window.controllers[channel_idx]
-    controller.processed_image = main_window.processed[channel_idx]
+    controller.processed_image = main_window.state.processed[channel_idx]  # type: ignore[assignment]
     controller.update_preview()
 
 
@@ -209,6 +212,6 @@ def show_single_channel(main_window: "MainWindow", channel_idx: int) -> None:
     Cross-references:
         - update_main_display
     """
-    main_window.show_combined = False
-    main_window.current_channel = channel_idx
+    main_window.state.show_combined = False
+    main_window.state.current_channel = channel_idx
     update_main_display(main_window)

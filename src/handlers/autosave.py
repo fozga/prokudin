@@ -47,7 +47,7 @@ def save_autosave(main_window: "MainWindow") -> None:
     for i, name in enumerate(_CHANNEL_NAMES):
         ctrl = main_window.controllers[i]
         channels[name] = {
-            "path": main_window.channel_paths[i],
+            "path": main_window.state.channel_paths[i],
             **{s: ctrl.sliders[s].value() for s in _SLIDER_NAMES},
         }
 
@@ -96,7 +96,7 @@ def restore_autosave(main_window: "MainWindow") -> None:  # pylint: disable=too-
         ctrl.blockSignals(False)
 
     for i in range(3):
-        if main_window.aligned[i] is not None:
+        if main_window.state.aligned[i] is not None:
             adjust_channel(main_window, i)
         update_channel_preview(main_window, i)
 
