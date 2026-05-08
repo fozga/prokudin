@@ -63,7 +63,6 @@ EXCLUDED_MODULES = {
     "src.ui.widgets.crop_handler",
     "src.ui.widgets.grid_overlay",
     "src.ui.widgets.grid_settings_dialog",
-    "src.ui.widgets.grid_types",
     "src.ui.widgets.image_viewer",
     "src.ui.widgets.preset_panel",
     "src.ui.widgets.sliders",
