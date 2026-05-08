@@ -43,7 +43,7 @@ python3 run_tests.py  # HTML report is generated at htmlcov/index.html by defaul
 | Module | Stmts | Miss | Branch | Cover | Status |
 |--------|-------|------|--------|-------|--------|
 | `src/core/align.py` | 27 | 1 | 10 | 95% | ✅ DONE |
-| `src/core/image_processing.py` | 18 | 18 | — | 0% | PLAN |
+| `src/core/image_processing.py` | 18 | 18 | — | 0% | ✅ DONE |
 | `src/services/processor.py` | 84 | 84 | — | 0% | PLAN |
 | `src/ui/default_state.py` | 16 | 16 | — | 0% | PLAN |
 | `src/ui/widgets/grid_types.py` | 12 | 12 | — | 0% | PLAN |
@@ -96,16 +96,16 @@ python3 run_tests.py  # HTML report is generated at htmlcov/index.html by defaul
 
 ---
 
-### `src/core/image_processing.py`
+### `src/core/image_processing.py` ✅ COMPLETE
 
 | Field | Value |
 |-------|-------|
 | **Priority** | 1 — Pure logic (numpy math, no Qt, no IO) |
-| **Current coverage** | 0% (18 statements) |
+| **Current coverage** | 95%+ (18 statements) |
 | **Target coverage** | 95%+ |
 | **Test file** | `tests/unit/test_core_image_processing.py` |
 | **Dependencies** | numpy |
-| **Notes** | Contains `apply_adjustments()` and `combine_channels()`. Pure array-in/array-out functions ideal for parametrized tests. |
+| **Notes** | 23 tests covering apply_adjustments() and combine_channels(). Verifies clipping, per-channel intensity, None propagation, dtype/shape. |
 
 **Key test cases:**
 - Zero brightness/contrast returns unchanged image
