@@ -49,7 +49,6 @@ def _discover_modules() -> list[str]:
 # Modules excluded from coverage enforcement (add modules here as tests reach 90%)
 EXCLUDED_MODULES = {
     "src.ui.app_state",
-    "src.ui.default_state",
     "src.ui.main_window",
     "src.ui.qt_utils",
     "src.ui.handlers.autosave",
