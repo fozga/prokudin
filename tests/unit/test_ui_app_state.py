@@ -186,7 +186,7 @@ class TestAppStateReset:
         assert state.grid_settings_dialog is None
 
     def test_reset_idempotent(self) -> None:
-        """Verify reset() is idempotent (calling twice has same effect)."""
+        """Verify reset() is idempotent (state identical after first and second call)."""
         state = AppState(
             channel_paths=["/red.tif", "/green.tif", "/blue.tif"],
             show_combined=False,
@@ -194,13 +194,29 @@ class TestAppStateReset:
             crop_mode=True,
         )
         state.reset()
-        state_after_first = AppState()
+        # Capture state after first reset
+        state_after_first_reset = {
+            "channel_paths": state.channel_paths[:],
+            "show_combined": state.show_combined,
+            "current_channel": state.current_channel,
+            "crop_mode": state.crop_mode,
+            "crop_rect": state.crop_rect,
+            "crop_ratio": state.crop_ratio,
+            "grid_settings_dialog": state.grid_settings_dialog,
+        }
+        # Modify state and call reset again
+        state.show_combined = False
+        state.current_channel = 1
+        state.crop_mode = True
         state.reset()
-        state_after_second = AppState()
-        assert state.channel_paths == state_after_first.channel_paths
-        assert state.show_combined == state_after_first.show_combined
-        assert state.current_channel == state_after_first.current_channel
-        assert state.crop_mode == state_after_first.crop_mode
+        # Verify state after second reset matches state after first reset
+        assert state.channel_paths == state_after_first_reset["channel_paths"]
+        assert state.show_combined == state_after_first_reset["show_combined"]
+        assert state.current_channel == state_after_first_reset["current_channel"]
+        assert state.crop_mode == state_after_first_reset["crop_mode"]
+        assert state.crop_rect == state_after_first_reset["crop_rect"]
+        assert state.crop_ratio == state_after_first_reset["crop_ratio"]
+        assert state.grid_settings_dialog == state_after_first_reset["grid_settings_dialog"]
 
     def test_reset_multiple_times(self) -> None:
         """Verify reset() can be called multiple times."""
