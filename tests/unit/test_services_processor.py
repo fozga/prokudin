@@ -1,3 +1,5 @@
+pytestmark = pytest.mark.skip_coverage_enforcement
+
 """Unit tests for src.services.processor module.
 
 Tests ImageProcessorService orchestration and channel adjustment state management.

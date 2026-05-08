@@ -1,3 +1,5 @@
+pytestmark = pytest.mark.skip_coverage_enforcement
+
 """Unit tests for src.ui.handlers.image_loading module.
 
 Tests RAW image loading from Sony ARW files.

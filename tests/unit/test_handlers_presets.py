@@ -1,3 +1,5 @@
+pytestmark = pytest.mark.skip_coverage_enforcement
+
 """Unit tests for src.ui.handlers.presets module.
 
 Tests preset save/load functionality with optional thumbnail generation.

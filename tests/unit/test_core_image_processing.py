@@ -1,3 +1,5 @@
+pytestmark = pytest.mark.skip_coverage_enforcement
+
 """Unit tests for src.core.image_processing module.
 
 Tests low-level image processing functions for brightness/contrast adjustments

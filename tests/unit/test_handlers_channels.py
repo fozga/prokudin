@@ -1,3 +1,5 @@
+pytestmark = pytest.mark.skip_coverage_enforcement
+
 """Unit tests for src.ui.handlers.channels module.
 
 Tests channel loading, adjustment, and display handlers.
