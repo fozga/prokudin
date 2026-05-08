@@ -16,12 +16,15 @@ VENV_MARKER = VENV_DIR / ".requirements-hash"
 
 
 def get_requirements_hash() -> str:
-    """Get hash of requirements-test.txt."""
-    req_file = Path("requirements-test.txt")
-    if not req_file.exists():
-        raise FileNotFoundError("requirements-test.txt not found. Run this script from the project root.")
-    with open(req_file, "rb") as f:
-        return hashlib.md5(f.read()).hexdigest()
+    """Get hash of both requirements-test.txt and requirements.txt."""
+    req_files = [Path("requirements.txt"), Path("requirements-test.txt")]
+    combined = b""
+    for req_file in req_files:
+        if not req_file.exists():
+            raise FileNotFoundError(f"{req_file.name} not found. Run this script from the project root.")
+        with open(req_file, "rb") as f:
+            combined += f.read()
+    return hashlib.md5(combined).hexdigest()
 
 
 def requirements_changed() -> bool:
@@ -40,11 +43,15 @@ def create_venv() -> None:
 
 
 def install_dependencies() -> None:
-    """Install test dependencies if they've changed or are missing."""
+    """Install test and production dependencies if they've changed or are missing."""
     if not requirements_changed():
         return
 
-    print("Installing test dependencies...")
+    print("Installing production and test dependencies...")
+    subprocess.check_call(
+        [str(PYTHON_EXE), "-m", "pip", "install", "-q", "-r", "requirements.txt"],
+        cwd=Path.cwd(),
+    )
     subprocess.check_call(
         [str(PYTHON_EXE), "-m", "pip", "install", "-q", "-r", "requirements-test.txt"],
         cwd=Path.cwd(),
