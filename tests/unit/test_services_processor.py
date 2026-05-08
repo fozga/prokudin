@@ -419,11 +419,8 @@ class TestGetCombined:
         assert call_args[0][1] == intensities
 
     @patch("src.services.processor.align_images")
-    @patch("src.services.processor.combine_channels")
-    def test_get_combined_uses_default_intensities(
-        self, mock_combine: MagicMock, mock_align: MagicMock
-    ) -> None:
-        """Verify get_combined uses default intensities [100, 100, 100]."""
+    def test_get_combined_uses_default_intensities(self, mock_align: MagicMock) -> None:
+        """Verify get_combined uses default intensities [100, 100, 100] and correct channel data."""
         gray_aligned = [
             np.ones((100, 100), dtype=np.uint8) * 50,
             np.ones((100, 100), dtype=np.uint8) * 100,
@@ -431,17 +428,21 @@ class TestGetCombined:
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
         mock_align.return_value = (gray_aligned, rgb_aligned)
-        combined_rgb = np.ones((100, 100, 3), dtype=np.uint8) * 100
-        mock_combine.return_value = combined_rgb
 
         svc = ImageProcessorService()
         for i in range(3):
             svc.load_channel_from_array(i, self._make_rgb_image(seed=i))
 
-        svc.get_combined()
+        # Call with no intensities (should use defaults [100, 100, 100])
+        result = svc.get_combined()
 
-        call_args = mock_combine.call_args
-        assert call_args[0][1] == [100, 100, 100]
+        assert result is not None
+        # Default intensities [100, 100, 100] with no brightness/contrast changes
+        # should preserve the original channel values in combined RGB
+        assert result.shape == (100, 100, 3)
+        assert result[0, 0, 0] == 50   # Red channel unchanged
+        assert result[0, 0, 1] == 100  # Green channel unchanged
+        assert result[0, 0, 2] == 150  # Blue channel unchanged
 
     @patch("src.services.processor.align_images")
     @patch("src.services.processor.combine_channels")
@@ -541,8 +542,8 @@ class TestHasProcessedChannels:
         assert svc.has_processed_channels() is False
 
     @patch("src.services.processor.align_images")
-    def test_has_processed_channels_true_after_load(self, mock_align: MagicMock) -> None:
-        """Verify has_processed_channels returns True after loading a channel."""
+    def test_has_processed_channels_true_after_single_channel_load(self, mock_align: MagicMock) -> None:
+        """Verify has_processed_channels returns True after loading any single channel."""
         gray_aligned = [
             np.ones((100, 100), dtype=np.uint8) * 50,
             np.ones((100, 100), dtype=np.uint8) * 100,
