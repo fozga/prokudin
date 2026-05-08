@@ -51,7 +51,6 @@ EXCLUDED_MODULES = {
     "src.ui.main_window",
     "src.ui.qt_utils",
     "src.ui.handlers.autosave",
-    "src.ui.handlers.channels",
     "src.ui.handlers.display",
     "src.ui.handlers.image_loading",
     "src.ui.handlers.image_saving",
