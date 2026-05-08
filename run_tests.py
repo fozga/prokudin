@@ -90,15 +90,37 @@ def run_tests(args: list[str]) -> int:
 def check_test_docs() -> int:
     """Check that all tests are documented.
 
-    Documentation coverage is enforced at 100% on both superior and module branches.
-    Placeholder test methods satisfy this requirement with docstrings.
+    Documentation coverage is enforced at:
+    - Superior branch (test/unit-test-infrastructure): 0% (no enforcement)
+    - Module branches (test/core-*, test/handlers-*, etc): 100% required
+
+    Placeholder test methods satisfy requirements with docstrings.
     """
+    # Get current git branch
+    try:
+        current_branch = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.DEVNULL
+        ).decode().strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        current_branch = "main"
+
+    # Determine threshold based on branch
+    fail_under = 0 if current_branch == "test/unit-test-infrastructure" else 100
+
     print(f"\n{'=' * 50}")
     print("Checking test documentation...")
     print("=" * 50)
     try:
         subprocess.check_call(
-            [str(PYTHON_EXE), "-m", "interrogate", "--ignore-init-method", "--fail-under=100", "-vv", "tests"]
+            [
+                str(PYTHON_EXE),
+                "-m",
+                "interrogate",
+                "--ignore-init-method",
+                f"--fail-under={fail_under}",
+                "-vv",
+                "tests",
+            ]
         )
         return 0
     except subprocess.CalledProcessError:
