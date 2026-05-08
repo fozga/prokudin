@@ -60,7 +60,12 @@ def install_dependencies() -> None:
 
 
 def run_tests(args: list[str]) -> int:
-    """Run unit tests with coverage."""
+    """Run unit tests with coverage.
+
+    Coverage thresholds are handled by conftest.py based on git branch:
+    - test/unit-test-infrastructure (superior): 0% threshold (no enforcement)
+    - test/core-*, test/services-*, etc (module): 90% threshold on specific module
+    """
     cmd = [
         str(PYTHON_EXE),
         "-m",
@@ -83,7 +88,11 @@ def run_tests(args: list[str]) -> int:
 
 
 def check_test_docs() -> int:
-    """Check that all tests are documented."""
+    """Check that all tests are documented.
+
+    Documentation coverage is enforced at 100% on both superior and module branches.
+    Placeholder test methods satisfy this requirement with docstrings.
+    """
     print(f"\n{'=' * 50}")
     print("Checking test documentation...")
     print("=" * 50)
@@ -118,3 +127,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
