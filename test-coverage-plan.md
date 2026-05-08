@@ -22,7 +22,7 @@ python3 run_tests.py  # HTML report is generated at htmlcov/index.html by defaul
 
 | Module | Stmts | Miss | Branch | Cover | Status |
 |--------|-------|------|--------|-------|--------|
-| `src/core/align.py` | 27 | 27 | — | 0% | PLAN |
+| `src/core/align.py` | 27 | 1 | 10 | 95% | ✅ DONE |
 | `src/core/image_processing.py` | 18 | 18 | — | 0% | PLAN |
 | `src/services/processor.py` | 84 | 84 | — | 0% | PLAN |
 | `src/ui/default_state.py` | 16 | 16 | — | 0% | PLAN |
@@ -57,16 +57,16 @@ python3 run_tests.py  # HTML report is generated at htmlcov/index.html by defaul
 
 ## Module Plan
 
-### `src/core/align.py`
+### `src/core/align.py` ✅ COMPLETE
 
 | Field | Value |
 |-------|-------|
 | **Priority** | 1 — Pure logic (numpy/cv2 computation, no Qt, no IO) |
-| **Current coverage** | 0% (27 statements) |
+| **Current coverage** | 95% (26/27 statements, only line 98 uncovered) |
 | **Target coverage** | 90%+ |
 | **Test file** | `tests/unit/test_core_align.py` |
 | **Dependencies** | numpy, cv2 (OpenCV) |
-| **Notes** | Contains `align_images()` and `AlignmentError`. Test with synthetic image arrays; verify alignment on known offset pairs and error raising on invalid input. |
+| **Notes** | 13 comprehensive tests covering align_images() and AlignmentError with synthetic image arrays. |
 
 **Key test cases:**
 - Aligned identical images produce zero offset
