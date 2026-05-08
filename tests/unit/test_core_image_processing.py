@@ -195,3 +195,31 @@ class TestCombineChannels:
         result = combine_channels([dark, dark, dark], [0, 0, 0])
         assert result is not None
         assert result.min() >= 0
+
+    def test_fewer_than_three_channels_raises_index_error(self, gray_mid: np.ndarray) -> None:
+        """Passing fewer than three channels violates the contract and must raise."""
+        with pytest.raises(IndexError):
+            combine_channels([gray_mid, gray_mid], [100, 100, 100])
+
+    def test_more_than_three_channels_uses_only_first_three(self, gray_mid: np.ndarray) -> None:
+        """Extra channels beyond three are silently ignored; output uses first three."""
+        r = np.full((2, 2), 100, dtype=np.uint8)
+        g = np.full((2, 2), 150, dtype=np.uint8)
+        b = np.full((2, 2), 200, dtype=np.uint8)
+        extra = np.full((2, 2), 50, dtype=np.uint8)
+        result = combine_channels([r, g, b, extra], [100, 100, 100, 100])
+        assert result is not None
+        # Fourth channel should be ignored; output should match three-channel call
+        expected = combine_channels([r, g, b], [100, 100, 100])
+        assert expected is not None
+        np.testing.assert_array_equal(result, expected)
+
+    def test_empty_channel_list_raises_error(self) -> None:
+        """Empty channel list violates contract and must raise."""
+        with pytest.raises((IndexError, ValueError)):
+            combine_channels([], [100, 100, 100])
+
+    def test_fewer_than_three_intensities_raises_index_error(self, gray_mid: np.ndarray) -> None:
+        """Passing fewer than three intensities violates the contract and must raise."""
+        with pytest.raises(IndexError):
+            combine_channels([gray_mid, gray_mid, gray_mid], [100, 100])
