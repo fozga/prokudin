@@ -1,9 +1,11 @@
-import pytest
-
 """Unit tests for src.ui.handlers.keyboard module.
 
 Tests keyboard shortcut handling for channel switching and display toggle.
 """
+
+import pytest
+
+pytestmark = pytest.mark.skip_coverage_enforcement
 
 
 

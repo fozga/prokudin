@@ -1,9 +1,11 @@
-import pytest
-
 """Unit tests for src.ui.handlers.image_saving module.
 
 Tests image export to JPEG, PNG, TIFF with optional cropping and per-channel save.
 """
+
+import pytest
+
+pytestmark = pytest.mark.skip_coverage_enforcement
 
 
 

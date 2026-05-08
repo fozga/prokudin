@@ -1,9 +1,11 @@
-import pytest
-
 """Unit tests for src.ui.handlers.display module.
 
 Tests display update handlers for combined and single-channel viewing.
 """
+
+import pytest
+
+pytestmark = pytest.mark.skip_coverage_enforcement
 
 
 

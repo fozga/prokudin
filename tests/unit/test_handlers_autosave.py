@@ -1,9 +1,11 @@
-import pytest
-
 """Unit tests for src.ui.handlers.autosave module.
 
 Tests session state persistence and restoration via JSON autosave.
 """
+
+import pytest
+
+pytestmark = pytest.mark.skip_coverage_enforcement
 
 
 

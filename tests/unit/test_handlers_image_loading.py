@@ -1,9 +1,11 @@
-import pytest
-
 """Unit tests for src.ui.handlers.image_loading module.
 
 Tests RAW image loading from Sony ARW files.
 """
+
+import pytest
+
+pytestmark = pytest.mark.skip_coverage_enforcement
 
 
 

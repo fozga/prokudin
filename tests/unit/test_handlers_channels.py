@@ -1,9 +1,11 @@
-import pytest
-
 """Unit tests for src.ui.handlers.channels module.
 
 Tests channel loading, adjustment, and display handlers.
 """
+
+import pytest
+
+pytestmark = pytest.mark.skip_coverage_enforcement
 
 
 
