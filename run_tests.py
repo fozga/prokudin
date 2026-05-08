@@ -75,12 +75,32 @@ def run_tests(args: list[str]) -> int:
         return 1
 
 
+def check_test_docs() -> int:
+    """Check that all tests are documented."""
+    print(f"\n{'=' * 50}")
+    print("Checking test documentation...")
+    print("=" * 50)
+    try:
+        subprocess.check_call(
+            [str(PYTHON_EXE), "-m", "interrogate", "--ignore-init-method", "--fail-under=100", "-vv", "tests"]
+        )
+        return 0
+    except subprocess.CalledProcessError:
+        return 1
+
+
 def main() -> None:
     """Main entry point."""
     try:
         create_venv()
         install_dependencies()
-        sys.exit(run_tests(sys.argv[1:]))
+
+        test_result = run_tests(sys.argv[1:])
+        doc_result = check_test_docs()
+
+        if test_result != 0 or doc_result != 0:
+            sys.exit(1)
+        sys.exit(0)
     except KeyboardInterrupt:
         print("\n❌ Interrupted by user")
         sys.exit(130)
