@@ -79,7 +79,6 @@ def pytest_configure(config: Any) -> None:
                 break
 
 
-
 def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:
     """Skip coverage enforcement for marked tests or modules."""
     # Check if any test item has skip_coverage_enforcement marker
@@ -92,4 +91,5 @@ def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:
     # If marker found, disable coverage threshold
     if skip_coverage:
         config.option.cov_fail_under = 0
+
 

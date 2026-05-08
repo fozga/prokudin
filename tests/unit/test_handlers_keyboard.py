@@ -15,6 +15,11 @@ pytestmark = pytest.mark.skip_coverage_enforcement
 class TestHandleKeyPress:
     """Test suite for handle_key_press() function."""
 
+    @pytest.mark.skip(reason="TODO: implement tests")
+    def test_placeholder(self) -> None:
+        """Placeholder test - implementation pending."""
+        pass
+
     # TODO: Test key 1 switches to red channel
     # TODO: Test key 2 switches to green channel
     # TODO: Test key 3 switches to blue channel

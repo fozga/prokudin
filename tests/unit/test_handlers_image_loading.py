@@ -15,6 +15,11 @@ pytestmark = pytest.mark.skip_coverage_enforcement
 class TestLoadRawImage:
     """Test suite for load_raw_image() function."""
 
+    @pytest.mark.skip(reason="TODO: implement tests")
+    def test_placeholder(self) -> None:
+        """Placeholder test - implementation pending."""
+        pass
+
     # TODO: Test successful file selection and load
     # TODO: Test returns RGB numpy array
     # TODO: Test returns file path
@@ -25,6 +30,11 @@ class TestLoadRawImage:
 
 class TestLoadRawImageFromPath:
     """Test suite for load_raw_image_from_path() function."""
+
+    @pytest.mark.skip(reason="TODO: implement tests")
+    def test_placeholder(self) -> None:
+        """Placeholder test - implementation pending."""
+        pass
 
     # TODO: Test loads from given file path
     # TODO: Test returns RGB numpy array

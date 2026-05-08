@@ -15,6 +15,11 @@ pytestmark = pytest.mark.skip_coverage_enforcement
 class TestSavePreset:
     """Test suite for save_preset() function."""
 
+    @pytest.mark.skip(reason="TODO: implement tests")
+    def test_placeholder(self) -> None:
+        """Placeholder test - implementation pending."""
+        pass
+
     # TODO: Test saves JSON with slider values
     # TODO: Test generates PNG thumbnail if requested
     # TODO: Test creates preset directory if missing
@@ -25,6 +30,11 @@ class TestSavePreset:
 
 class TestApplyPreset:
     """Test suite for apply_preset() function."""
+
+    @pytest.mark.skip(reason="TODO: implement tests")
+    def test_placeholder(self) -> None:
+        """Placeholder test - implementation pending."""
+        pass
 
     # TODO: Test reads JSON preset file
     # TODO: Test sets slider values on controllers
