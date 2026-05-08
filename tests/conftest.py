@@ -62,7 +62,10 @@ def pytest_configure(config: Any) -> None:
     except (subprocess.CalledProcessError, FileNotFoundError):
         current_branch = ""
 
-    # On module branches, measure coverage for specific module with 90% threshold
+    # Default: no coverage threshold (superior branch or other)
+    config.option.cov_fail_under = 0
+
+    # On module branches ONLY, measure coverage for specific module with 90% threshold
     if current_branch.startswith("test/") and current_branch != "test/unit-test-infrastructure":
         # Extract module from branch name (e.g., test/core-align -> core_align)
         branch_module = current_branch.replace("test/", "").replace("-", "_")
@@ -76,9 +79,17 @@ def pytest_configure(config: Any) -> None:
                 break
 
 
+
 def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:
-    """Skip coverage enforcement for marked tests."""
+    """Skip coverage enforcement for marked tests or modules."""
+    # Check if any test item has skip_coverage_enforcement marker
+    skip_coverage = False
     for item in items:
         if item.get_closest_marker("skip_coverage_enforcement"):
-            # On superior branch, skip coverage enforcement
-            config.option.cov_fail_under = 0
+            skip_coverage = True
+            break
+
+    # If marker found, disable coverage threshold
+    if skip_coverage:
+        config.option.cov_fail_under = 0
+
