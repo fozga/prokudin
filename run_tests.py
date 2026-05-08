@@ -104,11 +104,19 @@ def extract_test_summary(output: str) -> str:
 
 
 def extract_interrogate_summary(output: str) -> str:
-    """Extract interrogate documentation coverage."""
+    """Extract interrogate documentation coverage percentage.
+
+    Returns:
+        Coverage percentage string (e.g., "95.2%") or "N/A"
+    """
     for line in output.split("\n"):
-        if "RESULT:" in line:
-            return line.strip()
+        if "RESULT:" in line and "%" in line:
+            # Extract percentage from "RESULT: PASSED (minimum: 0.0%, actual: 95.2%)"
+            match = re.search(r"actual:\s*([\d.]+)%", line)
+            if match:
+                return match.group(1)
     return "N/A"
+
 
 
 def run_tests(module: str | None = None, verbose: bool = False, args: list[str] | None = None) -> int:
@@ -209,7 +217,7 @@ def check_test_docs(module: str | None = None, verbose: bool = False) -> int:
         "interrogate",
         "--ignore-init-method",
         f"--fail-under={fail_under}",
-        "-vv" if verbose else "-q",
+        "-vv",  # Always use verbose to capture summary
         target,
     ]
 
@@ -222,15 +230,12 @@ def check_test_docs(module: str | None = None, verbose: bool = False) -> int:
                 print(result.stderr)
         else:
             # Extract and show summary only
-            doc_summary = extract_interrogate_summary(result.stdout)
-            if doc_summary != "N/A":
-                # Parse the summary line
-                match = re.search(r"actual:\s*([\d.]+)%", doc_summary)
-                if match:
-                    doc_pct = match.group(1)
-                    print(f"Documentation Coverage: {doc_pct}%")
+            doc_pct = extract_interrogate_summary(result.stdout)
+            if doc_pct != "N/A":
+                print(f"Test Specification Coverage: {doc_pct}%")
             if result.returncode != 0 and not verbose:
                 print("⚠️  Documentation check failed. Run with -v/--verbose for details.")
+
 
         return result.returncode
     except subprocess.CalledProcessError as e:
