@@ -5,7 +5,6 @@ import pytest
 Tests image alignment using ORB feature matching and affine transformation.
 """
 
-import pytest
 
 
 # TODO: Add tests for alignment functionality

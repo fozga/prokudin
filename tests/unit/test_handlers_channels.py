@@ -5,7 +5,6 @@ import pytest
 Tests channel loading, adjustment, and display handlers.
 """
 
-import pytest
 
 
 # TODO: Add tests for channel handlers

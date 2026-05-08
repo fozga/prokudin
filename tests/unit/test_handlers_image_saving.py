@@ -5,7 +5,6 @@ import pytest
 Tests image export to JPEG, PNG, TIFF with optional cropping and per-channel save.
 """
 
-import pytest
 
 
 # TODO: Add tests for image saving handler

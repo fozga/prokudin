@@ -5,7 +5,6 @@ import pytest
 Tests keyboard shortcut handling for channel switching and display toggle.
 """
 
-import pytest
 
 
 # TODO: Add tests for keyboard handler

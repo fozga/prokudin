@@ -5,7 +5,6 @@ import pytest
 Tests ImageProcessorService orchestration and channel adjustment state management.
 """
 
-import pytest
 
 
 # TODO: Add tests for image processor service

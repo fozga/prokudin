@@ -6,7 +6,6 @@ Tests low-level image processing functions for brightness/contrast adjustments
 and channel combination.
 """
 
-import pytest
 
 
 # TODO: Add tests for image processing functionality

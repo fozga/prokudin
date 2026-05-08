@@ -5,7 +5,6 @@ import pytest
 Tests preset save/load functionality with optional thumbnail generation.
 """
 
-import pytest
 
 
 # TODO: Add tests for presets handler

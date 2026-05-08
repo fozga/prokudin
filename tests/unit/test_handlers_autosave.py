@@ -5,7 +5,6 @@ import pytest
 Tests session state persistence and restoration via JSON autosave.
 """
 
-import pytest
 
 
 # TODO: Add tests for autosave handler

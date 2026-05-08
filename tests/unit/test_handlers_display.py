@@ -5,7 +5,6 @@ import pytest
 Tests display update handlers for combined and single-channel viewing.
 """
 
-import pytest
 
 
 # TODO: Add tests for display handlers

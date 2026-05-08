@@ -5,7 +5,6 @@ import pytest
 Tests RAW image loading from Sony ARW files.
 """
 
-import pytest
 
 
 # TODO: Add tests for image loading handler
