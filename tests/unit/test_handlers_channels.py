@@ -1,4 +1,4 @@
-pytestmark = pytest.mark.skip_coverage_enforcement
+import pytest
 
 """Unit tests for src.ui.handlers.channels module.
 
