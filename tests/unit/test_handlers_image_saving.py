@@ -15,6 +15,11 @@ pytestmark = pytest.mark.skip_coverage_enforcement
 class TestApplyCrop:
     """Test suite for apply_crop() function."""
 
+    @pytest.mark.skip(reason="TODO: implement tests")
+    def test_placeholder(self) -> None:
+        """Placeholder test - implementation pending."""
+        pass
+
     # TODO: Test crops numpy array correctly
     # TODO: Test handles crop with origin offset
     # TODO: Test preserves channel count
@@ -23,6 +28,11 @@ class TestApplyCrop:
 
 class TestSaveImage:
     """Test suite for save_image() function."""
+
+    @pytest.mark.skip(reason="TODO: implement tests")
+    def test_placeholder(self) -> None:
+        """Placeholder test - implementation pending."""
+        pass
 
     # TODO: Test JPEG export
     # TODO: Test PNG export
@@ -34,6 +44,11 @@ class TestSaveImage:
 
 class TestSaveImageWithDialog:
     """Test suite for save_image_with_dialog() function."""
+
+    @pytest.mark.skip(reason="TODO: implement tests")
+    def test_placeholder(self) -> None:
+        """Placeholder test - implementation pending."""
+        pass
 
     # TODO: Test opens file save dialog
     # TODO: Test dialog cancellation handled gracefully

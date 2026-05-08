@@ -15,12 +15,22 @@ pytestmark = pytest.mark.skip_coverage_enforcement
 class TestChannelAdjustments:
     """Test suite for ChannelAdjustments dataclass."""
 
+    @pytest.mark.skip(reason="TODO: implement tests")
+    def test_placeholder(self) -> None:
+        """Placeholder test - implementation pending."""
+        pass
+
     # TODO: Test default values
     # TODO: Test field construction
 
 
 class TestImageProcessorService:
     """Test suite for ImageProcessorService class."""
+
+    @pytest.mark.skip(reason="TODO: implement tests")
+    def test_placeholder(self) -> None:
+        """Placeholder test - implementation pending."""
+        pass
 
     # TODO: Test load_channel_from_array() storage and alignment
     # TODO: Test adjust_channel() applies brightness/contrast

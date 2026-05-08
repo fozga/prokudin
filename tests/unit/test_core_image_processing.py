@@ -16,6 +16,11 @@ pytestmark = pytest.mark.skip_coverage_enforcement
 class TestApplyAdjustments:
     """Test suite for apply_adjustments() function."""
 
+    @pytest.mark.skip(reason="TODO: implement tests")
+    def test_placeholder(self) -> None:
+        """Placeholder test - implementation pending."""
+        pass
+
     # TODO: Test zero brightness/contrast returns unchanged image
     # TODO: Test positive/negative brightness shifts
     # TODO: Test contrast scaling at boundaries
@@ -24,6 +29,11 @@ class TestApplyAdjustments:
 
 class TestCombineChannels:
     """Test suite for combine_channels() function."""
+
+    @pytest.mark.skip(reason="TODO: implement tests")
+    def test_placeholder(self) -> None:
+        """Placeholder test - implementation pending."""
+        pass
 
     # TODO: Test three grayscale arrays produce correct RGB
     # TODO: Test output shape and dtype

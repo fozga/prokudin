@@ -15,6 +15,11 @@ pytestmark = pytest.mark.skip_coverage_enforcement
 class TestSaveAutosave:
     """Test suite for save_autosave() function."""
 
+    @pytest.mark.skip(reason="TODO: implement tests")
+    def test_placeholder(self) -> None:
+        """Placeholder test - implementation pending."""
+        pass
+
     # TODO: Test writes valid JSON file
     # TODO: Test saves channel paths
     # TODO: Test saves slider values
@@ -24,6 +29,11 @@ class TestSaveAutosave:
 
 class TestRestoreAutosave:
     """Test suite for restore_autosave() function."""
+
+    @pytest.mark.skip(reason="TODO: implement tests")
+    def test_placeholder(self) -> None:
+        """Placeholder test - implementation pending."""
+        pass
 
     # TODO: Test reads JSON and restores channel paths
     # TODO: Test restores slider values to controllers
@@ -35,6 +45,11 @@ class TestRestoreAutosave:
 
 class TestClearAutosave:
     """Test suite for clear_autosave() function."""
+
+    @pytest.mark.skip(reason="TODO: implement tests")
+    def test_placeholder(self) -> None:
+        """Placeholder test - implementation pending."""
+        pass
 
     # TODO: Test removes autosave file
     # TODO: Test handles missing file gracefully
