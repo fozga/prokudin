@@ -18,6 +18,26 @@ python3 run_tests.py  # HTML report is generated at htmlcov/index.html by defaul
 
 ---
 
+## Testing Guidelines (from review findings)
+
+**Precise Assertions**
+- Use specific assertion methods: `np.testing.assert_array_equal()` for exact matches, `assert_array_almost_equal()` for numerical tolerance
+- Avoid broad `try/except` blocks; use `pytest.raises()` with `exc_info` for exception testing
+- Verify complete output, not partial (e.g., all channels, not just red channel)
+- Never use generic exception handlers like `except Exception:` that mask regressions
+
+**Meaningful Test Names**
+- Test names must accurately describe what is being tested
+- Avoid misleading names like `test_accepts_different_sizes` if inputs are normalized first
+- If a test covers an edge case or unimplemented feature, document why in a comment
+
+**Test Organization**
+- Group related tests into classes (e.g., `TestAlignImages`, `TestAlignmentError`)
+- One logical scenario per test method; avoid combining multiple assertions into a single test
+- Use descriptive docstrings explaining what is being tested and why
+
+---
+
 ## Coverage Summary
 
 | Module | Stmts | Miss | Branch | Cover | Status |
