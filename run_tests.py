@@ -68,16 +68,6 @@ def install_dependencies() -> None:
     VENV_MARKER.write_text(get_requirements_hash())
 
 
-def get_current_branch() -> str:
-    """Get current git branch name."""
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"], stderr=subprocess.DEVNULL
-        ).decode().strip()
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        return "main"
-
-
 def extract_coverage_summary(output: str) -> tuple[str, str]:
     """Extract total coverage from pytest output.
 
@@ -92,6 +82,35 @@ def extract_coverage_summary(output: str) -> tuple[str, str]:
             if match:
                 return match.group(1), ""
     return "N/A", ""
+
+
+def check_module_coverage(output: str, coverage_targets: list[str], threshold: int) -> tuple[bool, list[str]]:
+    """Check that each module meets minimum coverage threshold.
+
+    Args:
+        output: pytest coverage report output
+        coverage_targets: list of modules to check (e.g., ["src.core.align"])
+        threshold: minimum coverage percentage required
+
+    Returns:
+        Tuple of (all_pass, list_of_failures)
+    """
+    failures = []
+    module_lines = {}
+
+    # Parse coverage lines for each module
+    for line in output.split("\n"):
+        for target in coverage_targets:
+            # Match lines like "src/core/align.py            27      1     10      1    95%   98"
+            if target.replace(".", "/") + ".py" in line and "%" in line:
+                match = re.search(r"(\d+\.?\d*)\s*%", line)
+                if match:
+                    pct = float(match.group(1))
+                    module_lines[target] = pct
+                    if pct < threshold:
+                        failures.append(f"{target}: {pct}% (required {threshold}%)")
+
+    return len(failures) == 0, failures
 
 
 def extract_test_summary(output: str) -> str:
@@ -119,7 +138,7 @@ def extract_interrogate_summary(output: str) -> str:
 
 
 
-def run_tests(module: str | None = None, verbose: bool = False, args: list[str] | None = None) -> int:
+def run_tests(*, module: str | None = None, verbose: bool = False, args: list[str] | None = None) -> int:
     """Run unit tests with coverage.
 
     Args:
@@ -127,21 +146,32 @@ def run_tests(module: str | None = None, verbose: bool = False, args: list[str] 
         verbose: Show detailed coverage report
         args: Additional pytest arguments
 
-    Coverage thresholds are handled by conftest.py based on git branch:
-    - test/unit-test-infrastructure (superior): 0% threshold
-    - test/core-*, test/services-*, etc (module): 90% threshold on specific module
+    Coverage enforcement: 90% minimum on modules in TEST_TO_MODULE_MAP (from tests/coverage_config.py).
     """
     args = args or []
+
+    # Import coverage config (single source of truth)
+    sys.path.insert(0, str(Path.cwd() / "tests"))
+    try:
+        from coverage_config import TEST_TO_MODULE_MAP, COVERAGE_THRESHOLD
+    finally:
+        sys.path.pop(0)
+
+    # Coverage targets from coverage_config.py TEST_TO_MODULE_MAP
+    coverage_targets = list(TEST_TO_MODULE_MAP.values())
 
     cmd = [
         str(PYTHON_EXE),
         "-m",
         "pytest",
-        "--cov=src",
         "--cov-branch",
-        "--cov-report=term-missing" if verbose else "--cov-report=term",
+        "--cov-report=term-missing",
         "--cov-report=html:htmlcov",
     ]
+
+    # Add coverage targets
+    for target in coverage_targets:
+        cmd.insert(3, f"--cov={target}")
 
     if module:
         # Run tests for specific module
@@ -157,7 +187,7 @@ def run_tests(module: str | None = None, verbose: bool = False, args: list[str] 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
 
-        # Print output
+        # Print output and check coverage per-module
         if verbose:
             print(result.stdout)
             if result.stderr:
@@ -170,8 +200,17 @@ def run_tests(module: str | None = None, verbose: bool = False, args: list[str] 
             if coverage_pct[0] != "N/A":
                 print(f"Code Coverage: {coverage_pct[0]}%")
 
+        # Check per-module coverage thresholds
+        coverage_ok, failures = check_module_coverage(result.stdout, coverage_targets, COVERAGE_THRESHOLD)
+        if not coverage_ok:
+            print(f"\n⚠️  Per-module coverage check failed:")
+            for failure in failures:
+                print(f"  - {failure}")
+            return 1
+
         if result.returncode != 0 and not verbose:
             print("\n⚠️  Tests failed. Run with -v/--verbose for details.")
+            return result.returncode
 
         return result.returncode
     except subprocess.CalledProcessError as e:
@@ -186,26 +225,14 @@ def check_test_docs(module: str | None = None, verbose: bool = False) -> int:
         module: Specific module to check, or None for all
         verbose: Show detailed documentation report
 
-    Documentation coverage is enforced at:
-    - Superior branch (test/unit-test-infrastructure): 0% (no enforcement)
-    - Module branches (test/core-*, test/handlers-*, etc): 100% required
+    Documentation coverage is always enforced at 100% for test files.
     """
-    current_branch = get_current_branch()
-
-    # Determine what to check and threshold based on branch
     if module:
-        # Check specific module
+        # Check specific module's test file
         target = f"tests/unit/test_{module.replace('.', '_')}.py"
-        fail_under = 100
-    elif current_branch == "test/unit-test-infrastructure":
-        # Superior branch: check all tests with no threshold
-        target = "tests"
-        fail_under = 0
     else:
-        # Module branch: check only the specific module's test file
-        branch_module = current_branch.replace("test/", "").replace("-", "_")
-        target = f"tests/unit/test_{branch_module}.py"
-        fail_under = 100
+        # Check all test files
+        target = "tests"
 
     print(f"\n{'=' * 60}")
     print("Checking test documentation...")
@@ -216,7 +243,7 @@ def check_test_docs(module: str | None = None, verbose: bool = False) -> int:
         "-m",
         "interrogate",
         "--ignore-init-method",
-        f"--fail-under={fail_under}",
+        "--fail-under=100",
         "-vv",  # Always use verbose to capture summary
         target,
     ]
@@ -235,7 +262,6 @@ def check_test_docs(module: str | None = None, verbose: bool = False) -> int:
                 print(f"Test Specification Coverage: {doc_pct}%")
             if result.returncode != 0 and not verbose:
                 print("⚠️  Documentation check failed. Run with -v/--verbose for details.")
-
 
         return result.returncode
     except subprocess.CalledProcessError as e:

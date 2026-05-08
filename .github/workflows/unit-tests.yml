@@ -2,9 +2,13 @@ name: Unit Tests with Coverage
 
 on:
   push:
-    branches-ignore:
+    branches:
       - main
+      - 'feature/**'
+      - 'test/**'
   pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read

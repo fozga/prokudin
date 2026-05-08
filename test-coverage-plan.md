@@ -16,6 +16,26 @@ python3 run_tests.py -k "test_combine_channels"
 python3 run_tests.py  # HTML report is generated at htmlcov/index.html by default
 ```
 
+### Coverage Enforcement Workflow
+
+**Coverage targets are managed via TEST_TO_MODULE_MAP in `run_tests.py`.**
+
+When you add test coverage for a new module:
+
+1. Create test file: `tests/unit/test_module_name.py`
+2. Write tests until module reaches ≥90% coverage
+3. **Add to TEST_TO_MODULE_MAP in `run_tests.py`:**
+   ```python
+   test_to_module = {
+       "test_core_align": "src.core.align",  # Example entry
+       "test_module_name": "src.module.path",  # ← Add your module here
+   }
+   ```
+4. Run: `python3 run_tests.py`
+5. Coverage is now enforced at 90% minimum on next run
+
+**Note:** Modules NOT in TEST_TO_MODULE_MAP are excluded from enforcement (useful during development).
+
 ---
 
 ## Testing Guidelines (from review findings)
@@ -44,7 +64,7 @@ python3 run_tests.py  # HTML report is generated at htmlcov/index.html by defaul
 |--------|-------|------|--------|-------|--------|
 | `src/core/align.py` | 27 | 1 | 10 | 95% | ✅ DONE |
 | `src/core/image_processing.py` | 18 | 18 | — | 0% | ✅ DONE |
-| `src/services/processor.py` | 84 | 84 | — | 0% | PLAN |
+| `src/services/processor.py` | 84 | 1 | 29 | 97% | ✅ DONE |
 | `src/ui/default_state.py` | 16 | 16 | — | 0% | PLAN |
 | `src/ui/widgets/grid_types.py` | 12 | 12 | — | 0% | PLAN |
 | `src/ui/app_state.py` | 25 | 25 | — | 0% | PLAN |
@@ -116,24 +136,27 @@ python3 run_tests.py  # HTML report is generated at htmlcov/index.html by defaul
 
 ---
 
-### `src/services/processor.py`
+### `src/services/processor.py` ✅ COMPLETE
 
 | Field | Value |
 |-------|-------|
 | **Priority** | 2 — Service/orchestration logic (no Qt, uses core modules) |
-| **Current coverage** | 0% (84 statements) |
+| **Current coverage** | 97% (83/84 statements, 27/29 branches) |
 | **Target coverage** | 85%+ |
 | **Test file** | `tests/unit/test_services_processor.py` |
 | **Dependencies** | numpy, `src.core.align`, `src.core.image_processing` |
-| **Notes** | Contains `ChannelAdjustments` dataclass and `ImageProcessorService` class. Test with real numpy arrays; mock alignment for deterministic results. |
+| **Notes** | 34 comprehensive tests covering `ChannelAdjustments` dataclass and `ImageProcessorService` class. Uses mocking for alignment and processing functions for deterministic testing. |
 
 **Key test cases:**
-- `load_channel_from_array()` stores channel and triggers alignment
-- `adjust_channel()` applies brightness/contrast via core functions
-- `has_aligned_channels()` returns correct state
-- `get_channel_preview()` returns processed single-channel image
-- `get_combined_image()` with and without crop rect
-- `ChannelAdjustments` dataclass defaults
+- `load_channel_from_array()` stores RGB, converts to grayscale, triggers alignment on 3rd channel
+- `adjust_channel()` updates adjustments and calls apply_adjustments correctly
+- `get_channel_preview()` returns processed image or None
+- `get_channel()` returns full or cropped single-channel image
+- `get_combined()` combines channels with optional crop and intensity adjustments
+- `has_aligned_channels()` and `has_processed_channels()` state checks
+- `get_image_dimensions()` returns correct dimensions
+- `reset()` clears all state and allows reuse
+- `ChannelAdjustments` dataclass defaults and initialization
 
 ---
 
