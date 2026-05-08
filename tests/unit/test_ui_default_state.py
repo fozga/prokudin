@@ -44,13 +44,6 @@ class TestSliderDefaults:
         defaults = SliderDefaults()
         assert defaults.intensity == 100
 
-    def test_all_defaults(self) -> None:
-        """Verify all SliderDefaults values together."""
-        defaults = SliderDefaults()
-        assert defaults.brightness == 0
-        assert defaults.contrast == 0
-        assert defaults.intensity == 100
-
     def test_custom_brightness(self) -> None:
         """Verify brightness can be customized."""
         defaults = SliderDefaults(brightness=50)
@@ -88,6 +81,26 @@ class TestSliderDefaults:
         """Verify zero intensity is allowed."""
         defaults = SliderDefaults(intensity=0)
         assert defaults.intensity == 0
+
+    def test_out_of_range_values_accepted(self) -> None:
+        """Verify dataclass accepts out-of-range values (no validation at this layer).
+
+        Note: UI layer enforces ranges (brightness/contrast: -100 to 100, intensity: 0 to 100).
+        This test documents that SliderDefaults does not validate; constraints are enforced
+        by UI widgets (channel_controller.py) via slider min/max.
+        """
+        # Brightness beyond UI range
+        defaults = SliderDefaults(brightness=-200)
+        assert defaults.brightness == -200
+
+        # Contrast beyond UI range
+        defaults = SliderDefaults(contrast=200)
+        assert defaults.contrast == 200
+
+        # Intensity beyond UI range
+        defaults = SliderDefaults(intensity=150)
+        assert defaults.intensity == 150
+
 
 
 class TestDefaultState:
