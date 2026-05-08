@@ -6,11 +6,13 @@ __pycache__/
 
 .env/
 .venv/
+.venv-test/
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+
 
 .vscode/
 .idea/
@@ -40,6 +42,11 @@ processed_images/
 
 # Check logs
 checks/
+
+# Test and coverage
+.coverage
+htmlcov/
+.pytest_cache/
 
 # Session/runtime state
 config/autosave.json
