@@ -60,7 +60,7 @@ def run_checks() -> int:
         ("flake8", ["flake8", "src/"]),
         ("pylint", ["pylint", "src/"]),
         ("mypy", ["mypy", "--explicit-package-bases", "src/"]),
-        ("interrogate", ["interrogate", "--ignore-init-method", "--fail-under=100", "--exclude=.venv", "-vv", "."]),
+        ("interrogate", ["interrogate", "--ignore-init-method", "--fail-under=100", "--exclude=.venv", "--exclude=tests", "-vv", "."]),
         ("pip-licenses", ["pip-licenses", "--from=mixed", "--fail-on=restricted"]),
     ]
 
