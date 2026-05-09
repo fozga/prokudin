@@ -6,6 +6,8 @@ Usage:
     python3 run_tests.py -v, --verbose      # Show detailed coverage report
     python3 run_tests.py -m core.align      # Run tests for specific module
     python3 run_tests.py -m handlers.channels -v  # Module tests with verbose output
+    python3 run_tests.py --pytest-only      # Run pytest only (no coverage/docs checks)
+    python3 run_tests.py --pytest-only -k "test_align"  # Pytest only with filter
 """
 
 import argparse
@@ -280,6 +282,8 @@ Examples:
   %(prog)s -v                       Run with detailed coverage report
   %(prog)s -m core.align            Run tests for align module only
   %(prog)s -m handlers.channels -v  Run module tests with verbose output
+  %(prog)s --pytest-only            Run pytest directly (visible output, no checks)
+  %(prog)s --pytest-only -k "test_align"  Pytest only, filtered by keyword
         """,
     )
     parser.add_argument(
@@ -289,28 +293,36 @@ Examples:
         help="Show detailed coverage and documentation reports",
     )
     parser.add_argument(
+        "--pytest-only",
+        action="store_true",
+        help="Run pytest directly with visible output (no coverage enforcement or doc checks)",
+    )
+    parser.add_argument(
         "-m",
         "--module",
         type=str,
         help="Run tests for specific module (e.g., core.align, handlers.channels)",
     )
-    parser.add_argument(
-        "pytest_args",
-        nargs="*",
-        help="Additional arguments to pass to pytest",
-    )
 
-    args = parser.parse_args()
+    args, pytest_args = parser.parse_known_args()
 
     try:
         create_venv()
         install_dependencies()
 
+        if args.pytest_only:
+            cmd = [str(PYTHON_EXE), "-m", "pytest"]
+            if args.module:
+                cmd.append(f"tests/unit/test_{args.module.replace('.', '_')}.py")
+            cmd.extend(pytest_args)
+            result = subprocess.run(cmd)
+            sys.exit(result.returncode)
+
         print("\n" + "=" * 60)
         print("TEST COVERAGE REPORT")
         print("=" * 60)
 
-        test_result = run_tests(module=args.module, verbose=args.verbose, args=args.pytest_args)
+        test_result = run_tests(module=args.module, verbose=args.verbose, args=pytest_args)
         doc_result = check_test_docs(module=args.module, verbose=args.verbose)
 
         print("\n" + "=" * 60)
