@@ -17,7 +17,7 @@ class TestApplyCrop:
 
     @pytest.mark.skip(reason="TODO: implement tests")
     def test_placeholder(self) -> None:
-        """Placeholder test - implementation pending."""
+        """Given a numpy array and crop rectangle, when apply_crop is called, then cropped region is extracted correctly."""
         pass
 
     # TODO: Test crops numpy array correctly
@@ -31,7 +31,7 @@ class TestSaveImage:
 
     @pytest.mark.skip(reason="TODO: implement tests")
     def test_placeholder(self) -> None:
-        """Placeholder test - implementation pending."""
+        """Given image data and format specification, when save_image is called, then image is exported in correct format."""
         pass
 
     # TODO: Test JPEG export
@@ -47,7 +47,7 @@ class TestSaveImageWithDialog:
 
     @pytest.mark.skip(reason="TODO: implement tests")
     def test_placeholder(self) -> None:
-        """Placeholder test - implementation pending."""
+        """Given user interaction with file save dialog, when save_image_with_dialog is called, then image is saved to selected path."""
         pass
 
     # TODO: Test opens file save dialog

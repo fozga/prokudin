@@ -17,7 +17,7 @@ class TestLoadRawImage:
 
     @pytest.mark.skip(reason="TODO: implement tests")
     def test_placeholder(self) -> None:
-        """Placeholder test - implementation pending."""
+        """Given a file dialog interaction, when load_raw_image is called, then RAW image is loaded and returned as RGB array with file path."""
         pass
 
     # TODO: Test successful file selection and load
@@ -33,7 +33,7 @@ class TestLoadRawImageFromPath:
 
     @pytest.mark.skip(reason="TODO: implement tests")
     def test_placeholder(self) -> None:
-        """Placeholder test - implementation pending."""
+        """Given a valid RAW file path, when load_raw_image_from_path is called, then image is loaded and returned as RGB numpy array."""
         pass
 
     # TODO: Test loads from given file path

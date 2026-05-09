@@ -53,15 +53,53 @@ def identical_image_set(
 
 
 class TestAlignImages:
-    """Test suite for align_images() function."""
+    """
+    Test Design Specification: align_images()
+    Module under test: src/core/align.py
+
+    Contract:
+        Aligns green (G) and blue (B) channels to red (R) channel using ORB
+        feature matching and affine transformation. Takes two lists of three images
+        each (grayscale and RGB). Returns aligned versions (grayscale, RGB).
+        Red channel is never transformed. Raises AlignmentError if feature matching
+        or transformation fails.
+
+    Equivalence partitions:
+        EP1  Identical images (no shift needed)        → near-identity transform
+        EP2  Well-aligned images with features         → successful alignment
+        EP3  Images with insufficient features         → skipped (returned as-is)
+        EP4  Images with too few feature matches       → AlignmentError
+        EP5  Different image sizes in same call        → processed independently
+
+    Boundary values:
+        BV1  Exactly 3 images (minimum required)
+        BV2  Red channel index = 0 (never transformed)
+        BV3  Green/blue channel indices = 1, 2 (aligned to red)
+        BV4  Feature match count at threshold (e.g., 4 = minimum for affine)
+
+    Exclusions:
+        - Images with degenerate geometry (all-black, all-white)
+        - Very small images (<32x32)
+        - Mismatched sizes between grayscale and RGB versions
+        - Non-OpenCV-compatible dtypes (tested at caller's responsibility)
+
+    Constraints:
+        - ORB detector and affine transforms are from cv2 (OpenCV)
+        - Output shares input shape and dtype
+        - Interpolation in warpAffine may shift border pixels by ±1
+    """
 
     def test_identical_images_produce_minimal_transform(
         self, identical_image_set: tuple[list[np.ndarray], list[np.ndarray]]
     ) -> None:
-        """Test that identical images produce near-identity transformation."""
+        """Given identical grayscale and RGB images, when aligned, then channels remain unchanged within tolerance."""
+        # Arrange
         grayscale_images, rgb_images = identical_image_set
+
+        # Act
         aligned_gray, aligned_rgb = align_images(grayscale_images, rgb_images)
 
+        # Assert
         assert len(aligned_gray) == 3
         assert len(aligned_rgb) == 3
         # Red channel is never transformed
@@ -79,93 +117,129 @@ class TestAlignImages:
             assert mae_gray < 2, f"Grayscale channel {ch} MAE too high: {mae_gray}"
             assert mae_rgb < 2, f"RGB channel {ch} MAE too high: {mae_rgb}"
 
+    @pytest.mark.parametrize("channel_idx", [
+        0,  # BV1: red channel (reference channel, never transformed)
+        1,  # BV2: green channel (aligned to red)
+        2,  # BV3: blue channel (aligned to red)
+    ], ids=["red_channel", "green_channel", "blue_channel"])
     def test_returns_correct_output_shape(
-        self, identical_image_set: tuple[list[np.ndarray], list[np.ndarray]]
+        self, identical_image_set: tuple[list[np.ndarray], list[np.ndarray]], channel_idx: int
     ) -> None:
-        """Test that output shape matches input shape."""
+        """Given input images, when aligned, then output shape matches input shape for each channel."""
         grayscale_images, rgb_images = identical_image_set
         aligned_gray, aligned_rgb = align_images(grayscale_images, rgb_images)
 
-        assert aligned_gray[0].shape == grayscale_images[0].shape
-        assert aligned_gray[1].shape == grayscale_images[1].shape
-        assert aligned_gray[2].shape == grayscale_images[2].shape
-        assert aligned_rgb[0].shape == rgb_images[0].shape
-        assert aligned_rgb[1].shape == rgb_images[1].shape
-        assert aligned_rgb[2].shape == rgb_images[2].shape
+        # Arrange
+        # Act & Assert
+        assert aligned_gray[channel_idx].shape == grayscale_images[channel_idx].shape
+        assert aligned_rgb[channel_idx].shape == rgb_images[channel_idx].shape
 
+    @pytest.mark.parametrize("channel_idx", [
+        0,  # BV1: red channel (reference channel, never transformed)
+        1,  # BV2: green channel (aligned to red)
+        2,  # BV3: blue channel (aligned to red)
+    ], ids=["red_channel", "green_channel", "blue_channel"])
     def test_returns_correct_output_dtype(
-        self, identical_image_set: tuple[list[np.ndarray], list[np.ndarray]]
+        self, identical_image_set: tuple[list[np.ndarray], list[np.ndarray]], channel_idx: int
     ) -> None:
-        """Test that output dtype matches input dtype."""
+        """Given input images with uint8 dtype, when aligned, then output dtype matches input dtype for each channel."""
         grayscale_images, rgb_images = identical_image_set
         aligned_gray, aligned_rgb = align_images(grayscale_images, rgb_images)
 
-        assert aligned_gray[0].dtype == grayscale_images[0].dtype
-        assert aligned_gray[1].dtype == grayscale_images[1].dtype
-        assert aligned_gray[2].dtype == grayscale_images[2].dtype
-        assert aligned_rgb[0].dtype == rgb_images[0].dtype
-        assert aligned_rgb[1].dtype == rgb_images[1].dtype
-        assert aligned_rgb[2].dtype == rgb_images[2].dtype
+        # Arrange
+        # Act & Assert
+        assert aligned_gray[channel_idx].dtype == grayscale_images[channel_idx].dtype
+        assert aligned_rgb[channel_idx].dtype == rgb_images[channel_idx].dtype
 
     def test_red_channel_never_transformed(
         self, identical_image_set: tuple[list[np.ndarray], list[np.ndarray]]
     ) -> None:
-        """Test that red channel (index 0) is always returned unchanged."""
+        """Given images with red channel at index 0, when aligned, then red channel is returned unchanged."""
+        # Arrange
         grayscale_images, rgb_images = identical_image_set
+
+        # Act
         aligned_gray, aligned_rgb = align_images(grayscale_images, rgb_images)
 
-        # Red channel should always be returned as-is
+        # Assert
         np.testing.assert_array_equal(aligned_gray[0], grayscale_images[0])
         np.testing.assert_array_equal(aligned_rgb[0], rgb_images[0])
 
     def test_alignment_output_is_independent_copy(
         self, identical_image_set: tuple[list[np.ndarray], list[np.ndarray]]
     ) -> None:
-        """Test that output arrays are independent copies, not views."""
+        """Given aligned output, when original input is modified, then output remains unaffected."""
+        # Arrange
         grayscale_images, rgb_images = identical_image_set
         aligned_gray, aligned_rgb = align_images(grayscale_images, rgb_images)
 
-        # Modify original
+        # Act
         grayscale_images[0][0, 0] = 255
         rgb_images[0][0, 0] = [255, 255, 255]
 
-        # Aligned should be unaffected
+        # Assert
         assert aligned_gray[0][0, 0] != 255
         assert not np.array_equal(aligned_rgb[0][0, 0], [255, 255, 255])
 
 
 class TestAlignmentError:
-    """Test suite for AlignmentError exception."""
+    """
+    Test Design Specification: AlignmentError exception
+    Module under test: src/core/align.py
+
+    Contract:
+        Custom exception raised by align_images() when feature matching or
+        transformation fails. Subclasses Exception. Preserves message passed
+        to constructor.
+
+    Equivalence partitions:
+        EP1  AlignmentError as type object             → subclass of Exception
+        EP2  AlignmentError instance creation          → can be instantiated
+        EP3  AlignmentError with custom message        → message is preserved
+        EP4  AlignmentError raised and caught          → caught as Exception
+
+    Boundary values:
+        BV1  Empty message string
+        BV2  Long message string (> 256 chars)
+
+    Exclusions:
+        - Custom attributes beyond message
+        - Pickling / unpickling behavior
+        - Inheritance chain beyond Exception
+
+    Constraints:
+        - Pure exception class, no side effects
+    """
 
     def test_alignment_error_is_exception(self) -> None:
-        """Test that AlignmentError is an Exception subclass."""
+        """Given AlignmentError class, when checked, then it is a subclass of Exception."""
         assert issubclass(AlignmentError, Exception)
 
     def test_alignment_error_can_be_instantiated(self) -> None:
-        """Test that AlignmentError can be raised and caught."""
+        """Given AlignmentError class with message, when raised and caught, then instance is created successfully."""
         with pytest.raises(AlignmentError):
             raise AlignmentError("Test error message")
 
     def test_alignment_error_message_preserved(self) -> None:
-        """Test that error message is preserved."""
+        """Given AlignmentError with custom message, when raised, then message is preserved and matchable."""
         error_msg = "Custom error message"
-        try:
+        with pytest.raises(AlignmentError, match=error_msg):
             raise AlignmentError(error_msg)
-        except AlignmentError as e:
-            assert str(e) == error_msg
 
     def test_no_descriptor_silently_skips_alignment(
         self, sample_grayscale_image: np.ndarray, sample_rgb_image: np.ndarray
     ) -> None:
-        """Test that channels with no ORB descriptors (blank images) are skipped and returned unchanged."""
+        """Given blank images without ORB descriptors, when aligned, then they are returned unchanged."""
+        # Arrange
         blank_gray = np.zeros((256, 256), dtype=np.uint8)
         blank_rgb = np.zeros((256, 256, 3), dtype=np.uint8)
-
         grayscale_images = [sample_grayscale_image, blank_gray, blank_gray]
         rgb_images = [sample_rgb_image, blank_rgb, blank_rgb]
 
+        # Act
         aligned_gray, aligned_rgb = align_images(grayscale_images, rgb_images)
-        # Channels with no descriptors should be returned as copies of the original
+
+        # Assert
         np.testing.assert_array_equal(aligned_gray[1], blank_gray)
         np.testing.assert_array_equal(aligned_gray[2], blank_gray)
         np.testing.assert_array_equal(aligned_rgb[1], blank_rgb)
@@ -174,77 +248,108 @@ class TestAlignmentError:
     def test_insufficient_matches_raises_alignment_error(
         self, sample_grayscale_image: np.ndarray, sample_rgb_image: np.ndarray
     ) -> None:
-        """Test that too few feature matches raise AlignmentError."""
-        # Create a mostly blank image with only a tiny amount of content
-        # This should have few enough features to fail the match threshold
+        """Given images with too few feature matches, when aligned, then AlignmentError is raised."""
+        # Arrange
         tiny_feature_gray = np.zeros((256, 256), dtype=np.uint8)
-        tiny_feature_gray[100:110, 100:110] = 255  # Very small feature
-
+        tiny_feature_gray[100:110, 100:110] = 255
         tiny_feature_rgb = np.zeros((256, 256, 3), dtype=np.uint8)
         tiny_feature_rgb[100:110, 100:110] = [255, 255, 255]
-
         grayscale_images = [sample_grayscale_image, tiny_feature_gray, tiny_feature_gray]
         rgb_images = [sample_rgb_image, tiny_feature_rgb, tiny_feature_rgb]
 
+        # Act & Assert
         with pytest.raises(AlignmentError):
             align_images(grayscale_images, rgb_images)
 
     def test_error_message_includes_match_count(
         self, sample_grayscale_image: np.ndarray, sample_rgb_image: np.ndarray
     ) -> None:
-        """Test that error message includes the number of matches found."""
+        """Given insufficient feature matches, when AlignmentError is raised, then error message includes match information."""
+        # Arrange
         tiny_feature_gray = np.zeros((256, 256), dtype=np.uint8)
         tiny_feature_gray[100:110, 100:110] = 255
-
         tiny_feature_rgb = np.zeros((256, 256, 3), dtype=np.uint8)
         tiny_feature_rgb[100:110, 100:110] = [255, 255, 255]
-
         grayscale_images = [sample_grayscale_image, tiny_feature_gray, tiny_feature_gray]
         rgb_images = [sample_rgb_image, tiny_feature_rgb, tiny_feature_rgb]
 
-        try:
+        # Act & Assert
+        with pytest.raises(AlignmentError) as exc_info:
             align_images(grayscale_images, rgb_images)
-            pytest.fail("Expected AlignmentError to be raised")
-        except AlignmentError as e:
-            error_msg = str(e)
-            # Error should mention matches and the threshold (50)
-            assert "matches" in error_msg.lower() or "insufficient" in error_msg.lower()
+        error_msg = str(exc_info.value)
+        assert "matches" in error_msg.lower() or "insufficient" in error_msg.lower()
 
 
 class TestAlignImagesInputValidation:
-    """Test suite for input validation of align_images()."""
+    """
+    Test Design Specification: align_images() input validation
+    Module under test: src/core/align.py
+
+    Contract:
+        Validates input constraints: exactly 3 grayscale images, exactly 3 RGB
+        images. Images can be different sizes. Detects descriptor-less (blank)
+        images and silently skips alignment for those channels.
+
+    Equivalence partitions:
+        EP1  Valid: 3 grayscale + 3 RGB, all feature-rich    → alignment succeeds
+        EP2  Valid: 3 grayscale + 3 RGB, mixed blank+rich    → blanks skipped
+        EP3  Invalid: fewer than 3 grayscale images          → IndexError
+        EP4  Invalid: fewer than 3 RGB images               → IndexError
+        EP5  Valid: different-sized images in same list      → each processed independently
+
+    Boundary values:
+        BV1  Exactly 3 images (minimum required)
+        BV2  2 images (below minimum)
+        BV3  Images with zero features (blank, all-black)
+        BV4  Images of different dimensions (e.g., 256x256 vs 128x128)
+
+    Exclusions:
+        - Non-numpy inputs (type validation at caller boundary)
+        - Non-uint8 dtypes (dtype validation at caller boundary)
+        - More than 3 images (not tested; extras ignored)
+
+    Constraints:
+        - Blank images (no detected features) are silently skipped
+        - Different image sizes are independently alignable
+        - IndexError is raised when accessing missing channels
+    """
 
     def test_requires_three_grayscale_images(
         self, sample_grayscale_image: np.ndarray, sample_rgb_image: np.ndarray
     ) -> None:
-        """Test that fewer than 3 grayscale images raises IndexError."""
-        # Use feature-rich images so descriptors[0] is not None and the
-        # loop actually reaches index 2, triggering the IndexError.
+        """Given fewer than 3 grayscale images, when aligned, then IndexError is raised."""
+        # Arrange
         two_gray = [sample_grayscale_image.copy() for _ in range(2)]
         three_rgb = [sample_rgb_image.copy() for _ in range(3)]
 
+        # Act & Assert
         with pytest.raises(IndexError):
             align_images(two_gray, three_rgb)
 
     def test_function_accepts_different_sized_images(
         self, sample_grayscale_image: np.ndarray, sample_rgb_image: np.ndarray
     ) -> None:
-        """Test that different-sized images either align or raise AlignmentError."""
+        """Given images of different sizes, when aligned, then either succeeds with red channel shape or raises AlignmentError.
+
+        Note: This test documents non-deterministic behavior. Scale differences in feature matching may cause alignment
+        to succeed (output matches red channel shape) or fail (AlignmentError). Both outcomes are valid.
+        """
+        # Arrange
         red_gray = sample_grayscale_image  # 256x256
         red_rgb = sample_rgb_image  # 256x256x3
-        # Upscale green/blue to 384x384 — genuinely different dimensions
         large_gray = cv2.resize(sample_grayscale_image, (384, 384))
         large_rgb = cv2.resize(sample_rgb_image, (384, 384))
 
         grayscale = [red_gray, large_gray.copy(), large_gray.copy()]
         rgb = [red_rgb, large_rgb.copy(), large_rgb.copy()]
 
+        # Act & Assert
         try:
             aligned_gray, aligned_rgb = align_images(grayscale, rgb)
-            # If alignment succeeds, outputs must match reference (red) channel's shape
+            # Success path: outputs must match reference channel shape
             for i in range(3):
                 assert aligned_gray[i].shape == red_gray.shape
                 assert aligned_rgb[i].shape == red_rgb.shape
         except AlignmentError:
-            # Scale difference may cause insufficient feature matches
+            # Acceptable failure: scale difference may cause insufficient feature matches
             pass

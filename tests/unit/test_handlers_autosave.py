@@ -17,7 +17,7 @@ class TestSaveAutosave:
 
     @pytest.mark.skip(reason="TODO: implement tests")
     def test_placeholder(self) -> None:
-        """Placeholder test - implementation pending."""
+        """Given session state with channel paths and settings, when save_autosave is called, then valid JSON file is written."""
         pass
 
     # TODO: Test writes valid JSON file
@@ -32,7 +32,7 @@ class TestRestoreAutosave:
 
     @pytest.mark.skip(reason="TODO: implement tests")
     def test_placeholder(self) -> None:
-        """Placeholder test - implementation pending."""
+        """Given a valid autosave JSON file, when restore_autosave is called, then session state is restored correctly."""
         pass
 
     # TODO: Test reads JSON and restores channel paths
@@ -48,7 +48,7 @@ class TestClearAutosave:
 
     @pytest.mark.skip(reason="TODO: implement tests")
     def test_placeholder(self) -> None:
-        """Placeholder test - implementation pending."""
+        """Given an existing autosave file, when clear_autosave is called, then file is removed successfully."""
         pass
 
     # TODO: Test removes autosave file

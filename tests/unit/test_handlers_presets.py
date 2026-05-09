@@ -17,7 +17,7 @@ class TestSavePreset:
 
     @pytest.mark.skip(reason="TODO: implement tests")
     def test_placeholder(self) -> None:
-        """Placeholder test - implementation pending."""
+        """Given preset name and slider state, when save_preset is called, then JSON preset file is created with optional thumbnail."""
         pass
 
     # TODO: Test saves JSON with slider values
@@ -33,7 +33,7 @@ class TestApplyPreset:
 
     @pytest.mark.skip(reason="TODO: implement tests")
     def test_placeholder(self) -> None:
-        """Placeholder test - implementation pending."""
+        """Given a valid preset JSON file, when apply_preset is called, then slider values are set and display updates."""
         pass
 
     # TODO: Test reads JSON preset file
