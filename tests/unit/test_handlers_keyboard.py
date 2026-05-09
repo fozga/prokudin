@@ -197,6 +197,22 @@ class TestHandleKeyPressCombinedView:
         # current_channel is not modified by key A
         assert mock_main_window.state.current_channel == 2
 
+    def test_key_a_when_already_in_combined_view(self, mock_main_window: MagicMock, mock_key_event: MagicMock) -> None:
+        """Verify pressing 'A' when already in combined view remains in combined (no-op)."""
+        mock_main_window.state.show_combined = True
+        mock_main_window.state.current_channel = 0
+        mock_key_event.key.return_value = 65  # Qt.Key.Key_A
+
+        with patch("src.ui.handlers.keyboard.update_main_display"):
+            result = handle_key_press(mock_main_window, mock_key_event)
+
+        assert result is True
+        assert mock_main_window.state.show_combined is True
+        # current_channel remains unchanged
+        assert mock_main_window.state.current_channel == 0
+        # Event is still accepted
+        mock_key_event.accept.assert_called_once()
+
 
 class TestHandleKeyPressUnhandledKeys:
     """Tests for unhandled key behavior."""
