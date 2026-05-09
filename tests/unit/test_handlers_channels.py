@@ -158,16 +158,26 @@ class TestLoadChannel:
         mock_process.assert_called_once_with(mock_main_window, 0, sample_rgb_image)
 
     def test_load_channel_handles_no_file_selected(self, mock_main_window: MagicMock) -> None:
-        """Verify load_channel handles file dialog cancellation gracefully."""
+        """Verify load_channel handles file dialog cancellation without error message.
+
+        When user cancels file dialog, load_raw_image returns (None, None, "No file selected").
+        This is a special case - no error message should be shown to the user (cancellation
+        is not an error). Production code explicitly checks for this string (line 66).
+        """
         with patch("src.ui.handlers.channels.load_raw_image") as mock_load:
             mock_load.return_value = (None, None, "No file selected")
             load_channel(mock_main_window, 0)
 
         assert mock_main_window.state.channel_paths[0] is None
+        # Special case: "No file selected" does not trigger error message
         mock_main_window.status_handler.set_message.assert_not_called()
 
     def test_load_channel_shows_error_on_failure(self, mock_main_window: MagicMock) -> None:
-        """Verify error message is shown on load failure."""
+        """Verify error message is shown when load fails with actual error.
+
+        When file load fails (not cancellation), load_raw_image returns an error message.
+        This message is displayed to inform the user of the problem.
+        """
         err_msg = "Failed to decode RAW file"
 
         with patch("src.ui.handlers.channels.load_raw_image") as mock_load:
