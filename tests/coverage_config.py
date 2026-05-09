@@ -54,7 +54,6 @@ EXCLUDED_MODULES = {
     "src.ui.handlers.channels",
     "src.ui.handlers.image_loading",
     "src.ui.handlers.image_saving",
-    "src.ui.handlers.keyboard",
     "src.ui.handlers.presets",
     "src.ui.widgets.channel_controller",
     "src.ui.widgets.crop_handler",
