@@ -351,6 +351,30 @@ class TestGetChannel:
         # Verify it's a copy by checking the base is None (not a view)
         assert result.base is None or result.base is not svc.processed[0]
 
+    @pytest.mark.xfail(
+        reason="Bug: get_channel() without crop returns internal reference instead of copy, "
+        "so modifying the result corrupts service state. The crop path returns .copy()."
+    )
+    @patch("src.services.processor.align_images")
+    def test_get_channel_without_crop_returns_independent_copy(self, mock_align: MagicMock) -> None:
+        """Verify get_channel without crop returns an independent copy, consistent with crop behavior."""
+        gray_aligned = [
+            np.ones((100, 100), dtype=np.uint8) * 50,
+            np.ones((100, 100), dtype=np.uint8) * 100,
+            np.ones((100, 100), dtype=np.uint8) * 150,
+        ]
+        rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
+        mock_align.return_value = (gray_aligned, rgb_aligned)
+
+        svc = ImageProcessorService()
+        for i in range(3):
+            svc.load_channel_from_array(i, self._make_rgb_image(seed=i))
+
+        result = svc.get_channel(0)
+        original_value = svc.processed[0][0, 0]
+        result[0, 0] = 255
+        assert svc.processed[0][0, 0] == original_value
+
 
 class TestGetCombined:
     """Tests for retrieving combined RGB images."""
@@ -419,8 +443,11 @@ class TestGetCombined:
         assert call_args[0][1] == intensities
 
     @patch("src.services.processor.align_images")
-    def test_get_combined_uses_default_intensities(self, mock_align: MagicMock) -> None:
-        """Verify get_combined uses default intensities [100, 100, 100] and correct channel data."""
+    @patch("src.services.processor.combine_channels")
+    def test_get_combined_uses_default_intensities(
+        self, mock_combine: MagicMock, mock_align: MagicMock
+    ) -> None:
+        """Verify get_combined passes default intensities [100, 100, 100] when none specified."""
         gray_aligned = [
             np.ones((100, 100), dtype=np.uint8) * 50,
             np.ones((100, 100), dtype=np.uint8) * 100,
@@ -428,21 +455,19 @@ class TestGetCombined:
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
         mock_align.return_value = (gray_aligned, rgb_aligned)
+        combined_rgb = np.ones((100, 100, 3), dtype=np.uint8) * 100
+        mock_combine.return_value = combined_rgb
 
         svc = ImageProcessorService()
         for i in range(3):
             svc.load_channel_from_array(i, self._make_rgb_image(seed=i))
 
-        # Call with no intensities (should use defaults [100, 100, 100])
         result = svc.get_combined()
 
-        assert result is not None
-        # Default intensities [100, 100, 100] with no brightness/contrast changes
-        # should preserve the original channel values in combined RGB
-        assert result.shape == (100, 100, 3)
-        assert result[0, 0, 0] == 50   # Red channel unchanged
-        assert result[0, 0, 1] == 100  # Green channel unchanged
-        assert result[0, 0, 2] == 150  # Blue channel unchanged
+        mock_combine.assert_called_once()
+        call_args = mock_combine.call_args
+        assert call_args[0][1] == [100, 100, 100]
+        np.testing.assert_array_equal(result, combined_rgb)
 
     @patch("src.services.processor.align_images")
     @patch("src.services.processor.combine_channels")

@@ -62,12 +62,22 @@ class TestAlignImages:
         grayscale_images, rgb_images = identical_image_set
         aligned_gray, aligned_rgb = align_images(grayscale_images, rgb_images)
 
-        # Identical images should produce very similar outputs (minimal or identity transform)
         assert len(aligned_gray) == 3
         assert len(aligned_rgb) == 3
-        # Red channel should be unchanged
-        np.testing.assert_array_almost_equal(aligned_gray[0], grayscale_images[0])
-        np.testing.assert_array_almost_equal(aligned_rgb[0], rgb_images[0])
+        # Red channel is never transformed
+        np.testing.assert_array_equal(aligned_gray[0], grayscale_images[0])
+        np.testing.assert_array_equal(aligned_rgb[0], rgb_images[0])
+        # Green and blue should be near-identical after aligning identical images;
+        # warpAffine interpolation may shift border pixels by ±1
+        for ch in (1, 2):
+            mae_gray = np.mean(np.abs(
+                aligned_gray[ch].astype(float) - grayscale_images[ch].astype(float)
+            ))
+            mae_rgb = np.mean(np.abs(
+                aligned_rgb[ch].astype(float) - rgb_images[ch].astype(float)
+            ))
+            assert mae_gray < 2, f"Grayscale channel {ch} MAE too high: {mae_gray}"
+            assert mae_rgb < 2, f"RGB channel {ch} MAE too high: {mae_rgb}"
 
     def test_returns_correct_output_shape(
         self, identical_image_set: tuple[list[np.ndarray], list[np.ndarray]]
@@ -147,19 +157,19 @@ class TestAlignmentError:
     def test_no_descriptor_silently_skips_alignment(
         self, sample_grayscale_image: np.ndarray, sample_rgb_image: np.ndarray
     ) -> None:
-        """Test that missing descriptors (blank images) are skipped gracefully."""
-        # Create images where green/blue channels are blank (no features)
-        # This should not raise, just skip alignment for those channels
+        """Test that channels with no ORB descriptors (blank images) are skipped and returned unchanged."""
         blank_gray = np.zeros((256, 256), dtype=np.uint8)
         blank_rgb = np.zeros((256, 256, 3), dtype=np.uint8)
 
         grayscale_images = [sample_grayscale_image, blank_gray, blank_gray]
         rgb_images = [sample_rgb_image, blank_rgb, blank_rgb]
 
-        # Should not raise, just return the images unaligned
         aligned_gray, aligned_rgb = align_images(grayscale_images, rgb_images)
-        assert aligned_gray[1] is not None
-        assert aligned_rgb[1] is not None
+        # Channels with no descriptors should be returned as copies of the original
+        np.testing.assert_array_equal(aligned_gray[1], blank_gray)
+        np.testing.assert_array_equal(aligned_gray[2], blank_gray)
+        np.testing.assert_array_equal(aligned_rgb[1], blank_rgb)
+        np.testing.assert_array_equal(aligned_rgb[2], blank_rgb)
 
     def test_insufficient_matches_raises_alignment_error(
         self, sample_grayscale_image: np.ndarray, sample_rgb_image: np.ndarray
@@ -205,42 +215,36 @@ class TestAlignImagesInputValidation:
     """Test suite for input validation of align_images()."""
 
     def test_requires_three_grayscale_images(
-        self, sample_rgb_image: np.ndarray
+        self, sample_grayscale_image: np.ndarray, sample_rgb_image: np.ndarray
     ) -> None:
-        """Test that function handles list of images with correct length."""
-        # The function expects exactly 3 images in each list
-        # Less than 3 should cause an issue
-        two_gray = [np.zeros((256, 256), dtype=np.uint8) for _ in range(2)]
+        """Test that fewer than 3 grayscale images raises IndexError."""
+        # Use feature-rich images so descriptors[0] is not None and the
+        # loop actually reaches index 2, triggering the IndexError.
+        two_gray = [sample_grayscale_image.copy() for _ in range(2)]
         three_rgb = [sample_rgb_image.copy() for _ in range(3)]
 
-        # This might pass or fail depending on implementation details,
-        # but we test that it doesn't crash unexpectedly
-        try:
+        with pytest.raises(IndexError):
             align_images(two_gray, three_rgb)
-            # If it doesn't raise, that's okay - just check no crash
-        except (IndexError, ValueError, AlignmentError):
-            # These are acceptable errors for invalid input
-            pass
 
-    def test_function_accepts_different_sized_images(self) -> None:
-        """Test alignment with different image sizes."""
-        # Create different sized images
-        img1 = np.random.randint(0, 256, (256, 256), dtype=np.uint8)
-        img2 = np.random.randint(0, 256, (512, 512), dtype=np.uint8)
-        # Add some features
-        img1[100:150, 100:150] = 200
-        img2[100:150, 100:150] = 200
-        img1 = cv2.resize(img1, (256, 256))
-        img2 = cv2.resize(img2, (256, 256))
+    def test_function_accepts_different_sized_images(
+        self, sample_grayscale_image: np.ndarray, sample_rgb_image: np.ndarray
+    ) -> None:
+        """Test that different-sized images either align or raise AlignmentError."""
+        red_gray = sample_grayscale_image  # 256x256
+        red_rgb = sample_rgb_image  # 256x256x3
+        # Upscale green/blue to 384x384 — genuinely different dimensions
+        large_gray = cv2.resize(sample_grayscale_image, (384, 384))
+        large_rgb = cv2.resize(sample_rgb_image, (384, 384))
 
-        grayscale = [img1, img1.copy(), img1.copy()]
-        rgb = [np.stack([img1] * 3, axis=2) for _ in range(3)]
+        grayscale = [red_gray, large_gray.copy(), large_gray.copy()]
+        rgb = [red_rgb, large_rgb.copy(), large_rgb.copy()]
 
-        # Should handle identical images without issue
         try:
             aligned_gray, aligned_rgb = align_images(grayscale, rgb)
-            assert len(aligned_gray) == 3
-            assert len(aligned_rgb) == 3
+            # If alignment succeeds, outputs must match reference (red) channel's shape
+            for i in range(3):
+                assert aligned_gray[i].shape == red_gray.shape
+                assert aligned_rgb[i].shape == red_rgb.shape
         except AlignmentError:
-            # Acceptable if identical images still fail due to feature matching
+            # Scale difference may cause insufficient feature matches
             pass
