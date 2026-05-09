@@ -81,11 +81,6 @@ class TestUpdateMainDisplay:
     def test_dispatches_to_combined_when_show_combined_true(self, mock_main_window: MagicMock) -> None:
         """Verify update_main_display calls show_combined_image when show_combined is True."""
         mock_main_window.state.show_combined = True
-        # Pixmap is already configured in fixture, but ensure it's correct
-        mock_pixmap = MagicMock()
-        mock_pixmap.width.return_value = 100
-        mock_pixmap.height.return_value = 100
-        mock_main_window.viewer.photo.pixmap.return_value = mock_pixmap
 
         with patch("src.ui.handlers.display.show_combined_image") as mock_combined:
             with patch("src.ui.handlers.display.show_single_channel_image"):
@@ -96,11 +91,6 @@ class TestUpdateMainDisplay:
     def test_dispatches_to_single_when_show_combined_false(self, mock_main_window: MagicMock) -> None:
         """Verify update_main_display calls show_single_channel_image when show_combined is False."""
         mock_main_window.state.show_combined = False
-        # Pixmap is already configured in fixture, but ensure it's correct
-        mock_pixmap = MagicMock()
-        mock_pixmap.width.return_value = 100
-        mock_pixmap.height.return_value = 100
-        mock_main_window.viewer.photo.pixmap.return_value = mock_pixmap
 
         with patch("src.ui.handlers.display.show_combined_image"):
             with patch("src.ui.handlers.display.show_single_channel_image") as mock_single:
@@ -133,6 +123,25 @@ class TestUpdateMainDisplay:
                 update_main_display(mock_main_window)
 
         # setSceneRect should not be called if pixmap is None
+        mock_main_window.viewer.setSceneRect.assert_not_called()
+
+    def test_handles_falsy_pixmap(self, mock_main_window: MagicMock) -> None:
+        """Verify update_main_display handles falsy (non-None) pixmap gracefully.
+
+        A QPixmap can be a non-None object but evaluate as falsy (e.g., null QPixmap).
+        This test ensures setSceneRect is not called for falsy pixmaps.
+        """
+        # Create a mock pixmap that is falsy but not None
+        falsy_pixmap = MagicMock()
+        falsy_pixmap.__bool__.return_value = False
+        mock_main_window.viewer.photo.pixmap.return_value = falsy_pixmap
+
+        with patch("src.ui.handlers.display.show_combined_image"):
+            with patch("src.ui.handlers.display.show_single_channel_image"):
+                # Should not raise an error
+                update_main_display(mock_main_window)
+
+        # setSceneRect should not be called if pixmap is falsy
         mock_main_window.viewer.setSceneRect.assert_not_called()
 
     def test_handles_no_photo(self, mock_main_window: MagicMock) -> None:
