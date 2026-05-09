@@ -32,6 +32,7 @@ When you add test coverage for a new module:
    }
    ```
 4. Run: `python3 run_tests.py`
+   - If you discover a bug while writing tests, see the **Testing Philosophy & Bug Handling** section before proceeding.
 5. Coverage is now enforced at 90% minimum on next run
 
 **Note:** Modules NOT in TEST_TO_MODULE_MAP are excluded from enforcement (useful during development).
@@ -55,6 +56,32 @@ When you add test coverage for a new module:
 - Group related tests into classes (e.g., `TestAlignImages`, `TestAlignmentError`)
 - One logical scenario per test method; avoid combining multiple assertions into a single test
 - Use descriptive docstrings explaining what is being tested and why
+
+---
+
+## Testing Philosophy & Bug Handling
+
+If, while writing tests for a module, you discover that the existing implementation contains a bug or incorrect behavior:
+
+1. **Write the test to verify the correct behavior, not the current (broken) behavior.**
+   The test should assert what the function *ought* to do, based on its documented contract (docstring, type hints, spec) — not what it currently does. The test will fail (red). That is intentional and correct.
+
+2. **Do NOT adjust the assertion to make the test pass against the broken code.**
+   A passing test that validates wrong behavior is worse than no test at all — it creates false confidence and hides real defects.
+
+3. **Mark the test with `@pytest.mark.xfail` and add a short reason string** that describes the known bug, for example:
+
+   ```python
+   @pytest.mark.xfail(reason="Bug: apply_adjustments clips before adding brightness, should clip after. See issue #42.")
+   def test_brightness_applied_before_clipping():
+       ...
+   ```
+
+   This keeps CI green while making the defect explicit and trackable.
+
+4. **Inform the user** that a bug report / GitHub issue needs to be created for this defect, and print a short suggested issue title and one-sentence description that the user can copy directly into their issue tracker. Do not create the issue yourself.
+
+5. Update the module's **Notes** field in this plan with a short description of the discovered bug and the issue reference.
 
 ---
 
