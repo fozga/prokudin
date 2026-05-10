@@ -26,6 +26,7 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import numpy as np
 import pytest
 
 # Mock PyQt5 before importing Qt-dependent modules
@@ -307,6 +308,23 @@ class TestSaveAutosave:
         data = json.loads(autosave_file.read_text())
         assert data["crop"] is None
 
+    def test_saves_crop_null_when_rect_not_valid(self, mock_main_window: MagicMock) -> None:
+        """Given: MainWindow.viewer.get_saved_crop_rect returns a rect with isValid() = False
+        When: save_autosave is called
+        Then: crop field is null (non-None rect that fails isValid is treated as no crop)."""
+        # Arrange
+        mock_rect = MagicMock()
+        mock_rect.isValid.return_value = False
+        mock_main_window.viewer.get_saved_crop_rect.return_value = mock_rect
+
+        # Act
+        save_autosave(mock_main_window)
+
+        # Assert
+        autosave_file = Path(mock_main_window.config_dir) / "autosave.json"
+        data = json.loads(autosave_file.read_text())
+        assert data["crop"] is None
+
     def test_logs_warning_on_write_failure(self, mock_main_window: MagicMock) -> None:
         """Given: config_dir is not writable (raises OSError)
         When: save_autosave is called
@@ -514,9 +532,7 @@ class TestRestoreAutosave:
         Then: adjust_channel called for channels 0 and 2."""
         # Arrange
         autosave_file = Path(mock_main_window.config_dir) / "autosave.json"
-        import numpy as np
         mock_main_window.svc.aligned = [np.zeros((100, 100)), None, np.zeros((100, 100))]
-
         data = {
             "version": 1,
             "channels": {
