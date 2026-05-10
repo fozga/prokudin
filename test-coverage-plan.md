@@ -100,7 +100,7 @@ If, while writing tests for a module, you discover that the existing implementat
 | `src/ui/handlers/autosave.py` | 77 | 1 | 35 | 96% | ✅ DONE |
 | `src/ui/handlers/image_loading.py` | 22 | 0 | 6 | 100% | ✅ DONE |
 | `src/ui/handlers/image_saving.py` | 118 | 2 | 65 | 96% | ✅ DONE |
-| `src/ui/handlers/presets.py` | 65 | 65 | — | 0% | PLAN |
+| `src/ui/handlers/presets.py` | 65 | 1 | 28 | 98% | ✅ DONE |
 | `src/ui/qt_utils.py` | 10 | 10 | — | 0% | SKIP |
 | `src/ui/widgets/sliders.py` | 12 | 12 | — | 0% | SKIP |
 | `src/ui/widgets/channel_controller.py` | 136 | 136 | — | 0% | SKIP |
@@ -363,22 +363,28 @@ If, while writing tests for a module, you discover that the existing implementat
 
 ---
 
-### `src/ui/handlers/presets.py`
+### `src/ui/handlers/presets.py` ✅ COMPLETE
 
 | Field | Value |
 |-------|-------|
 | **Priority** | 2 — IO logic (JSON + PNG, mockable) |
-| **Current coverage** | 0% (65 statements) |
-| **Target coverage** | 75%+ |
+| **Current coverage** | 98% (64/65 statements, 27/28 branches) |
+| **Target coverage** | 90%+ |
 | **Test file** | `tests/unit/test_handlers_presets.py` |
-| **Dependencies** | `json`, `pathlib`, `cv2`, `PyQt5.QtWidgets` |
-| **Notes** | Mock file IO and Qt dialogs. Test preset save/load cycle with `tmp_path`. |
+| **Dependencies** | `json`, `pathlib`, `cv2`, `PyQt5.QtWidgets`, `src.ui.handlers.channels` |
+| **Notes** | 32 comprehensive tests covering `save_preset()` and `apply_preset()`. Mocks QInputDialog, QMessageBox, file I/O, and Qt components. Tests name sanitization, JSON serialization, thumbnail handling, signal blocking, and error paths. |
 
 **Key test cases:**
-- `save_preset()` writes JSON with slider values and optional thumbnail
-- `apply_preset()` reads JSON and sets slider values on controllers
-- Empty preset name handled
-- Missing preset file handled gracefully
+- Preset name validation: empty, whitespace, special chars, sanitization
+- JSON structure and slider value persistence across all three channels
+- Thumbnail generation when viewer.photo is valid and valid pixmap
+- Thumbnail skipped when photo is None or pixmap.isNull()
+- File write errors show dialog and return gracefully
+- Preset application blocks signals during slider setting
+- All three channels adjusted after preset applied
+- Missing/invalid preset data handled robustly
+- Text input updates when present, skipped when missing
+- Parametrized tests for non-integer slider values (string, float, None, list, dict)
 
 ---
 
