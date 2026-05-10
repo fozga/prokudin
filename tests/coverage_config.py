@@ -52,7 +52,6 @@ EXCLUDED_MODULES = {
     "src.ui.qt_utils",
     "src.ui.handlers.autosave",
     "src.ui.handlers.image_loading",
-    "src.ui.handlers.image_saving",
     "src.ui.handlers.presets",
     "src.ui.widgets.channel_controller",
     "src.ui.widgets.crop_handler",

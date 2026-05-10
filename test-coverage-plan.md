@@ -99,7 +99,7 @@ If, while writing tests for a module, you discover that the existing implementat
 | `src/ui/handlers/display.py` | 36 | 1 | 12 | 96% | ✅ DONE |
 | `src/ui/handlers/autosave.py` | 77 | 77 | — | 0% | PLAN |
 | `src/ui/handlers/image_loading.py` | 22 | 22 | — | 0% | PLAN |
-| `src/ui/handlers/image_saving.py` | 118 | 118 | — | 0% | PLAN |
+| `src/ui/handlers/image_saving.py` | 118 | 2 | 65 | 96% | ✅ DONE |
 | `src/ui/handlers/presets.py` | 65 | 65 | — | 0% | PLAN |
 | `src/ui/qt_utils.py` | 10 | 10 | — | 0% | SKIP |
 | `src/ui/widgets/sliders.py` | 12 | 12 | — | 0% | SKIP |
@@ -336,23 +336,25 @@ If, while writing tests for a module, you discover that the existing implementat
 
 ---
 
-### `src/ui/handlers/image_saving.py`
+### `src/ui/handlers/image_saving.py` ✅ COMPLETE
 
 | Field | Value |
 |-------|-------|
 | **Priority** | 2 — IO logic (file writes via cv2, mockable) |
-| **Current coverage** | 0% (118 statements) |
+| **Current coverage** | 96% (116/118 statements, 59/65 branches) |
 | **Target coverage** | 75%+ |
 | **Test file** | `tests/unit/test_handlers_image_saving.py` |
 | **Dependencies** | `cv2`, `numpy`, `PyQt5.QtWidgets.QFileDialog` |
-| **Notes** | Mock `cv2.imwrite` and `QFileDialog.getSaveFileName`. Test crop application logic with numpy arrays; verify correct format dispatch. |
+| **Notes** | 58 tests covering all public and private functions. Bug discovered: `_create_combined_image` crashes with a `cv2.merge` shape mismatch when `crop_rect` is set but some channels are `None` — zero placeholder arrays remain at original size while non-None channels are cropped. Tracked with `@pytest.mark.xfail` on `test_partial_channels_with_crop_raises_no_error`. Bug title: `_create_combined_image crashes when crop_rect is set with partial channels`. |
 
 **Key test cases:**
-- `apply_crop()` correctly slices numpy array
-- Save dispatches to correct format based on extension
-- Dialog cancellation handled gracefully
-- Per-channel save creates individual files
-- Combined save produces 3-channel image
+- `apply_crop()` handles None/empty image, None crop, valid crops, clamped boundaries
+- `save_image()` dispatches by format (jpg/png/tif/tiff/bmp), detects format from extension, handles errors
+- `_extract_extension_from_filter()` parses single/multi/uppercase/no-extension filter strings
+- `_get_file_path_info()` handles cancel, filepath with/without extension, filter fallback
+- `_save_cropped_images()` skips None channels, appends channel names, applies crop
+- `_create_combined_image()` handles all-None, partial channels (zeros for missing), crop, dtype
+- `save_image_with_dialog()` guards (no channels, cancel, no format), full/partial/all-fail save, crop on/off
 
 ---
 
