@@ -21,17 +21,10 @@ Unit tests for src.ui.handlers.channels module.
 Tests channel loading, adjustment, and display handlers.
 """
 
-import sys
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-
-# Mock PyQt5 before importing Qt-dependent modules
-sys.modules["PyQt5"] = MagicMock()
-sys.modules["PyQt5.QtCore"] = MagicMock()
-sys.modules["PyQt5.QtGui"] = MagicMock()
-sys.modules["PyQt5.QtWidgets"] = MagicMock()
 
 from src.ui.handlers.channels import (
     _process_channel_image,

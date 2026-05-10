@@ -21,32 +21,9 @@ Unit tests for src.ui.handlers.keyboard module.
 Tests keyboard event handling for channel switching and display modes.
 """
 
-import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-# Mock PyQt5 before importing Qt-dependent modules
-sys.modules["PyQt5"] = MagicMock()
-sys.modules["PyQt5.QtCore"] = MagicMock()
-sys.modules["PyQt5.QtGui"] = MagicMock()
-sys.modules["PyQt5.QtWidgets"] = MagicMock()
-
-# Set up Qt constants
-class MockQt:
-    """Mock Qt enum for key codes."""
-
-    class Key:
-        """Mock Qt.Key enum with key code constants."""
-
-        Key_1 = 49
-        Key_2 = 50
-        Key_3 = 51
-        Key_A = 65
-        Key_B = 66
-        Key_Escape = 16777216
-
-sys.modules["PyQt5.QtCore"].Qt = MockQt()
 
 from src.ui.handlers.keyboard import handle_key_press
 

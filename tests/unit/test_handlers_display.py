@@ -21,17 +21,10 @@ Unit tests for src.ui.handlers.display module.
 Tests display update and image rendering handlers.
 """
 
-import sys
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
-
-# Mock PyQt5 before importing Qt-dependent modules
-sys.modules["PyQt5"] = MagicMock()
-sys.modules["PyQt5.QtCore"] = MagicMock()
-sys.modules["PyQt5.QtGui"] = MagicMock()
-sys.modules["PyQt5.QtWidgets"] = MagicMock()
 
 from src.ui.handlers.display import (
     update_main_display,

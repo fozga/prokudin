@@ -309,108 +309,48 @@ contains a bug or incorrect behaviour:
   APIs).
 - Each test must be independently runnable in any order.
 
----
+### Module-level import mocking
 
-## PyQt5 module mocking
-
-Most modules in `src/ui/` import from PyQt5 at the top level. Since the test
-environment does not require a running Qt event loop, mock the PyQt5 package
-in `sys.modules` **before** importing any module under test.
-
-Place the mock block at the top of the test file, after standard-library
-imports but before any project imports:
+Some modules import heavy or unavailable dependencies at the top of the file
+(e.g. Qt, GPU libraries, optional C extensions). Do NOT mock these by mutating
+`sys.modules` directly at module level:
 
 ```python
-import sys
-from unittest.mock import MagicMock
-
-# Mock PyQt5 before importing Qt-dependent modules
+# ❌ BAD – permanently pollutes sys.modules for the entire process
 sys.modules["PyQt5"] = MagicMock()
-sys.modules["PyQt5.QtCore"] = MagicMock()
-sys.modules["PyQt5.QtGui"] = MagicMock()
-sys.modules["PyQt5.QtWidgets"] = MagicMock()
+sys.modules["rawpy"] = MagicMock()
 ```
 
-If the module under test uses specific Qt constants (e.g. key codes, alignment
-flags), define a mock class with the real integer values:
+This pattern breaks test isolation: other test files running in the same
+process will see the mocked modules, potentially causing silent failures or
+false negatives that are order-dependent and hard to diagnose.
+
+**Preferred approach A – `patch` the specific import path inside the test:**
 
 ```python
-class MockQt:
-    """Mock Qt namespace with required constants."""
-
-    class Key:
-        Key_1 = 49
-        Key_2 = 50
-        Key_Escape = 16777216
-
-sys.modules["PyQt5.QtCore"].Qt = MockQt()
-```
-
-Rules:
-- Always mock all four submodules (`PyQt5`, `QtCore`, `QtGui`, `QtWidgets`)
-  even if the module under test only imports one.
-- Never import the module under test above the mock block — the import will
-  cache the real (missing) PyQt5 and every subsequent import will fail.
-- If a test needs a realistic pixmap or widget, build it with `MagicMock`
-  and set `return_value` / side effects as needed.
-
----
-
-## Mocking best practices
-
-### Where to patch
-
-Always patch at the **import location** — the module where the name is looked
-up — not where it is defined:
-
-```python
-# CORRECT — channels.py does "from .display import update_main_display"
-with patch("src.ui.handlers.channels.update_main_display"):
-    ...
-
-# WRONG — patching the definition site has no effect on the caller
-with patch("src.ui.handlers.display.update_main_display"):
+# ✅ GOOD – patch is applied and reversed within the test scope only
+@patch("src.ui.handlers.image_loading.rawpy")
+def test_something(self, mock_rawpy):
+    mock_rawpy.imread.return_value = ...
     ...
 ```
 
-### Context manager style
-
-Use `with patch(...)` as a context manager rather than decorating the test
-function. This keeps the mock scope visible and avoids long decorator stacks:
+**Preferred approach B – declare in `conftest.py` as a scoped fixture:**
 
 ```python
-with patch("src.ui.handlers.channels.update_main_display"):
-    with patch("src.ui.handlers.channels.update_channel_preview") as mock_preview:
-        _process_channel_image(mock_main_window, 0, sample_rgb_image)
-
-mock_preview.assert_called_once_with(mock_main_window, 0)
+# conftest.py – applies before the affected tests, cleanly removed after
+@pytest.fixture(autouse=True, scope="session")
+def mock_pyqt5():
+    with patch.dict("sys.modules", {
+        "PyQt5": MagicMock(),
+        "PyQt5.QtWidgets": MagicMock(),
+    }):
+        yield
 ```
 
-### Common mock assertions
-
-```python
-mock.assert_called_once()
-mock.assert_called_once_with(expected_arg1, expected_arg2)
-mock.assert_not_called()
-mock.assert_called_with(...)       # only checks the *last* call
-mock.call_count                    # exact number of calls
-```
-
-### Building mock objects with nested attributes
-
-When the module under test accesses chained attributes
-(e.g. `main_window.state.current_channel`), set them on the `MagicMock`:
-
-```python
-main_window = MagicMock()
-main_window.state.current_channel = 0
-main_window.controllers = [MagicMock(), MagicMock(), MagicMock()]
-main_window.controllers[0].sliders = {
-    "brightness": MagicMock(value=MagicMock(return_value=50)),
-}
-```
-
----
+This keeps the mock scoped and reversible regardless of test execution order.
+The `conftest.py` approach is preferred when an unavailable dependency affects
+an entire test subpackage (e.g. all tests under `tests/unit/ui/`).
 
 ## Fixtures
 
