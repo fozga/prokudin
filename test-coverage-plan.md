@@ -18,24 +18,23 @@ python3 run_tests.py  # HTML report is generated at htmlcov/index.html by defaul
 
 ### Coverage Enforcement Workflow
 
-**Coverage targets are managed via TEST_TO_MODULE_MAP in `run_tests.py`.**
+**Coverage targets are managed via `COVERAGE_TARGETS` in `tests/coverage_config.py`.**
 
 When you add test coverage for a new module:
 
 1. Create test file: `tests/unit/test_module_name.py`
 2. Write tests until module reaches ≥90% coverage
-3. **Add to TEST_TO_MODULE_MAP in `run_tests.py`:**
+3. **Update exclusions in `tests/coverage_config.py` (remove your module from `EXCLUDED_MODULES` when ready):**
    ```python
-   test_to_module = {
-       "test_core_align": "src.core.align",  # Example entry
-       "test_module_name": "src.module.path",  # ← Add your module here
+   EXCLUDED_MODULES = {
+      "src.ui.handlers.example_module",  # Remove this entry once coverage is >= 90%
    }
    ```
 4. Run: `python3 run_tests.py`
    - If you discover a bug while writing tests, see the **Testing Philosophy & Bug Handling** section before proceeding.
 5. Coverage is now enforced at 90% minimum on next run
 
-**Note:** Modules NOT in TEST_TO_MODULE_MAP are excluded from enforcement (useful during development).
+**Note:** Coverage targets are auto-discovered from `src/`; modules in `EXCLUDED_MODULES` are skipped from enforcement.
 
 ---
 
@@ -90,14 +89,14 @@ If, while writing tests for a module, you discover that the existing implementat
 | Module | Stmts | Miss | Branch | Cover | Status |
 |--------|-------|------|--------|-------|--------|
 | `src/core/align.py` | 27 | 1 | 10 | 95% | ✅ DONE |
-| `src/core/image_processing.py` | 18 | 18 | — | 0% | ✅ DONE |
+| `src/core/image_processing.py` | 18 | 0 | 9 | 100% | ✅ DONE |
 | `src/services/processor.py` | 84 | 1 | 29 | 97% | ✅ DONE |
-| `src/ui/default_state.py` | 16 | 16 | — | 0% | PLAN |
-| `src/ui/widgets/grid_types.py` | 12 | 12 | — | 0% | PLAN |
-| `src/ui/app_state.py` | 25 | 25 | — | 0% | PLAN |
-| `src/ui/handlers/channels.py` | 51 | 51 | — | 0% | PLAN |
-| `src/ui/handlers/keyboard.py` | 36 | 36 | — | 0% | PLAN |
-| `src/ui/handlers/display.py` | 36 | 36 | — | 0% | PLAN |
+| `src/ui/default_state.py` | 16 | 0 | 4 | 100% | ✅ DONE |
+| `src/ui/widgets/grid_types.py` | 12 | 0 | — | 100% | ✅ DONE |
+| `src/ui/app_state.py` | 25 | 2 | 6 | 90% | ✅ DONE |
+| `src/ui/handlers/channels.py` | 51 | 1 | 16 | 96% | ✅ DONE |
+| `src/ui/handlers/keyboard.py` | 36 | 1 | 10 | 96% | ✅ DONE |
+| `src/ui/handlers/display.py` | 36 | 1 | 12 | 96% | ✅ DONE |
 | `src/ui/handlers/autosave.py` | 77 | 77 | — | 0% | PLAN |
 | `src/ui/handlers/image_loading.py` | 22 | 22 | — | 0% | PLAN |
 | `src/ui/handlers/image_saving.py` | 118 | 118 | — | 0% | PLAN |
@@ -148,7 +147,7 @@ If, while writing tests for a module, you discover that the existing implementat
 | Field | Value |
 |-------|-------|
 | **Priority** | 1 — Pure logic (numpy math, no Qt, no IO) |
-| **Current coverage** | 95%+ (18 statements) |
+| **Current coverage** | 100% (18/18 statements, 9/9 branches) |
 | **Target coverage** | 95%+ |
 | **Test file** | `tests/unit/test_core_image_processing.py` |
 | **Dependencies** | numpy |
@@ -187,12 +186,12 @@ If, while writing tests for a module, you discover that the existing implementat
 
 ---
 
-### `src/ui/default_state.py`
+### `src/ui/default_state.py` ✅ COMPLETE
 
 | Field | Value |
 |-------|-------|
 | **Priority** | 1 — Pure logic (dataclasses, no Qt, no IO) |
-| **Current coverage** | 0% (16 statements) |
+| **Current coverage** | 100% (16/16 statements, 4/4 branches) |
 | **Target coverage** | 100% |
 | **Test file** | `tests/unit/test_ui_default_state.py` |
 | **Dependencies** | None (stdlib only) |
@@ -207,12 +206,12 @@ If, while writing tests for a module, you discover that the existing implementat
 
 ---
 
-### `src/ui/widgets/grid_types.py`
+### `src/ui/widgets/grid_types.py` ✅ COMPLETE
 
 | Field | Value |
 |-------|-------|
 | **Priority** | 1 — Pure constants (no imports, no Qt, no IO) |
-| **Current coverage** | 0% (12 statements) |
+| **Current coverage** | 100% (12/12 statements) |
 | **Target coverage** | 100% |
 | **Test file** | `tests/unit/test_ui_grid_types.py` |
 | **Dependencies** | None |
@@ -225,12 +224,12 @@ If, while writing tests for a module, you discover that the existing implementat
 
 ---
 
-### `src/ui/app_state.py`
+### `src/ui/app_state.py` ✅ COMPLETE
 
 | Field | Value |
 |-------|-------|
 | **Priority** | 2 — Service logic (Qt only in TYPE_CHECKING, testable with mocks) |
-| **Current coverage** | 0% (25 statements) |
+| **Current coverage** | 90% (23/25 statements, 5/6 branches) |
 | **Target coverage** | 90%+ |
 | **Test file** | `tests/unit/test_ui_app_state.py` |
 | **Dependencies** | `src.ui.default_state` (runtime); `PyQt5.QtCore.QRect` (TYPE_CHECKING only) |
@@ -243,12 +242,12 @@ If, while writing tests for a module, you discover that the existing implementat
 
 ---
 
-### `src/ui/handlers/channels.py`
+### `src/ui/handlers/channels.py` ✅ COMPLETE
 
 | Field | Value |
 |-------|-------|
 | **Priority** | 2 — Orchestration logic (Qt only via TYPE_CHECKING for MainWindow) |
-| **Current coverage** | 0% (51 statements) |
+| **Current coverage** | 96% (50/51 statements, 14/16 branches) |
 | **Target coverage** | 80%+ |
 | **Test file** | `tests/unit/test_handlers_channels.py` |
 | **Dependencies** | numpy, `src.ui.handlers.display`, `src.ui.handlers.image_loading` |
@@ -263,12 +262,12 @@ If, while writing tests for a module, you discover that the existing implementat
 
 ---
 
-### `src/ui/handlers/keyboard.py`
+### `src/ui/handlers/keyboard.py` ✅ COMPLETE
 
 | Field | Value |
 |-------|-------|
 | **Priority** | 3 — Helper function in UI layer (needs mock but no QApplication) |
-| **Current coverage** | 0% (36 statements) |
+| **Current coverage** | 96% (35/36 statements, 9/10 branches) |
 | **Target coverage** | 75%+ |
 | **Test file** | `tests/unit/test_handlers_keyboard.py` |
 | **Dependencies** | `PyQt5.QtCore.Qt`, `PyQt5.QtGui.QKeyEvent` |
@@ -281,12 +280,12 @@ If, while writing tests for a module, you discover that the existing implementat
 
 ---
 
-### `src/ui/handlers/display.py`
+### `src/ui/handlers/display.py` ✅ COMPLETE
 
 | Field | Value |
 |-------|-------|
 | **Priority** | 3 — Helper with Qt types (QRectF, QPixmap) |
-| **Current coverage** | 0% (36 statements) |
+| **Current coverage** | 96% (35/36 statements, 11/12 branches) |
 | **Target coverage** | 70%+ |
 | **Test file** | `tests/unit/test_handlers_display.py` |
 | **Dependencies** | `PyQt5.QtCore.QRectF`, `PyQt5.QtGui.QPixmap` |
