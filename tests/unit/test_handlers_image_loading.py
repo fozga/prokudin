@@ -307,9 +307,14 @@ class TestLoadRawImage:
         assert call_args[0][0] is parent
         assert call_args[0][3] == "Sony RAW Files (*.arw)"
 
-    def test_user_cancels_dialog_returns_none_messages(self) -> None:
+    @pytest.mark.parametrize(
+        "filename",
+        ["", None],
+        ids=["user_cancels", "empty_filename"],
+    )
+    def test_no_filename_returns_none_messages(self, filename: str | None) -> None:
         """
-        Given the user cancels the file dialog (selects no file),
+        Given the file dialog returns a falsy filename (cancelled or empty string),
         When load_raw_image is called,
         Then returns (None, None, "No file selected").
         """
@@ -318,26 +323,7 @@ class TestLoadRawImage:
 
         # Act
         with patch("src.ui.handlers.image_loading.QFileDialog.getOpenFileName") as mock_dialog:
-            mock_dialog.return_value = ("", "")
-            result_array, result_path, result_error = load_raw_image(parent)
-
-        # Assert
-        assert result_array is None
-        assert result_path is None
-        assert result_error == "No file selected"
-
-    def test_empty_filename_treated_as_cancelled(self) -> None:
-        """
-        Given the file dialog returns an empty filename string,
-        When load_raw_image is called,
-        Then returns (None, None, "No file selected").
-        """
-        # Arrange
-        parent = MagicMock()
-
-        # Act
-        with patch("src.ui.handlers.image_loading.QFileDialog.getOpenFileName") as mock_dialog:
-            mock_dialog.return_value = ("", "")
+            mock_dialog.return_value = (filename, "")
             result_array, result_path, result_error = load_raw_image(parent)
 
         # Assert
