@@ -97,8 +97,8 @@ If, while writing tests for a module, you discover that the existing implementat
 | `src/ui/handlers/channels.py` | 51 | 1 | 16 | 96% | ✅ DONE |
 | `src/ui/handlers/keyboard.py` | 36 | 1 | 10 | 96% | ✅ DONE |
 | `src/ui/handlers/display.py` | 36 | 1 | 12 | 96% | ✅ DONE |
-| `src/ui/handlers/autosave.py` | 77 | 77 | — | 0% | PLAN |
-| `src/ui/handlers/image_loading.py` | 22 | 22 | — | 0% | PLAN |
+| `src/ui/handlers/autosave.py` | 77 | 1 | 35 | 96% | ✅ DONE |
+| `src/ui/handlers/image_loading.py` | 22 | 0 | 6 | 100% | ✅ DONE |
 | `src/ui/handlers/image_saving.py` | 118 | 2 | 65 | 96% | ✅ DONE |
 | `src/ui/handlers/presets.py` | 65 | 65 | — | 0% | PLAN |
 | `src/ui/qt_utils.py` | 10 | 10 | — | 0% | SKIP |
@@ -298,41 +298,46 @@ If, while writing tests for a module, you discover that the existing implementat
 
 ---
 
-### `src/ui/handlers/autosave.py`
+### `src/ui/handlers/autosave.py` ✅ COMPLETE
 
 | Field | Value |
 |-------|-------|
 | **Priority** | 2 — Service logic with IO (JSON read/write, mockable) |
-| **Current coverage** | 0% (77 statements) |
+| **Current coverage** | 96% (76/77 statements, 32/35 branches) |
 | **Target coverage** | 85%+ |
 | **Test file** | `tests/unit/test_handlers_autosave.py` |
 | **Dependencies** | `json`, `pathlib`, `PyQt5.QtCore.QRect` |
-| **Notes** | Uses `tmp_path` fixture for file IO. Mock the MainWindow; test JSON serialization/deserialization of session state. QRect can be patched. |
+| **Notes** | 26 comprehensive tests covering save_autosave(), restore_autosave(), clear_autosave(), and error handling. Uses tmp_path fixture for file IO testing. |
 
 **Key test cases:**
-- `save_autosave()` writes valid JSON with channel paths and slider values
-- `restore_autosave()` reads JSON and restores state correctly
+- `save_autosave()` writes valid JSON with version, channel paths, slider values
+- `restore_autosave()` loads JSON and restores state correctly
 - `clear_autosave()` removes the autosave file
 - Handles missing/corrupt autosave file gracefully
+- Crop rect serialization and restoration (both valid and invalid cases)
+- Slider value updates and signal blocking
+- Channel loading for paths that exist on disk
 
 ---
 
-### `src/ui/handlers/image_loading.py`
+### `src/ui/handlers/image_loading.py` ✅ COMPLETE
 
 | Field | Value |
 |-------|-------|
 | **Priority** | 2 — IO logic (file reads via rawpy, mockable) |
-| **Current coverage** | 0% (22 statements) |
+| **Current coverage** | 100% (22/22 statements, 6/6 branches) |
 | **Target coverage** | 80%+ |
 | **Test file** | `tests/unit/test_handlers_image_loading.py` |
 | **Dependencies** | `rawpy`, `PyQt5.QtWidgets.QFileDialog` |
-| **Notes** | Mock `rawpy.imread` and `QFileDialog.getOpenFileName`. Test successful load returns numpy array, error handling for invalid files. |
+| **Notes** | 15 tests covering load_raw_image() and load_raw_image_from_path(). Mocks rawpy.imread and QFileDialog. Parametrized test covers both cancel and empty-filename cases. |
 
 **Key test cases:**
 - Successful RAW file load returns RGB numpy array and file path
-- File dialog cancelled returns `(None, None, "No file selected")`
-- Invalid/corrupt file returns appropriate error message
-- `load_raw_image_from_path()` works without dialog
+- File dialog cancelled or empty filename returns `(None, None, "No file selected")` (parametrized)
+- Invalid/corrupt/unsupported file returns appropriate error message
+- `load_raw_image_from_path()` works without dialog; covers FileNotFoundError, PermissionError, LibRawFileUnsupportedError, LibRawIOError
+- Postprocess called with correct parameters (use_camera_wb=True, no_auto_bright=True, output_bps=8)
+- Boundary: 1x1x3 and 4000x3000x3 image shapes handled correctly
 
 ---
 
