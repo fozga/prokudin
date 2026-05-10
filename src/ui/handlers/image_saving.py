@@ -124,14 +124,10 @@ def _create_combined_image(
     if img_shape is None:
         return None
 
-    r_channel = np.zeros(img_shape, dtype=np.uint8)
-    g_channel = np.zeros(img_shape, dtype=np.uint8)
-    b_channel = np.zeros(img_shape, dtype=np.uint8)
-
-    channels = [r_channel, g_channel, b_channel]
-    for i, img in enumerate(aligned_images):
-        if img is not None:
-            channels[i] = apply_crop(img, crop_rect) if crop_rect else img
+    # Crop non-None channels first so placeholder zeros use the post-crop shape.
+    cropped: list = [apply_crop(img, crop_rect) if (img is not None and crop_rect) else img for img in aligned_images]
+    out_shape = next(ch.shape for ch in cropped if ch is not None)
+    channels = [ch if ch is not None else np.zeros(out_shape, dtype=np.uint8) for ch in cropped]
 
     return cv2.merge([channels[2], channels[1], channels[0]])  # pylint: disable=E1101
 

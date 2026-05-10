@@ -980,12 +980,6 @@ class TestCreateCombinedImage:
         BV1  Single non-None channel at index 0 → only R component non-zero
         BV2  crop_rect covering entire image → output same as uncropped
 
-    Known Issues:
-        Bug: when crop_rect is set and some channels are None, the zero-filled
-        placeholder arrays remain at the original image shape while the non-None
-        channels are cropped, causing cv2.merge to raise a size mismatch error.
-        Tracked via xfail test test_partial_channels_with_crop_raises_no_error.
-
     Exclusions:
         - BGR merge order correctness is delegated to cv2.merge; only shape
           and dtype are verified here.
@@ -1082,14 +1076,6 @@ class TestCreateCombinedImage:
         assert result is not None
         assert result.dtype == np.uint8
 
-    @pytest.mark.xfail(
-        reason=(
-            "Bug: when crop_rect is set and some channels are None, the zero-filled "
-            "placeholder channels remain at original image shape while the non-None "
-            "channels are cropped, causing cv2.merge to raise a shape mismatch error. "
-            "Zero channels should be created at the post-crop size."
-        )
-    )
     def test_partial_channels_with_crop_raises_no_error(self) -> None:
         """
         Given channels [img, None, None] and a crop_rect,
