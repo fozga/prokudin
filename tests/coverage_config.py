@@ -50,7 +50,6 @@ def _discover_modules() -> list[str]:
 EXCLUDED_MODULES = {
     "src.ui.main_window",
     "src.ui.qt_utils",
-    "src.ui.handlers.image_loading",
     "src.ui.handlers.image_saving",
     "src.ui.handlers.presets",
     "src.ui.widgets.channel_controller",
