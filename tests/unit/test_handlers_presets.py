@@ -409,6 +409,7 @@ class TestApplyPreset:
         EP4  Channel data missing                 → skips that channel, no error
         EP5  Channel data not a dict              → uses empty dict for that channel
         EP6  Slider value is not int              → value skipped, slider unchanged
+        EP6a Slider value is boolean (True/False) → ACCEPTED as int (bool is int subclass in Python)
         EP7  Slider name not in ctrl.sliders      → value skipped, slider unchanged
         EP8  text_inputs present for slider       → text_input.setText called with string
         EP9  text_inputs missing for slider       → slider set, no text_input call
@@ -561,7 +562,7 @@ class TestApplyPreset:
     ], ids=["string", "float", "none", "list", "dict"])
     def test_non_int_slider_value_skipped(self, mock_main_window: MagicMock, invalid_value: object) -> None:
         """
-        Given a slider value is not an integer,
+        Given a slider value is not an integer (and not a bool),
         When apply_preset is called,
         Then that specific value is skipped, slider unchanged.
         """
@@ -582,6 +583,39 @@ class TestApplyPreset:
             mock_main_window.controllers[0].sliders["brightness"].setValue.assert_not_called()
             # contrast (valid int) still set
             mock_main_window.controllers[0].sliders["contrast"].setValue.assert_called_with(30)
+
+    @pytest.mark.parametrize("bool_value, slider_int, text_str", [
+        (True, 1, "True"),
+        (False, 0, "False"),
+    ], ids=["true_as_one", "false_as_zero"])
+    def test_boolean_slider_values_accepted_as_ints(
+        self, mock_main_window: MagicMock, bool_value: bool, slider_int: int, text_str: str
+    ) -> None:
+        """
+        Given a slider value is a boolean (True or False),
+        When apply_preset is called,
+        Then the boolean is accepted (since bool is a subclass of int in Python)
+        and setValue is called with the integer equivalent (True→1, False→0),
+        while setText displays the string representation ("True" or "False").
+        This edge case documents the actual behavior when a preset file contains
+        booleans (e.g., from manual editing or non-standard tooling).
+        """
+        # Arrange
+        preset_data = {
+            "name": "TestPreset",
+            "channels": {
+                "red": {"brightness": bool_value},
+            }
+        }
+
+        with patch("src.ui.handlers.presets.adjust_channel"):
+            # Act
+            apply_preset(mock_main_window, preset_data)
+
+            # Assert
+            # Boolean is accepted by isinstance(value, int) and converted
+            mock_main_window.controllers[0].sliders["brightness"].setValue.assert_called_with(slider_int)
+            mock_main_window.controllers[0].text_inputs["brightness"].setText.assert_called_with(text_str)
 
     def test_unknown_slider_name_skipped(self, mock_main_window: MagicMock) -> None:
         """
