@@ -1,7 +1,6 @@
 """Unit tests for src/ui/handlers/image_saving.py."""
 
 import os
-import sys
 import tempfile
 from unittest.mock import MagicMock, patch
 
@@ -9,11 +8,6 @@ import cv2
 import numpy as np
 import pytest
 
-# Mock PyQt5 before importing Qt-dependent modules
-sys.modules["PyQt5"] = MagicMock()
-sys.modules["PyQt5.QtCore"] = MagicMock()
-sys.modules["PyQt5.QtGui"] = MagicMock()
-sys.modules["PyQt5.QtWidgets"] = MagicMock()
 
 from src.ui.handlers.image_saving import (
     _create_combined_image,

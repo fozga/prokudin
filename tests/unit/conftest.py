@@ -1,4 +1,8 @@
-"""Pytest configuration for tests/unit/: mocks unavailable dependencies before test collection."""
+"""Pytest configuration for tests/unit/: mocks unavailable dependencies before test collection.
+
+The PyQt5 mock is applied at conftest import time (not in pytest_configure) to ensure
+it's active before pytest-cov's coverage tracer instruments Qt-dependent modules.
+"""
 
 from typing import Any
 from unittest.mock import MagicMock, patch
@@ -18,23 +22,21 @@ class _MockQt:
         Key_Escape = 16777216
 
 
-def pytest_configure(config: Any) -> None:
-    """Start PyQt5 sys.modules mock before test collection imports Qt-dependent modules."""
-    mock_qtcore = MagicMock()
-    mock_qtcore.Qt = _MockQt()
-    config._pyqt5_patcher = patch.dict(
-        "sys.modules",
-        {
-            "PyQt5": MagicMock(),
-            "PyQt5.QtCore": mock_qtcore,
-            "PyQt5.QtGui": MagicMock(),
-            "PyQt5.QtWidgets": MagicMock(),
-        },
-    )
-    config._pyqt5_patcher.start()
+# Apply mock immediately at conftest import time, before pytest-cov traces imports
+_mock_qtcore = MagicMock()
+_mock_qtcore.Qt = _MockQt()
+_pyqt5_patcher = patch.dict(
+    "sys.modules",
+    {
+        "PyQt5": MagicMock(),
+        "PyQt5.QtCore": _mock_qtcore,
+        "PyQt5.QtGui": MagicMock(),
+        "PyQt5.QtWidgets": MagicMock(),
+    },
+)
+_pyqt5_patcher.start()
 
 
 def pytest_unconfigure(config: Any) -> None:
     """Stop PyQt5 sys.modules mock after the test session ends."""
-    if hasattr(config, "_pyqt5_patcher"):
-        config._pyqt5_patcher.stop()
+    _pyqt5_patcher.stop()

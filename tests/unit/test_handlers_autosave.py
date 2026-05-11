@@ -22,18 +22,12 @@ Tests session persistence: saving channel paths, slider values, and crop state t
 """
 
 import json
-import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 
-# Mock PyQt5 before importing Qt-dependent modules
-sys.modules["PyQt5"] = MagicMock()
-sys.modules["PyQt5.QtCore"] = MagicMock()
-sys.modules["PyQt5.QtGui"] = MagicMock()
-sys.modules["PyQt5.QtWidgets"] = MagicMock()
 
 from src.ui.handlers.autosave import (
     save_autosave,

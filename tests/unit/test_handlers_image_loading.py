@@ -1,16 +1,10 @@
 """Unit tests for src/ui/handlers/image_loading.py."""
 
-import sys
 from unittest.mock import MagicMock, patch
 
 import numpy as np
 import pytest
 
-# Mock PyQt5 before importing Qt-dependent modules
-sys.modules["PyQt5"] = MagicMock()
-sys.modules["PyQt5.QtCore"] = MagicMock()
-sys.modules["PyQt5.QtGui"] = MagicMock()
-sys.modules["PyQt5.QtWidgets"] = MagicMock()
 
 # Create real exception classes for rawpy (these are what will be caught)
 class LibRawFileUnsupportedError(Exception):
