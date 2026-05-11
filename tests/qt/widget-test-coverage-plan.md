@@ -1,0 +1,334 @@
+# Widget Test Coverage Plan
+
+Supplement to the unit test coverage plan, covering Qt widget components.
+All tests in this plan require `pytest-qt` and run in headless mode (`QT_QPA_PLATFORM=offscreen`).
+
+---
+
+## Folder Structure
+
+```
+tests/
+├── unit/          # existing tests — no Qt, no QApplication required
+├── widget/        # new tests — require QApplication (offscreen)
+│   ├── conftest.py
+│   ├── test_widget_qt_utils.py
+│   ├── test_widget_sliders.py
+│   ├── test_widget_status_bar.py
+│   ├── test_widget_grid_settings_dialog.py
+│   ├── test_widget_preset_panel.py
+│   ├── test_widget_channel_controller.py
+│   ├── test_widget_image_viewer.py
+│   └── test_widget_grid_overlay.py
+└── integration/   # future tests — main_window, smoke tests, cross-component flows
+```
+
+---
+
+## Running Tests
+
+```bash
+# Unit tests only — no Qt needed (fast CI pipeline):
+pytest tests/unit/
+
+# Widget tests — requires Xvfb or offscreen platform:
+QT_QPA_PLATFORM=offscreen pytest tests/qt/
+
+# Full suite:
+QT_QPA_PLATFORM=offscreen pytest tests/unit/ tests/qt/
+
+# Single file:
+QT_QPA_PLATFORM=offscreen pytest tests/qt/test_widget_status_bar.py
+```
+
+---
+
+## Infrastructure Setup
+
+### `tests/qt/conftest.py`
+
+```python
+import pytest
+from PyQt5.QtWidgets import QApplication
+
+@pytest.fixture(scope="session")
+def qapp():
+    """Session-scoped QApplication for all widget tests."""
+    app = QApplication.instance() or QApplication([])
+    yield app
+```
+
+`pytest-qt` creates a `QApplication` automatically via the `qtbot` fixture, but an explicit
+`conftest.py` documents the folder's infrastructure requirements and enables session-scoped setup.
+
+### `pyproject.toml` / `pytest.ini`
+
+```ini
+[pytest]
+markers =
+    unit: No Qt required
+    widget: Requires QApplication (offscreen)
+    integration: Requires full Qt application
+```
+
+### CI — add installation step:
+
+```bash
+pip install pytest-qt
+# Linux CI:
+apt-get install -y xvfb libxkbcommon-x11-0 libgl1
+export QT_QPA_PLATFORM=offscreen
+```
+
+---
+
+## Widget Testing Philosophy
+
+### What to test
+
+- **Internal state** — widget initializes with correct default values
+- **Validation logic** — value clamping, invalid input handling
+- **Qt signals** — widget emits the correct signal on value change (`qtbot.waitSignal`)
+- **Call flow** — widget delegates to service correctly (via mock)
+- **Boundary behaviour** — min/max values, None input, empty state
+
+### What **not** to test
+
+- Pixel-level rendering (appearance, colours, on-screen positions)
+- Animations and visual effects
+- Actual `QPainter.drawLine()` output — test the input calculations, not the graphical output
+
+### Test pattern
+
+```python
+def test_widget_name(qtbot):
+    widget = WidgetName(...)
+    qtbot.addWidget(widget)       # registers widget for cleanup after test
+    # arrange / act / assert
+    assert widget.some_value() == expected
+```
+
+---
+
+## Coverage Summary — widget modules only
+
+| Module | Stmts | Target | Test file | Priority |
+|--------|-------|--------|-----------|----------|
+| `src/ui/qt_utils.py` | 10 | 90%+ | `test_widget_qt_utils.py` | 1 — trivial conversion functions |
+| `src/ui/widgets/sliders.py` | 12 | 90%+ | `test_widget_sliders.py` | 1 — QSlider subclass, simple logic |
+| `src/ui/widgets/status_bar.py` | 27 | 80%+ | `test_widget_status_bar.py` | 1 — QStatusBar wrapper |
+| `src/ui/widgets/grid_settings_dialog.py` | 86 | 75%+ | `test_widget_grid_settings_dialog.py` | 2 — grid configuration dialog |
+| `src/ui/widgets/preset_panel.py` | 98 | 70%+ | `test_widget_preset_panel.py` | 2 — QScrollArea + thumbnail IO |
+| `src/ui/widgets/channel_controller.py` | 136 | 75%+ | `test_widget_channel_controller.py` | 2 — sliders + text validation |
+| `src/ui/widgets/image_viewer.py` | 140 | 60%+ | `test_widget_image_viewer.py` | 3 — QGraphicsView, zoom, pan |
+| `src/ui/widgets/grid_overlay.py` | 193 | 70%+ | `test_widget_grid_overlay.py` | 2 — grid calculations + rendering |
+
+> **Note:** `crop_handler.py` and `main_window.py` are excluded from this plan.
+> `crop_handler.py` requires prior refactoring (extracting geometry logic into `src/core/crop_geometry.py`),
+> after which the pure geometry will move to `tests/unit/` and the Qt integration to `tests/integration/`.
+> `main_window.py` is an integration test candidate only.
+
+---
+
+## Module Plan
+
+---
+
+### `src/ui/qt_utils.py`
+
+| Field | Value |
+|-------|-------|
+| **Priority** | 1 — numpy → QImage conversion functions, trivial with qtbot |
+| **Current coverage** | 0% (10 statements) |
+| **Target coverage** | 90%+ |
+| **Test file** | `tests/qt/test_widget_qt_utils.py` |
+| **Dependencies** | `pytest-qt`, `numpy`, `PyQt5.QtGui.QImage` |
+| **Notes** | Requires QApplication to construct QImage. No business logic beyond dtype/shape conversion. |
+
+**Key test cases:**
+
+- `convert_to_qimage()` with valid 2D grayscale numpy array returns `QImage` with correct dimensions
+- `convert_to_qimage()` with 3D RGB array returns `QImage.Format_RGB888`
+- Array with boundary values (0, 255) — no clipping occurs
+- Invalid array shape — raises exception or returns None (per documented contract)
+
+---
+
+### `src/ui/widgets/sliders.py`
+
+| Field | Value |
+|-------|-------|
+| **Priority** | 1 — QSlider subclass, no external dependencies |
+| **Current coverage** | 0% (12 statements) |
+| **Target coverage** | 90%+ |
+| **Test file** | `tests/qt/test_widget_sliders.py` |
+| **Dependencies** | `pytest-qt`, `PyQt5.QtWidgets` |
+| **Notes** | `ResetSlider` — QSlider subclass with double-click reset. Test default value, reset behaviour, and min/max range. |
+
+**Key test cases:**
+
+- `ResetSlider` initializes with the provided default value
+- `setValue()` and `value()` behave in line with standard QSlider
+- Value is clamped to `[minimum(), maximum()]`
+- Double-click resets value to default (simulated via `qtbot.mouseDClick`)
+- min/max range correctly set by constructor
+
+---
+
+### `src/ui/widgets/status_bar.py`
+
+| Field | Value |
+|-------|-------|
+| **Priority** | 1 — QStatusBar wrapper, the simplest widget in the project |
+| **Current coverage** | 0% (27 statements) |
+| **Target coverage** | 80%+ |
+| **Test file** | `tests/qt/test_widget_status_bar.py` |
+| **Dependencies** | `pytest-qt`, `PyQt5.QtWidgets.QStatusBar` |
+| **Notes** | No business logic — test public API only (set_message, clear, etc.). |
+
+**Key test cases:**
+
+- Widget initializes without errors
+- `set_message(text)` displays text (verified via `findChild` or attribute)
+- `set_message("")` clears the message
+- `set_error(text)` — if present — changes visual state (colour/style)
+- Widget handles long text without crashing
+
+---
+
+### `src/ui/widgets/grid_settings_dialog.py`
+
+| Field | Value |
+|-------|-------|
+| **Priority** | 2 — Grid configuration dialog; internal state testable without rendering |
+| **Current coverage** | 0% (86 statements) |
+| **Target coverage** | 75%+ |
+| **Test file** | `tests/qt/test_widget_grid_settings_dialog.py` |
+| **Dependencies** | `pytest-qt`, `PyQt5.QtWidgets` |
+| **Notes** | Test default values, setters/getters, and signal propagation. Do not test appearance. |
+
+**Key test cases:**
+
+- Dialog initializes with the default grid type
+- Changing grid type via widget updates internal state
+- Changing grid colour propagates to `GridOverlay` (mock)
+- Changing line width — value clamped to allowed range
+- Changing opacity — value within 0–255
+- Dialog emits a signal after each settings change
+
+---
+
+### `src/ui/widgets/preset_panel.py`
+
+| Field | Value |
+|-------|-------|
+| **Priority** | 2 — QScrollArea + thumbnail IO; IO mocked via `unittest.mock` |
+| **Current coverage** | 0% (98 statements) |
+| **Target coverage** | 70%+ |
+| **Test file** | `tests/qt/test_widget_preset_panel.py` |
+| **Dependencies** | `pytest-qt`, `PyQt5.QtWidgets`, `unittest.mock` |
+| **Notes** | Mock `cv2.imread` and file operations. Test preset list logic, not thumbnail rendering. |
+
+**Key test cases:**
+
+- Panel initializes with an empty preset list
+- `add_preset(name, path)` appends item to the list
+- `remove_preset(name)` removes item from the list
+- Clicking a preset emits signal with filename (`qtbot.waitSignal`)
+- Thumbnails loaded via mocked `cv2.imread` — no real IO in test
+- Empty state handled without errors
+
+---
+
+### `src/ui/widgets/channel_controller.py`
+
+| Field | Value |
+|-------|-------|
+| **Priority** | 2 — Sliders + text validation + signals; central UI widget |
+| **Current coverage** | 0% (136 statements) |
+| **Target coverage** | 75%+ |
+| **Test file** | `tests/qt/test_widget_channel_controller.py` |
+| **Dependencies** | `pytest-qt`, `numpy`, `PyQt5.QtWidgets`, `unittest.mock` |
+| **Notes** | Test slider↔text synchronization logic and reset without a real service. `processed_image` mocked as a numpy array. |
+
+**Key test cases:**
+
+- Widget initializes with correct default values (`DefaultState`)
+- Changing slider updates the text field (`_update_text_from_slider`)
+- Typing a value in the text field updates the slider (`_update_slider_from_text`)
+- Out-of-range text input — clamped to min/max
+- Non-numeric text input — restores previous slider value
+- `reset_all_sliders()` restores all sliders to default values
+- Every change emits `value_changed` (`qtbot.waitSignal`)
+- `clear_image()` clears `processed_image` and sets placeholder
+- `update_preview()` with valid numpy array — no crash
+
+---
+
+### `src/ui/widgets/image_viewer.py`
+
+| Field | Value |
+|-------|-------|
+| **Priority** | 3 — QGraphicsView; test state, not rendering |
+| **Current coverage** | 0% (140 statements) |
+| **Target coverage** | 60%+ |
+| **Test file** | `tests/qt/test_widget_image_viewer.py` |
+| **Dependencies** | `pytest-qt`, `PyQt5.QtWidgets`, `PyQt5.QtGui.QPixmap` |
+| **Notes** | Zoom and pan require a shown widget — use `qtbot.addWidget` + `widget.show()`. Test crop via mocked `CropHandler`. |
+
+**Key test cases:**
+
+- Widget initializes with default zoom=1.0, fit_to_view=True
+- `set_image(pixmap)` — scene contains QGraphicsPixmapItem
+- `clear_image()` — scene contains no pixmap
+- `toggle_view()` — display mode changes
+- Zoom via `wheelEvent` with Ctrl — `zoom` changes up/down
+- `set_crop_mode(True)` delegates to `CropHandler.set_crop_mode` (mock)
+- `get_saved_crop_rect()` returns None before being set
+- `set_saved_crop_rect(rect)` / `get_saved_crop_rect()` round-trip
+
+---
+
+### `src/ui/widgets/grid_overlay.py`
+
+| Field | Value |
+|-------|-------|
+| **Priority** | 2 — State setters/getters testable without QPainter; line calculations tested via mock painter |
+| **Current coverage** | 0% (193 statements) |
+| **Target coverage** | 70%+ |
+| **Test file** | `tests/qt/test_widget_grid_overlay.py` |
+| **Dependencies** | `pytest-qt`, `PyQt5.QtGui`, `unittest.mock` |
+| **Notes** | Test state (enabled, color, opacity, grid_type) without rendering. Test line calculations via mock QPainter — verify `drawLine` arguments. Do not check pixels. |
+
+**Key test cases:**
+
+- `__init__` — default grid type is `GRID_TYPE_3X3`, enabled=True, opacity=128
+- `set_enabled(False)` → `is_enabled()` returns False
+- `set_grid_type(GRID_TYPE_GOLDEN_RATIO)` → `get_grid_type()` returns correct type
+- `set_color(QColor("red"))` — colour stored correctly
+- `set_line_width(2)` → `get_line_width()` returns 2
+- `draw_grid()` with `enabled=False` — `painter.drawLine` never called (mock)
+- `draw_grid()` with zero-width rect — `painter.drawLine` never called
+- `_draw_3x3_grid()` with mock painter — `drawLine` called exactly 4 times (2 vertical + 2 horizontal)
+- `_draw_golden_ratio_grid()` — `drawLine` calls with arguments matching golden ratio positions (0.382/0.618 × dimensions)
+- Unknown grid type — fallback to `_draw_3x3_grid` without exception
+
+---
+
+## Modules Excluded from This Plan
+
+| Module | Reason | Target location |
+|--------|--------|-----------------|
+| `src/ui/widgets/crop_handler.py` | Requires refactoring — geometry separation before tests | geometry → `tests/unit/`, Qt → `tests/integration/` |
+| `src/ui/main_window.py` | System orchestrator — integration test by definition | `tests/integration/` |
+| `src/main.py` | Qt entry point — smoke test only | `tests/integration/` |
+
+---
+
+## Implementation Order
+
+1. **Infrastructure** — `pip install pytest-qt`, `conftest.py`, `widget` marker in `pytest.ini`, CI with `QT_QPA_PLATFORM=offscreen`
+2. **Quick wins** — `qt_utils.py`, `sliders.py`, `status_bar.py` (49 stmts total, no external dependencies)
+3. **Dialogs and panels** — `grid_settings_dialog.py`, `preset_panel.py` (mock IO)
+4. **Central widget** — `channel_controller.py` (highest UX impact)
+5. **Views** — `image_viewer.py`, `grid_overlay.py` (mock QPainter)
