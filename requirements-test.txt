@@ -3,6 +3,9 @@ pytest==8.3.0
 pytest-cov==6.0.0
 coverage[toml]==7.5.0
 
+# Widget testing (requires QApplication / offscreen platform)
+pytest-qt>=4.4.0
+
 # Test documentation
 interrogate==1.5.0
 setuptools==69.1.0
