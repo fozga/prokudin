@@ -17,15 +17,17 @@
 
 """Coverage configuration (single source of truth for coverage targets).
 
-Auto-discovers all modules in src/ and enforces 90% coverage on all except
-those listed in EXCLUDED_MODULES. Coverage is enabled incrementally by removing
-modules from the exclusion list as they gain test coverage.
+Auto-discovers all modules in src/ and enforces separate thresholds:
+- Business logic (non-UI): 90% coverage
+- Qt modules (src/ui): 80% coverage
+Modules in EXCLUDED_MODULES are excluded from enforcement in both suites.
 """
 
 from pathlib import Path
 
-# Coverage enforcement threshold (%)
-COVERAGE_THRESHOLD = 90
+# Coverage enforcement thresholds (%)
+BUSINESS_LOGIC_THRESHOLD = 90
+QT_COVERAGE_THRESHOLD = 80
 
 
 def _discover_modules() -> list[str]:
@@ -46,7 +48,7 @@ def _discover_modules() -> list[str]:
     return modules
 
 
-# Modules excluded from coverage enforcement (add modules here as tests reach 90%)
+# Modules excluded from coverage enforcement (applies to both suites)
 EXCLUDED_MODULES = {
     "src.ui.main_window",
     "src.ui.qt_utils",
@@ -60,9 +62,45 @@ EXCLUDED_MODULES = {
     "src.ui.widgets.status_bar",
 }
 
-# Discover and filter: all modules except those explicitly excluded
-ALL_MODULES = _discover_modules()
-COVERAGE_TARGETS = [m for m in ALL_MODULES if m not in EXCLUDED_MODULES]
 
-# For backwards compatibility and clarity
-TEST_TO_MODULE_MAP = {m.replace("src.", "test_").replace(".", "_"): m for m in COVERAGE_TARGETS}
+def _is_qt_module(module: str) -> bool:
+    """Check if a module is a Qt-related module (in src/ui)."""
+    return module.startswith("src.ui")
+
+
+def get_qt_modules() -> list[str]:
+    """Get all Qt modules (src/ui) excluding those in EXCLUDED_MODULES.
+
+    Returns:
+        List of modules with 80% coverage threshold requirement.
+    """
+    all_modules = _discover_modules()
+    return [m for m in all_modules if _is_qt_module(m) and m not in EXCLUDED_MODULES]
+
+
+def get_business_logic_modules() -> list[str]:
+    """Get all business logic modules (non-ui) excluding those in EXCLUDED_MODULES.
+
+    Returns:
+        List of modules with 90% coverage threshold requirement.
+    """
+    all_modules = _discover_modules()
+    return [m for m in all_modules if not _is_qt_module(m) and m not in EXCLUDED_MODULES]
+
+
+def get_all_modules() -> list[str]:
+    """Get all modules (both Qt and business logic) excluding EXCLUDED_MODULES.
+
+    Returns:
+        Combined list of all modules under coverage enforcement.
+    """
+    return get_qt_modules() + get_business_logic_modules()
+
+
+# Legacy exports for backwards compatibility with existing test code
+ALL_MODULES = _discover_modules()
+COVERAGE_TARGETS = get_all_modules()
+COVERAGE_THRESHOLD = BUSINESS_LOGIC_THRESHOLD
+
+# For backwards compatibility with unit test run_tests.py
+TEST_TO_MODULE_MAP = {m.replace("src.", "test_").replace(".", "_"): m for m in get_business_logic_modules()}

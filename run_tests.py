@@ -56,11 +56,12 @@ def create_venv() -> None:
         venv.create(VENV_DIR, with_pip=True)
 
 
-def install_dependencies(*, qt: bool = False) -> None:
+def install_dependencies(*, suite: str = "all") -> None:
     """Install test and production dependencies if they've changed or are missing.
 
     Args:
-        qt: If True, also install pytest-qt and PyQt5 for Qt testing.
+        suite: Test suite to prepare for: 'all', 'business-logic', or 'qt'.
+               'all' and 'qt' trigger Qt dependency installation.
     """
     if not requirements_changed():
         return
@@ -74,7 +75,7 @@ def install_dependencies(*, qt: bool = False) -> None:
         [str(PYTHON_EXE), "-m", "pip", "install", "-q", "-r", "requirements-test.txt"],
         cwd=Path.cwd(),
     )
-    if qt:
+    if suite in ("all", "qt"):
         print("Installing pytest-qt and PyQt5 for Qt testing...")
         subprocess.check_call(
             [str(PYTHON_EXE), "-m", "pip", "install", "-q", "pytest-qt>=4.4.0", "PyQt5==5.15.10"],
@@ -154,26 +155,26 @@ def extract_interrogate_summary(output: str) -> str:
 
 
 def run_tests(*, module: str | None = None, verbose: bool = False, args: list[str] | None = None) -> int:
-    """Run unit tests with coverage.
+    """Run business logic unit tests with coverage.
 
     Args:
         module: Specific module to test (e.g., "core.align"), or None for all
         verbose: Show detailed coverage report
         args: Additional pytest arguments
 
-    Coverage enforcement: 90% minimum on modules in TEST_TO_MODULE_MAP (from tests/coverage_config.py).
+    Coverage enforcement: 90% minimum on non-UI modules (from coverage_config.py).
     """
     args = args or []
 
     # Import coverage config (single source of truth)
     sys.path.insert(0, str(Path.cwd() / "tests"))
     try:
-        from coverage_config import TEST_TO_MODULE_MAP, COVERAGE_THRESHOLD
+        from coverage_config import get_business_logic_modules, BUSINESS_LOGIC_THRESHOLD
     finally:
         sys.path.pop(0)
 
-    # Coverage targets from coverage_config.py TEST_TO_MODULE_MAP
-    coverage_targets = list(TEST_TO_MODULE_MAP.values())
+    # Coverage targets from coverage_config.py get_business_logic_modules()
+    coverage_targets = get_business_logic_modules()
 
     cmd = [
         str(PYTHON_EXE),
@@ -196,7 +197,7 @@ def run_tests(*, module: str | None = None, verbose: bool = False, args: list[st
     cmd.extend(args)
 
     print(f"\n{'=' * 60}")
-    print("Running unit tests...")
+    print("Running business logic unit tests...")
     print("=" * 60)
 
     try:
@@ -216,7 +217,7 @@ def run_tests(*, module: str | None = None, verbose: bool = False, args: list[st
                 print(f"Code Coverage: {coverage_pct[0]}%")
 
         # Check per-module coverage thresholds
-        coverage_ok, failures = check_module_coverage(result.stdout, coverage_targets, COVERAGE_THRESHOLD)
+        coverage_ok, failures = check_module_coverage(result.stdout, coverage_targets, BUSINESS_LOGIC_THRESHOLD)
         if not coverage_ok:
             print(f"\n⚠️  Per-module coverage check failed:")
             for failure in failures:
@@ -286,27 +287,43 @@ def check_test_docs(module: str | None = None, verbose: bool = False, test_dir: 
 
 
 def run_qt_tests(*, verbose: bool = False, args: list[str] | None = None) -> int:
-    """Run Qt tests from tests/qt/ with coverage.
+    """Run Qt tests from tests/qt/ with coverage enforcement at 80% threshold.
 
-    Sets QT_QPA_PLATFORM=offscreen automatically. Coverage is measured across
-    all of src/ui so progress is visible as Qt tests are added.
+    Sets QT_QPA_PLATFORM=offscreen automatically. Coverage is measured for all
+    modules in src/ui with per-module threshold enforcement.
 
     Args:
         verbose: Show full pytest output and coverage report
         args: Additional pytest arguments
+
+    Coverage enforcement: 80% minimum on modules in src/ui (from coverage_config.py).
     """
     args = args or []
+
+    # Import coverage config (single source of truth)
+    sys.path.insert(0, str(Path.cwd() / "tests"))
+    try:
+        from coverage_config import get_qt_modules, QT_COVERAGE_THRESHOLD
+    finally:
+        sys.path.pop(0)
+
+    # Coverage targets from coverage_config.py get_qt_modules()
+    coverage_targets = get_qt_modules()
 
     cmd = [
         str(PYTHON_EXE),
         "-m",
         "pytest",
         "tests/qt/",
-        "--cov=src.ui",
         "--cov-branch",
         "--cov-report=term-missing",
         "--cov-report=html:htmlcov-qt",
     ]
+
+    # Add coverage targets
+    for target in coverage_targets:
+        cmd.insert(3, f"--cov={target}")
+
     cmd.extend(args)
 
     print(f"\n{'=' * 60}")
@@ -329,6 +346,14 @@ def run_qt_tests(*, verbose: bool = False, args: list[str] | None = None) -> int
             if coverage_pct[0] != "N/A":
                 print(f"Code Coverage: {coverage_pct[0]}%")
 
+        # Check per-module coverage thresholds
+        coverage_ok, failures = check_module_coverage(result.stdout, coverage_targets, QT_COVERAGE_THRESHOLD)
+        if not coverage_ok:
+            print(f"\n⚠️  Per-module Qt coverage check failed:")
+            for failure in failures:
+                print(f"  - {failure}")
+            return 1
+
         if result.returncode != 0 and not verbose:
             print("\n⚠️  Tests failed. Run with -v/--verbose for details.")
 
@@ -345,15 +370,16 @@ def main() -> None:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s                          Run all unit tests with summary output
-  %(prog)s -v                       Run with detailed coverage report
-  %(prog)s -m core.align            Run tests for align module only
-  %(prog)s -m handlers.channels -v  Run module tests with verbose output
-  %(prog)s --pytest-only            Run pytest directly (visible output, no checks)
+  %(prog)s                            Run all tests (unit + Qt) with summary output
+  %(prog)s -v                         Run all tests with detailed coverage report
+  %(prog)s --fail-fast                Run all tests, stop at first failure
+  %(prog)s --suite business-logic     Run business logic unit tests (90 pct threshold)
+  %(prog)s --suite qt                 Run Qt tests (80 pct threshold)
+  %(prog)s --suite business-logic -v  Business logic with detailed coverage
+  %(prog)s -m core.align              Run tests for align module only
+  %(prog)s -m handlers.channels -v    Module tests with verbose output
+  %(prog)s --pytest-only              Run pytest directly (visible output, no checks)
   %(prog)s --pytest-only -k "test_align"  Pytest only, filtered by keyword
-  %(prog)s --qt                 Run Qt tests (offscreen, no display needed)
-  %(prog)s --qt -v              Qt tests with detailed coverage report
-  %(prog)s --qt --pytest-only   Qt pytest with visible output, no checks
         """,
     )
     parser.add_argument(
@@ -371,55 +397,119 @@ Examples:
         "-m",
         "--module",
         type=str,
-        help="Run tests for specific module (e.g., core.align, handlers.channels)",
+        help="Run tests for specific module (e.g., core.align, handlers.channels). Only with unit tests.",
+    )
+    parser.add_argument(
+        "--suite",
+        type=str,
+        choices=["all", "business-logic", "qt"],
+        default="all",
+        help="Test suite to run: 'all' (default) runs both unit and Qt tests, "
+        "'business-logic' runs unit tests only, 'qt' runs Qt tests only",
+    )
+    parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        help="Stop after first test suite fails. Only applies to --suite all.",
     )
     parser.add_argument(
         "--qt",
         action="store_true",
-        help="Run Qt tests from tests/qt/ (QT_QPA_PLATFORM=offscreen set automatically)",
+        help="Deprecated: use --suite qt instead",
     )
 
     args, pytest_args = parser.parse_known_args()
 
+    # Handle deprecated --qt flag
+    if args.qt:
+        args.suite = "qt"
+
     try:
         create_venv()
-        install_dependencies(qt=args.qt)
+        install_dependencies(suite=args.suite)
 
         if args.pytest_only:
-            cmd = [str(PYTHON_EXE), "-m", "pytest"]
-            if args.qt:
-                cmd.append("tests/qt/")
+            if args.suite == "qt":
+                cmd = [str(PYTHON_EXE), "-m", "pytest", "tests/qt/"]
                 env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
                 result = subprocess.run(cmd + pytest_args, env=env)
-            else:
+                sys.exit(result.returncode)
+            elif args.suite == "business-logic":
+                cmd = [str(PYTHON_EXE), "-m", "pytest"]
                 if args.module:
                     cmd.append(f"tests/unit/test_{args.module.replace('.', '_')}.py")
                 result = subprocess.run(cmd + pytest_args)
-            sys.exit(result.returncode)
+                sys.exit(result.returncode)
+            elif args.suite == "all":
+                # Run both suites as separate pytest calls (can't mix in same session due to Qt mocking)
+                unit_cmd = [str(PYTHON_EXE), "-m", "pytest", "tests/unit/"]
+                if args.module:
+                    unit_cmd = [str(PYTHON_EXE), "-m", "pytest", f"tests/unit/test_{args.module.replace('.', '_')}.py"]
+                print("Running business logic pytest...")
+                result = subprocess.run(unit_cmd + pytest_args)
+                if result.returncode != 0 and args.fail_fast:
+                    sys.exit(result.returncode)
+
+                print("\nRunning Qt pytest...")
+                qt_cmd = [str(PYTHON_EXE), "-m", "pytest", "tests/qt/"]
+                env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
+                result = subprocess.run(qt_cmd + pytest_args, env=env)
+                sys.exit(result.returncode)
 
         print("\n" + "=" * 60)
         print("TEST COVERAGE REPORT")
         print("=" * 60)
 
-        if args.qt:
-            test_result = run_qt_tests(verbose=args.verbose, args=pytest_args)
-            doc_result = check_test_docs(verbose=args.verbose, test_dir="tests/qt")
-        else:
+        if args.suite == "all":
+            # Run both test suites
             test_result = run_tests(module=args.module, verbose=args.verbose, args=pytest_args)
             doc_result = check_test_docs(module=args.module, verbose=args.verbose)
+
+            if test_result != 0 and args.fail_fast:
+                print("\n" + "=" * 60)
+                print("SUMMARY")
+                print("=" * 60)
+                print("❌ Business logic tests failed (fail-fast mode)")
+                sys.exit(1)
+
+            qt_result = run_qt_tests(verbose=args.verbose, args=pytest_args)
+            qt_doc_result = check_test_docs(verbose=args.verbose, test_dir="tests/qt")
+
+            results = {
+                "Business Logic Tests": test_result,
+                "Business Logic Docs": doc_result,
+                "Qt Tests": qt_result,
+                "Qt Docs": qt_doc_result,
+            }
+            overall_result = max(test_result, doc_result, qt_result, qt_doc_result)
+        elif args.suite == "business-logic":
+            test_result = run_tests(module=args.module, verbose=args.verbose, args=pytest_args)
+            doc_result = check_test_docs(module=args.module, verbose=args.verbose)
+            results = {
+                "Business Logic Tests": test_result,
+                "Business Logic Docs": doc_result,
+            }
+            overall_result = max(test_result, doc_result)
+        elif args.suite == "qt":
+            test_result = run_qt_tests(verbose=args.verbose, args=pytest_args)
+            doc_result = check_test_docs(verbose=args.verbose, test_dir="tests/qt")
+            results = {
+                "Qt Tests": test_result,
+                "Qt Docs": doc_result,
+            }
+            overall_result = max(test_result, doc_result)
 
         print("\n" + "=" * 60)
         print("SUMMARY")
         print("=" * 60)
 
-        if test_result == 0 and doc_result == 0:
+        if overall_result == 0:
             print("✅ All checks passed!")
             sys.exit(0)
         else:
-            if test_result != 0:
-                print("❌ Code coverage check failed")
-            if doc_result != 0:
-                print("❌ Documentation check failed")
+            for name, result in results.items():
+                if result != 0:
+                    print(f"❌ {name} failed")
             sys.exit(1)
 
     except KeyboardInterrupt:

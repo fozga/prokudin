@@ -26,14 +26,8 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
-          if [ -f requirements-test.txt ]; then pip install -r requirements-test.txt; fi
-
-      - name: Run unit tests with coverage
-        run: |
-          pytest tests/unit/ --cov=src --cov-branch --cov-report=term-missing --cov-report=html:htmlcov
+      - name: Run business logic tests with coverage
+        run: python3 run_tests.py --suite business-logic -v
 
       - name: Upload coverage HTML report
         if: always()
