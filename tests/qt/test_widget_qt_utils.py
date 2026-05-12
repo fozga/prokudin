@@ -83,40 +83,32 @@ class TestConvertToQimage:
         When the function executes,
         Then an empty (null) QImage is returned.
         """
-        # Arrange
-        del qtbot  # ensures QApplication is alive; no widget to register
         # Act
         result = convert_to_qimage(None)
         # Assert
         assert result.isNull()
 
-    def test_grayscale_array_returns_correct_width(self, qtbot: QtBot) -> None:
+    @pytest.mark.parametrize(
+        "shape,expected_width,expected_height",
+        [
+            ((120, 160), 160, 120),  # 2-D grayscale
+            ((120, 160, 3), 160, 120),  # 3-D RGB
+        ],
+        ids=["grayscale", "rgb"],
+    )
+    def test_array_returns_correct_dimensions(self, qtbot: QtBot, shape: tuple, expected_width: int, expected_height: int) -> None:
         """
-        Given a 2-D grayscale uint8 array of shape (120, 160),
+        Given a uint8 array of specified shape (2-D grayscale or 3-D RGB),
         When convert_to_qimage is called,
-        Then the returned QImage has width 160.
+        Then the returned QImage has the correct width and height.
         """
         # Arrange
-        del qtbot
-        image = np.zeros((120, 160), dtype=np.uint8)
+        image = np.zeros(shape, dtype=np.uint8)
         # Act
         result = convert_to_qimage(image)
         # Assert
-        assert result.width() == 160
-
-    def test_grayscale_array_returns_correct_height(self, qtbot: QtBot) -> None:
-        """
-        Given a 2-D grayscale uint8 array of shape (120, 160),
-        When convert_to_qimage is called,
-        Then the returned QImage has height 120.
-        """
-        # Arrange
-        del qtbot
-        image = np.zeros((120, 160), dtype=np.uint8)
-        # Act
-        result = convert_to_qimage(image)
-        # Assert
-        assert result.height() == 120
+        assert result.width() == expected_width
+        assert result.height() == expected_height
 
     def test_grayscale_array_returns_grayscale8_format(self, qtbot: QtBot) -> None:
         """
@@ -125,40 +117,11 @@ class TestConvertToQimage:
         Then the returned QImage has format Format_Grayscale8.
         """
         # Arrange
-        del qtbot
         image = np.zeros((10, 10), dtype=np.uint8)
         # Act
         result = convert_to_qimage(image)
         # Assert
         assert result.format() == QImage.Format_Grayscale8
-
-    def test_rgb_array_returns_correct_width(self, qtbot: QtBot) -> None:
-        """
-        Given a 3-D RGB uint8 array of shape (120, 160, 3),
-        When convert_to_qimage is called,
-        Then the returned QImage has width 160.
-        """
-        # Arrange
-        del qtbot
-        image = np.zeros((120, 160, 3), dtype=np.uint8)
-        # Act
-        result = convert_to_qimage(image)
-        # Assert
-        assert result.width() == 160
-
-    def test_rgb_array_returns_correct_height(self, qtbot: QtBot) -> None:
-        """
-        Given a 3-D RGB uint8 array of shape (120, 160, 3),
-        When convert_to_qimage is called,
-        Then the returned QImage has height 120.
-        """
-        # Arrange
-        del qtbot
-        image = np.zeros((120, 160, 3), dtype=np.uint8)
-        # Act
-        result = convert_to_qimage(image)
-        # Assert
-        assert result.height() == 120
 
     def test_rgb_array_returns_rgb888_format(self, qtbot: QtBot) -> None:
         """
@@ -167,7 +130,6 @@ class TestConvertToQimage:
         Then the returned QImage has format Format_RGB888.
         """
         # Arrange
-        del qtbot
         image = np.zeros((10, 10, 3), dtype=np.uint8)
         # Act
         result = convert_to_qimage(image)
@@ -181,7 +143,6 @@ class TestConvertToQimage:
         Then a valid non-null QImage is returned without raising.
         """
         # Arrange
-        del qtbot
         image = np.array([[128]], dtype=np.uint8)  # BV1
         # Act
         result = convert_to_qimage(image)
@@ -195,7 +156,6 @@ class TestConvertToQimage:
         Then a valid non-null QImage is returned without raising.
         """
         # Arrange
-        del qtbot
         image = np.array([[[255, 0, 0]]], dtype=np.uint8)  # BV2
         # Act
         result = convert_to_qimage(image)
@@ -214,12 +174,71 @@ class TestConvertToQimage:
         """
         Given a grayscale array filled with a boundary pixel value (0 or 255),
         When convert_to_qimage is called,
-        Then a valid non-null QImage is returned.
+        Then a valid non-null QImage is returned with correct pixel data.
         """
         # Arrange
-        del qtbot
         image = np.full((10, 10), pixel_value, dtype=np.uint8)  # EP4
         # Act
         result = convert_to_qimage(image)
         # Assert
         assert not result.isNull()
+        # Verify pixel data is not corrupted by checking first and last pixels.
+        # Use pixelColor() instead of raw memory access: QImage pads scanlines to
+        # 4-byte boundaries, so byteCount() > image.size. pixelColor() handles
+        # stride/padding automatically and correctly interprets grayscale pixels.
+        first_pixel = result.pixelColor(0, 0).red()
+        last_pixel = result.pixelColor(9, 9).red()
+        assert first_pixel == pixel_value
+        assert last_pixel == pixel_value
+
+    def test_non_contiguous_array_slice(self, qtbot: QtBot) -> None:
+        """
+        Given a non-contiguous grayscale array created from a slice,
+        When convert_to_qimage is called,
+        Then a valid QImage is returned (not corrupted or out-of-bounds).
+        """
+        # Arrange: create non-contiguous array via slicing
+        full_array = np.zeros((20, 20), dtype=np.uint8)
+        full_array[::2, ::2] = 128  # every other row and column
+        sliced = full_array[::2, ::2]  # non-contiguous slice
+        assert not sliced.flags['C_CONTIGUOUS']  # verify it's non-contiguous
+        # Act
+        result = convert_to_qimage(sliced)
+        # Assert: result should handle non-contiguous input gracefully
+        assert not result.isNull()
+        assert result.width() == sliced.shape[1]
+        assert result.height() == sliced.shape[0]
+
+    def test_non_contiguous_array_transpose(self, qtbot: QtBot) -> None:
+        """
+        Given a non-contiguous grayscale array created via transpose,
+        When convert_to_qimage is called,
+        Then a valid QImage is returned (not corrupted or out-of-bounds).
+        """
+        # Arrange: create non-contiguous array via transpose
+        original = np.arange(120, dtype=np.uint8).reshape((10, 12))
+        transposed = original.T  # non-contiguous transpose
+        assert not transposed.flags['C_CONTIGUOUS']  # verify it's non-contiguous
+        # Act
+        result = convert_to_qimage(transposed)
+        # Assert: result should handle non-contiguous input gracefully
+        assert not result.isNull()
+        assert result.width() == transposed.shape[1]
+        assert result.height() == transposed.shape[0]
+
+    def test_non_contiguous_array_fortran_order(self, qtbot: QtBot) -> None:
+        """
+        Given a non-contiguous grayscale array in Fortran (column-major) order,
+        When convert_to_qimage is called,
+        Then a valid QImage is returned (not corrupted or out-of-bounds).
+        """
+        # Arrange: create Fortran-order (non-contiguous) array
+        array = np.asfortranarray(np.zeros((10, 10), dtype=np.uint8))
+        assert not array.flags['C_CONTIGUOUS']  # verify it's non-contiguous
+        assert array.flags['F_CONTIGUOUS']  # but it is F-contiguous
+        # Act
+        result = convert_to_qimage(array)
+        # Assert: result should handle F-contiguous input gracefully
+        assert not result.isNull()
+        assert result.width() == array.shape[1]
+        assert result.height() == array.shape[0]
