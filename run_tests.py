@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Cross-platform script to run unit tests with automatic venv management.
+"""Cross-platform script to run unit and Qt tests with automatic venv management.
 
 Usage:
-    python3 run_tests.py                    # Run with summary output
+    python3 run_tests.py                    # Run unit tests with summary output
     python3 run_tests.py -v, --verbose      # Show detailed coverage report
     python3 run_tests.py -m core.align      # Run tests for specific module
     python3 run_tests.py -m handlers.channels -v  # Module tests with verbose output
     python3 run_tests.py --pytest-only      # Run pytest only (no coverage/docs checks)
     python3 run_tests.py --pytest-only -k "test_align"  # Pytest only with filter
+    python3 run_tests.py --qt           # Run Qt tests (QT_QPA_PLATFORM=offscreen set automatically)
+    python3 run_tests.py --qt -v        # Qt tests with detailed coverage report
+    python3 run_tests.py --qt --pytest-only  # Qt pytest only (visible output)
 """
 
 import argparse
@@ -53,8 +56,12 @@ def create_venv() -> None:
         venv.create(VENV_DIR, with_pip=True)
 
 
-def install_dependencies() -> None:
-    """Install test and production dependencies if they've changed or are missing."""
+def install_dependencies(*, qt: bool = False) -> None:
+    """Install test and production dependencies if they've changed or are missing.
+
+    Args:
+        qt: If True, also install pytest-qt and PyQt5 for Qt testing.
+    """
     if not requirements_changed():
         return
 
@@ -67,6 +74,12 @@ def install_dependencies() -> None:
         [str(PYTHON_EXE), "-m", "pip", "install", "-q", "-r", "requirements-test.txt"],
         cwd=Path.cwd(),
     )
+    if qt:
+        print("Installing pytest-qt and PyQt5 for Qt testing...")
+        subprocess.check_call(
+            [str(PYTHON_EXE), "-m", "pip", "install", "-q", "pytest-qt>=4.4.0", "PyQt5==5.15.10"],
+            cwd=Path.cwd(),
+        )
     VENV_MARKER.write_text(get_requirements_hash())
 
 
@@ -220,12 +233,13 @@ def run_tests(*, module: str | None = None, verbose: bool = False, args: list[st
         return 1
 
 
-def check_test_docs(module: str | None = None, verbose: bool = False) -> int:
+def check_test_docs(module: str | None = None, verbose: bool = False, test_dir: str = "tests") -> int:
     """Check that all tests are documented.
 
     Args:
         module: Specific module to check, or None for all
         verbose: Show detailed documentation report
+        test_dir: Directory to check (default "tests"; use "tests/qt" for Qt tests)
 
     Documentation coverage is always enforced at 100% for test files.
     """
@@ -233,8 +247,8 @@ def check_test_docs(module: str | None = None, verbose: bool = False) -> int:
         # Check specific module's test file
         target = f"tests/unit/test_{module.replace('.', '_')}.py"
     else:
-        # Check all test files
-        target = "tests"
+        # Check all test files in the given directory
+        target = test_dir
 
     print(f"\n{'=' * 60}")
     print("Checking test documentation...")
@@ -271,19 +285,75 @@ def check_test_docs(module: str | None = None, verbose: bool = False) -> int:
         return 1
 
 
+def run_qt_tests(*, verbose: bool = False, args: list[str] | None = None) -> int:
+    """Run Qt tests from tests/qt/ with coverage.
+
+    Sets QT_QPA_PLATFORM=offscreen automatically. Coverage is measured across
+    all of src/ui so progress is visible as Qt tests are added.
+
+    Args:
+        verbose: Show full pytest output and coverage report
+        args: Additional pytest arguments
+    """
+    args = args or []
+
+    cmd = [
+        str(PYTHON_EXE),
+        "-m",
+        "pytest",
+        "tests/qt/",
+        "--cov=src.ui",
+        "--cov-branch",
+        "--cov-report=term-missing",
+        "--cov-report=html:htmlcov-qt",
+    ]
+    cmd.extend(args)
+
+    print(f"\n{'=' * 60}")
+    print("Running Qt tests (QT_QPA_PLATFORM=offscreen)...")
+    print("=" * 60)
+
+    env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, env=env)
+
+        if verbose:
+            print(result.stdout)
+            if result.stderr:
+                print(result.stderr)
+        else:
+            test_summary = extract_test_summary(result.stdout)
+            coverage_pct = extract_coverage_summary(result.stdout)
+            print(test_summary)
+            if coverage_pct[0] != "N/A":
+                print(f"Code Coverage: {coverage_pct[0]}%")
+
+        if result.returncode != 0 and not verbose:
+            print("\n⚠️  Tests failed. Run with -v/--verbose for details.")
+
+        return result.returncode
+    except subprocess.CalledProcessError as e:
+        print(f"Error running Qt tests: {e}")
+        return 1
+
+
 def main() -> None:
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Run unit tests with coverage and documentation checks",
+        description="Run unit or Qt tests with coverage and documentation checks",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s                          Run all tests with summary output
+  %(prog)s                          Run all unit tests with summary output
   %(prog)s -v                       Run with detailed coverage report
   %(prog)s -m core.align            Run tests for align module only
   %(prog)s -m handlers.channels -v  Run module tests with verbose output
   %(prog)s --pytest-only            Run pytest directly (visible output, no checks)
   %(prog)s --pytest-only -k "test_align"  Pytest only, filtered by keyword
+  %(prog)s --qt                 Run Qt tests (offscreen, no display needed)
+  %(prog)s --qt -v              Qt tests with detailed coverage report
+  %(prog)s --qt --pytest-only   Qt pytest with visible output, no checks
         """,
     )
     parser.add_argument(
@@ -303,27 +373,40 @@ Examples:
         type=str,
         help="Run tests for specific module (e.g., core.align, handlers.channels)",
     )
+    parser.add_argument(
+        "--qt",
+        action="store_true",
+        help="Run Qt tests from tests/qt/ (QT_QPA_PLATFORM=offscreen set automatically)",
+    )
 
     args, pytest_args = parser.parse_known_args()
 
     try:
         create_venv()
-        install_dependencies()
+        install_dependencies(qt=args.qt)
 
         if args.pytest_only:
             cmd = [str(PYTHON_EXE), "-m", "pytest"]
-            if args.module:
-                cmd.append(f"tests/unit/test_{args.module.replace('.', '_')}.py")
-            cmd.extend(pytest_args)
-            result = subprocess.run(cmd)
+            if args.qt:
+                cmd.append("tests/qt/")
+                env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
+                result = subprocess.run(cmd + pytest_args, env=env)
+            else:
+                if args.module:
+                    cmd.append(f"tests/unit/test_{args.module.replace('.', '_')}.py")
+                result = subprocess.run(cmd + pytest_args)
             sys.exit(result.returncode)
 
         print("\n" + "=" * 60)
         print("TEST COVERAGE REPORT")
         print("=" * 60)
 
-        test_result = run_tests(module=args.module, verbose=args.verbose, args=pytest_args)
-        doc_result = check_test_docs(module=args.module, verbose=args.verbose)
+        if args.qt:
+            test_result = run_qt_tests(verbose=args.verbose, args=pytest_args)
+            doc_result = check_test_docs(verbose=args.verbose, test_dir="tests/qt")
+        else:
+            test_result = run_tests(module=args.module, verbose=args.verbose, args=pytest_args)
+            doc_result = check_test_docs(module=args.module, verbose=args.verbose)
 
         print("\n" + "=" * 60)
         print("SUMMARY")

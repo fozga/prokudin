@@ -1,4 +1,4 @@
-name: Unit Tests with Coverage
+name: Qt Tests with Coverage
 
 on:
   push:
@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 jobs:
-  unit-tests:
+  qt-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,18 +26,24 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install dependencies
+      - name: Install system Qt dependencies
+        run: sudo apt-get install -y libxkbcommon-x11-0 libgl1
+
+      - name: Install Python dependencies
         run: |
           pip install -r requirements.txt
-          if [ -f requirements-test.txt ]; then pip install -r requirements-test.txt; fi
+          pip install -r requirements-test.txt
+          pip install 'pytest-qt>=4.4.0' 'PyQt5==5.15.10'
 
-      - name: Run unit tests with coverage
+      - name: Run Qt tests with coverage
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: |
-          pytest tests/unit/ --cov=src --cov-branch --cov-report=term-missing --cov-report=html:htmlcov
+          pytest tests/qt/ --cov=src.ui --cov-branch --cov-report=term-missing --cov-report=html:htmlcov-qt
 
       - name: Upload coverage HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-html
-          path: htmlcov
+          name: qt-coverage-html
+          path: htmlcov-qt
