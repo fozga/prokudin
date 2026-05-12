@@ -44,12 +44,12 @@ def convert_to_qimage(image: Union[np.ndarray, None]) -> QImage:
         return QImage()
 
     # Ensure C-contiguous layout for QImage compatibility
-    if not image.flags['C_CONTIGUOUS']:
+    if not image.flags["C_CONTIGUOUS"]:
         image = np.ascontiguousarray(image)
 
     if len(image.shape) == 2:  # Grayscale
-        return QImage(bytes(image.tobytes()), image.shape[1], image.shape[0],
-                      image.strides[0], QImage.Format_Grayscale8)
+        fmt = QImage.Format_Grayscale8
+        return QImage(bytes(image.tobytes()), image.shape[1], image.shape[0], image.strides[0], fmt)
 
-    return QImage(bytes(image.tobytes()), image.shape[1], image.shape[0],
-                  image.strides[0], QImage.Format_RGB888)
+    fmt = QImage.Format_RGB888
+    return QImage(bytes(image.tobytes()), image.shape[1], image.shape[0], image.strides[0], fmt)
