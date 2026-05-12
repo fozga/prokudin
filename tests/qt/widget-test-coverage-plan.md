@@ -10,9 +10,9 @@ All tests in this plan require `pytest-qt` and run in headless mode (`QT_QPA_PLA
 ```
 tests/
 ├── unit/          # existing tests — no Qt, no QApplication required
-├── widget/        # new tests — require QApplication (offscreen)
+├── qt/            # widget tests — require QApplication (offscreen)
 │   ├── conftest.py
-│   ├── test_widget_qt_utils.py
+│   ├── test_widget_qt_utils.py      ✅ done
 │   ├── test_widget_sliders.py
 │   ├── test_widget_status_bar.py
 │   ├── test_widget_grid_settings_dialog.py
@@ -112,16 +112,16 @@ def test_widget_name(qtbot):
 
 ## Coverage Summary — widget modules only
 
-| Module | Stmts | Target | Test file | Priority |
-|--------|-------|--------|-----------|----------|
-| `src/ui/qt_utils.py` | 10 | 90%+ | `test_widget_qt_utils.py` | 1 — trivial conversion functions |
-| `src/ui/widgets/sliders.py` | 12 | 90%+ | `test_widget_sliders.py` | 1 — QSlider subclass, simple logic |
-| `src/ui/widgets/status_bar.py` | 27 | 80%+ | `test_widget_status_bar.py` | 1 — QStatusBar wrapper |
-| `src/ui/widgets/grid_settings_dialog.py` | 86 | 75%+ | `test_widget_grid_settings_dialog.py` | 2 — grid configuration dialog |
-| `src/ui/widgets/preset_panel.py` | 98 | 70%+ | `test_widget_preset_panel.py` | 2 — QScrollArea + thumbnail IO |
-| `src/ui/widgets/channel_controller.py` | 136 | 75%+ | `test_widget_channel_controller.py` | 2 — sliders + text validation |
-| `src/ui/widgets/image_viewer.py` | 140 | 60%+ | `test_widget_image_viewer.py` | 3 — QGraphicsView, zoom, pan |
-| `src/ui/widgets/grid_overlay.py` | 193 | 70%+ | `test_widget_grid_overlay.py` | 2 — grid calculations + rendering |
+| Module | Stmts | Coverage | Target | Test file | Priority |
+|--------|-------|----------|--------|-----------|----------|
+| `src/ui/qt_utils.py` | 12 | ✅ 100% | 90%+ | `test_widget_qt_utils.py` | 1 — done |
+| `src/ui/widgets/sliders.py` | 12 | 0% | 90%+ | `test_widget_sliders.py` | 1 — QSlider subclass, simple logic |
+| `src/ui/widgets/status_bar.py` | 27 | 0% | 80%+ | `test_widget_status_bar.py` | 1 — QStatusBar wrapper |
+| `src/ui/widgets/grid_settings_dialog.py` | 86 | 0% | 75%+ | `test_widget_grid_settings_dialog.py` | 2 — grid configuration dialog |
+| `src/ui/widgets/preset_panel.py` | 98 | 0% | 70%+ | `test_widget_preset_panel.py` | 2 — QScrollArea + thumbnail IO |
+| `src/ui/widgets/channel_controller.py` | 136 | 0% | 75%+ | `test_widget_channel_controller.py` | 2 — sliders + text validation |
+| `src/ui/widgets/image_viewer.py` | 140 | 0% | 60%+ | `test_widget_image_viewer.py` | 3 — QGraphicsView, zoom, pan |
+| `src/ui/widgets/grid_overlay.py` | 193 | 0% | 70%+ | `test_widget_grid_overlay.py` | 2 — grid calculations + rendering |
 
 > **Note:** `crop_handler.py` and `main_window.py` are excluded from this plan.
 > `crop_handler.py` requires prior refactoring (extracting geometry logic into `src/core/crop_geometry.py`),
@@ -138,19 +138,12 @@ def test_widget_name(qtbot):
 
 | Field | Value |
 |-------|-------|
-| **Priority** | 1 — numpy → QImage conversion functions, trivial with qtbot |
-| **Current coverage** | 0% (10 statements) |
+| **Priority** | 1 — done |
+| **Current coverage** | ✅ 100% (12 statements, 6 branches) |
 | **Target coverage** | 90%+ |
 | **Test file** | `tests/qt/test_widget_qt_utils.py` |
 | **Dependencies** | `pytest-qt`, `numpy`, `PyQt5.QtGui.QImage` |
-| **Notes** | Requires QApplication to construct QImage. No business logic beyond dtype/shape conversion. |
-
-**Key test cases:**
-
-- `convert_to_qimage()` with valid 2D grayscale numpy array returns `QImage` with correct dimensions
-- `convert_to_qimage()` with 3D RGB array returns `QImage.Format_RGB888`
-- Array with boundary values (0, 255) — no clipping occurs
-- Invalid array shape — raises exception or returns None (per documented contract)
+| **Notes** | Complete. Tests cover None input, grayscale/RGB format, dimensions, minimum sizes, boundary pixel values, and non-contiguous arrays (slice, transpose, F-order). Implementation handles non-contiguous input via `np.ascontiguousarray`. |
 
 ---
 
@@ -327,8 +320,9 @@ def test_widget_name(qtbot):
 
 ## Implementation Order
 
-1. **Infrastructure** — `pip install pytest-qt`, `conftest.py`, `widget` marker in `pytest.ini`, CI with `QT_QPA_PLATFORM=offscreen`
-2. **Quick wins** — `qt_utils.py`, `sliders.py`, `status_bar.py` (49 stmts total, no external dependencies)
-3. **Dialogs and panels** — `grid_settings_dialog.py`, `preset_panel.py` (mock IO)
-4. **Central widget** — `channel_controller.py` (highest UX impact)
-5. **Views** — `image_viewer.py`, `grid_overlay.py` (mock QPainter)
+1. ✅ **Infrastructure** — `pip install pytest-qt`, `conftest.py`, `widget` marker in `pytest.ini`, CI with `QT_QPA_PLATFORM=offscreen`
+2. ✅ **`qt_utils.py`** — 100% coverage, 12 tests, non-contiguous array handling added to implementation
+3. **Quick wins** — `sliders.py`, `status_bar.py` (39 stmts total, no external dependencies)
+4. **Dialogs and panels** — `grid_settings_dialog.py`, `preset_panel.py` (mock IO)
+5. **Central widget** — `channel_controller.py` (highest UX impact)
+6. **Views** — `image_viewer.py`, `grid_overlay.py` (mock QPainter)
