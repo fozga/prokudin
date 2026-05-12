@@ -48,59 +48,55 @@ def _discover_modules() -> list[str]:
     return modules
 
 
-# Modules excluded from coverage enforcement (applies to both suites)
-EXCLUDED_MODULES = {
-    "src.ui.main_window",
+# Qt widget modules with tests in tests/qt/ (80% threshold).
+# These require a live QApplication and are tested with pytest-qt.
+# Move modules here from EXCLUDED_MODULES as Qt tests are added.
+QT_MODULES = {
     "src.ui.qt_utils",
     "src.ui.widgets.channel_controller",
-    "src.ui.widgets.crop_handler",
-    "src.ui.widgets.grid_overlay",
     "src.ui.widgets.grid_settings_dialog",
-    "src.ui.widgets.image_viewer",
     "src.ui.widgets.preset_panel",
     "src.ui.widgets.sliders",
     "src.ui.widgets.status_bar",
 }
 
-
-def _is_qt_module(module: str) -> bool:
-    """Check if a module is a Qt-related module (in src/ui)."""
-    return module.startswith("src.ui")
+# Modules excluded from ALL coverage enforcement (no tests yet).
+# Remove modules from here as tests are added to either tests/unit/ or tests/qt/.
+EXCLUDED_MODULES = {
+    "src.ui.main_window",
+    "src.ui.widgets.crop_handler",
+    "src.ui.widgets.grid_overlay",
+    "src.ui.widgets.image_viewer",
+}
 
 
 def get_qt_modules() -> list[str]:
-    """Get all Qt modules (src/ui) excluding those in EXCLUDED_MODULES.
+    """Get Qt widget modules tested in tests/qt/ (80% threshold).
 
     Returns:
-        List of modules with 80% coverage threshold requirement.
+        Sorted list of Qt widget modules under coverage enforcement.
     """
-    all_modules = _discover_modules()
-    return [m for m in all_modules if _is_qt_module(m) and m not in EXCLUDED_MODULES]
+    return sorted(QT_MODULES)
 
 
 def get_business_logic_modules() -> list[str]:
-    """Get all business logic modules (non-ui) excluding those in EXCLUDED_MODULES.
+    """Get all modules tested in tests/unit/ (90% threshold).
+
+    Includes everything auto-discovered in src/ except Qt widget modules
+    and excluded modules. This covers core, services, handlers, and
+    UI state/types that are tested with mocked Qt.
 
     Returns:
-        List of modules with 90% coverage threshold requirement.
+        Sorted list of business logic modules under coverage enforcement.
     """
     all_modules = _discover_modules()
-    return [m for m in all_modules if not _is_qt_module(m) and m not in EXCLUDED_MODULES]
+    return [m for m in all_modules if m not in QT_MODULES and m not in EXCLUDED_MODULES]
 
 
 def get_all_modules() -> list[str]:
-    """Get all modules (both Qt and business logic) excluding EXCLUDED_MODULES.
+    """Get all modules under coverage enforcement (both suites).
 
     Returns:
         Combined list of all modules under coverage enforcement.
     """
-    return get_qt_modules() + get_business_logic_modules()
-
-
-# Legacy exports for backwards compatibility with existing test code
-ALL_MODULES = _discover_modules()
-COVERAGE_TARGETS = get_all_modules()
-COVERAGE_THRESHOLD = BUSINESS_LOGIC_THRESHOLD
-
-# For backwards compatibility with unit test run_tests.py
-TEST_TO_MODULE_MAP = {m.replace("src.", "test_").replace(".", "_"): m for m in get_business_logic_modules()}
+    return get_business_logic_modules() + get_qt_modules()
