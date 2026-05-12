@@ -60,6 +60,11 @@ class TestResetSlider:
         - Visual appearance, groove, or handle pixel positions.
         - Drag behaviour or continuous value changes during drag.
         - Keyboard navigation (arrow keys, Page Up/Down).
+        - Value reset after double-click: ResetSlider does not reset its own
+          value. The doubleClicked signal is intended to be connected to a reset
+          slot by the parent widget (ChannelController). Signal emission is the
+          full contract of this class; the reset side-effect belongs to the
+          parent and is tested there.
 
     Equivalence partitions:
         EP1  Default instantiation         → valid QSlider, value=0, min=0, max=99
@@ -192,6 +197,7 @@ class TestResetSlider:
         Given a ResetSlider,
         When mouseDoubleClickEvent is called with None,
         Then the doubleClicked signal is emitted and no exception is raised.
+        The signal is emitted before the None guard, confirming emit-before-return ordering.
         """
         # Arrange
         slider = ResetSlider()
@@ -199,19 +205,3 @@ class TestResetSlider:
         # Act + Assert
         with qtbot.waitSignal(slider.doubleClicked, timeout=1000):
             slider.mouseDoubleClickEvent(None)
-
-    def test_double_clicked_signal_is_emitted_before_none_guard(self, qtbot: QtBot) -> None:
-        """
-        Given a ResetSlider,
-        When mouseDoubleClickEvent is called with None,
-        Then doubleClicked is emitted (the signal emit precedes the None check).
-        """
-        # Arrange
-        slider = ResetSlider()
-        qtbot.addWidget(slider)
-        emitted = []
-        slider.doubleClicked.connect(lambda: emitted.append(True))
-        # Act
-        slider.mouseDoubleClickEvent(None)
-        # Assert
-        assert emitted == [True]
