@@ -154,15 +154,19 @@ def extract_interrogate_summary(output: str) -> str:
 
 
 
-def run_tests(*, module: str | None = None, verbose: bool = False, args: list[str] | None = None) -> int:
+def run_tests(*, module: str | None = None, verbose: bool = False, args: list[str] | None = None, suppress_header: bool = False) -> tuple[int, str]:
     """Run business logic unit tests with coverage.
 
     Args:
         module: Specific module to test (e.g., "core.align"), or None for all
         verbose: Show detailed coverage report
         args: Additional pytest arguments
+        suppress_header: Don't print header/summary, just return output
 
     Coverage enforcement: 90% minimum on non-UI modules (from coverage_config.py).
+
+    Returns:
+        Tuple of (returncode, output_text)
     """
     args = args or []
 
@@ -196,42 +200,66 @@ def run_tests(*, module: str | None = None, verbose: bool = False, args: list[st
 
     cmd.extend(args)
 
-    print(f"\n{'=' * 60}")
-    print("Running business logic unit tests...")
-    print("=" * 60)
+    if not suppress_header:
+        print(f"\n{'=' * 60}")
+        print("Running business logic unit tests...")
+        print("=" * 60)
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True)
 
-        # Print output and check coverage per-module
-        if verbose:
-            print(result.stdout)
-            if result.stderr:
-                print(result.stderr)
+        output = ""
+        if suppress_header:
+            # Collect output for later printing
+            if verbose:
+                output = result.stdout
+                if result.stderr:
+                    output += result.stderr
+            else:
+                # Extract and show summary only
+                test_summary = extract_test_summary(result.stdout)
+                coverage_pct = extract_coverage_summary(result.stdout)
+                output = f"{test_summary}\n"
+                if coverage_pct[0] != "N/A":
+                    output += f"Code Coverage: {coverage_pct[0]}%\n"
         else:
-            # Extract and show summary only
-            test_summary = extract_test_summary(result.stdout)
-            coverage_pct = extract_coverage_summary(result.stdout)
-            print(test_summary)
-            if coverage_pct[0] != "N/A":
-                print(f"Code Coverage: {coverage_pct[0]}%")
+            # Print immediately (backwards compat)
+            if verbose:
+                print(result.stdout)
+                if result.stderr:
+                    print(result.stderr)
+            else:
+                # Extract and show summary only
+                test_summary = extract_test_summary(result.stdout)
+                coverage_pct = extract_coverage_summary(result.stdout)
+                print(test_summary)
+                if coverage_pct[0] != "N/A":
+                    print(f"Code Coverage: {coverage_pct[0]}%")
 
         # Check per-module coverage thresholds
         coverage_ok, failures = check_module_coverage(result.stdout, coverage_targets, BUSINESS_LOGIC_THRESHOLD)
         if not coverage_ok:
-            print(f"\n⚠️  Per-module coverage check failed:")
-            for failure in failures:
-                print(f"  - {failure}")
-            return 1
+            if suppress_header:
+                output += f"\n⚠️  Per-module coverage check failed:\n"
+                for failure in failures:
+                    output += f"  - {failure}\n"
+            else:
+                print(f"\n⚠️  Per-module coverage check failed:")
+                for failure in failures:
+                    print(f"  - {failure}")
+            return 1, output
 
         if result.returncode != 0 and not verbose:
-            print("\n⚠️  Tests failed. Run with -v/--verbose for details.")
-            return result.returncode
+            if not suppress_header:
+                print("\n⚠️  Tests failed. Run with -v/--verbose for details.")
+            return result.returncode, output
 
-        return result.returncode
+        return result.returncode, output
     except subprocess.CalledProcessError as e:
-        print(f"Error running tests: {e}")
-        return 1
+        msg = f"Error running tests: {e}"
+        if not suppress_header:
+            print(msg)
+        return 1, msg
 
 
 def check_test_docs(module: str | None = None, verbose: bool = False, test_dir: str = "tests") -> int:
@@ -286,7 +314,7 @@ def check_test_docs(module: str | None = None, verbose: bool = False, test_dir: 
         return 1
 
 
-def run_qt_tests(*, verbose: bool = False, args: list[str] | None = None) -> int:
+def run_qt_tests(*, verbose: bool = False, args: list[str] | None = None, suppress_header: bool = False) -> tuple[int, str]:
     """Run Qt tests from tests/qt/ with coverage enforcement at 80% threshold.
 
     Sets QT_QPA_PLATFORM=offscreen automatically. Coverage is measured for all
@@ -295,8 +323,12 @@ def run_qt_tests(*, verbose: bool = False, args: list[str] | None = None) -> int
     Args:
         verbose: Show full pytest output and coverage report
         args: Additional pytest arguments
+        suppress_header: Don't print header/summary, just return output
 
     Coverage enforcement: 80% minimum on modules in src/ui (from coverage_config.py).
+
+    Returns:
+        Tuple of (returncode, output_text)
     """
     args = args or []
 
@@ -326,40 +358,65 @@ def run_qt_tests(*, verbose: bool = False, args: list[str] | None = None) -> int
 
     cmd.extend(args)
 
-    print(f"\n{'=' * 60}")
-    print("Running Qt tests (QT_QPA_PLATFORM=offscreen)...")
-    print("=" * 60)
+    if not suppress_header:
+        print(f"\n{'=' * 60}")
+        print("Running Qt tests (QT_QPA_PLATFORM=offscreen)...")
+        print("=" * 60)
 
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
 
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, env=env)
 
-        if verbose:
-            print(result.stdout)
-            if result.stderr:
-                print(result.stderr)
+        output = ""
+        if suppress_header:
+            # Collect output for later printing
+            if verbose:
+                output = result.stdout
+                if result.stderr:
+                    output += result.stderr
+            else:
+                test_summary = extract_test_summary(result.stdout)
+                coverage_pct = extract_coverage_summary(result.stdout)
+                output = f"{test_summary}\n"
+                if coverage_pct[0] != "N/A":
+                    output += f"Code Coverage: {coverage_pct[0]}%\n"
         else:
-            test_summary = extract_test_summary(result.stdout)
-            coverage_pct = extract_coverage_summary(result.stdout)
-            print(test_summary)
-            if coverage_pct[0] != "N/A":
-                print(f"Code Coverage: {coverage_pct[0]}%")
+            # Print immediately (backwards compat)
+            if verbose:
+                print(result.stdout)
+                if result.stderr:
+                    print(result.stderr)
+            else:
+                test_summary = extract_test_summary(result.stdout)
+                coverage_pct = extract_coverage_summary(result.stdout)
+                print(test_summary)
+                if coverage_pct[0] != "N/A":
+                    print(f"Code Coverage: {coverage_pct[0]}%")
 
         # Check per-module coverage thresholds
         coverage_ok, failures = check_module_coverage(result.stdout, coverage_targets, QT_COVERAGE_THRESHOLD)
         if not coverage_ok:
-            print(f"\n⚠️  Per-module Qt coverage check failed:")
-            for failure in failures:
-                print(f"  - {failure}")
-            return 1
+            if suppress_header:
+                output += f"\n⚠️  Per-module Qt coverage check failed:\n"
+                for failure in failures:
+                    output += f"  - {failure}\n"
+            else:
+                print(f"\n⚠️  Per-module Qt coverage check failed:")
+                for failure in failures:
+                    print(f"  - {failure}")
+            return 1, output
 
         if result.returncode != 0 and not verbose:
-            print("\n⚠️  Tests failed. Run with -v/--verbose for details.")
+            if not suppress_header:
+                print("\n⚠️  Tests failed. Run with -v/--verbose for details.")
 
-        return result.returncode
+        return result.returncode, output
     except subprocess.CalledProcessError as e:
-        print(f"Error running Qt tests: {e}")
+        msg = f"Error running Qt tests: {e}"
+        if not suppress_header:
+            print(msg)
+        return 1, msg
         return 1
 
 
@@ -461,9 +518,14 @@ Examples:
         print("=" * 60)
 
         if args.suite == "all":
-            # Run both test suites
-            test_result = run_tests(module=args.module, verbose=args.verbose, args=pytest_args)
+            # Run docs first, then tests, then print test results
+            print("\n📋 Documentation Coverage Checks")
+            print("-" * 60)
             doc_result = check_test_docs(module=args.module, verbose=args.verbose)
+            qt_doc_result = check_test_docs(verbose=args.verbose, test_dir="tests/qt")
+
+            # Run tests with suppressed output
+            test_result, test_output = run_tests(module=args.module, verbose=args.verbose, args=pytest_args, suppress_header=True)
 
             if test_result != 0 and args.fail_fast:
                 print("\n" + "=" * 60)
@@ -472,8 +534,13 @@ Examples:
                 print("❌ Business logic tests failed (fail-fast mode)")
                 sys.exit(1)
 
-            qt_result = run_qt_tests(verbose=args.verbose, args=pytest_args)
-            qt_doc_result = check_test_docs(verbose=args.verbose, test_dir="tests/qt")
+            qt_result, qt_output = run_qt_tests(verbose=args.verbose, args=pytest_args, suppress_header=True)
+
+            # Print test results at the end
+            print("\n📊 Test Coverage Results")
+            print("-" * 60)
+            print(test_output.rstrip())
+            print(qt_output.rstrip())
 
             results = {
                 "Business Logic Tests": test_result,
@@ -483,16 +550,32 @@ Examples:
             }
             overall_result = max(test_result, doc_result, qt_result, qt_doc_result)
         elif args.suite == "business-logic":
-            test_result = run_tests(module=args.module, verbose=args.verbose, args=pytest_args)
+            print("\n📋 Documentation Coverage Checks")
+            print("-" * 60)
             doc_result = check_test_docs(module=args.module, verbose=args.verbose)
+
+            test_result, test_output = run_tests(module=args.module, verbose=args.verbose, args=pytest_args, suppress_header=True)
+
+            print("\n📊 Test Coverage Results")
+            print("-" * 60)
+            print(test_output.rstrip())
+
             results = {
                 "Business Logic Tests": test_result,
                 "Business Logic Docs": doc_result,
             }
             overall_result = max(test_result, doc_result)
         elif args.suite == "qt":
-            test_result = run_qt_tests(verbose=args.verbose, args=pytest_args)
+            print("\n📋 Documentation Coverage Checks")
+            print("-" * 60)
             doc_result = check_test_docs(verbose=args.verbose, test_dir="tests/qt")
+
+            test_result, qt_output = run_qt_tests(verbose=args.verbose, args=pytest_args, suppress_header=True)
+
+            print("\n📊 Test Coverage Results")
+            print("-" * 60)
+            print(qt_output.rstrip())
+
             results = {
                 "Qt Tests": test_result,
                 "Qt Docs": doc_result,
