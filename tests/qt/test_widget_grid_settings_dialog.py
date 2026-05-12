@@ -56,6 +56,9 @@ class TestGridSettingsDialogInit:
         - Visual appearance, colours, pixel positions, or font sizes.
         - QPainter or rendered frame content.
         - Fixed-size geometry (headless offscreen constraint).
+        - Downstream rendering behaviour for an unknown grid type: GridSettingsDialog stores
+          any string supplied to the constructor; how grid_overlay or other consumers handle
+          an unrecognized type string is an integration concern out of scope for this file.
 
     Equivalence partitions:
         EP1  current_width in (MIN, MAX)     → both buttons enabled

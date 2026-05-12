@@ -21,8 +21,7 @@ import json
 from pathlib import Path
 
 import pytest
-from PyQt5.QtCore import QEvent
-from PyQt5.QtWidgets import QPushButton
+from PyQt5.QtCore import QEvent, Qt
 from pytestqt.plugin import QtBot
 
 from src.ui.widgets.preset_panel import PresetItem, PresetPanel
@@ -60,6 +59,8 @@ class TestPresetItem:
         - "Unnamed" fallback when preset_data has no "name" key.
         - clicked signal emitted with preset_data when mousePressEvent(None) is called.
         - Signal payload equals the original preset_data dict.
+        - mousePressEvent with a real QMouseEvent (via qtbot.mouseClick on a shown widget)
+          propagates to super() at line 77 — covers the non-None branch.
         - enterEvent(None) updates the stylesheet to the highlight colour.
         - leaveEvent(None) resets the stylesheet to transparent.
         - enterEvent and leaveEvent with a real QEvent do not raise an exception.
@@ -76,16 +77,18 @@ class TestPresetItem:
         EP4  preset_data missing key → name label shows "Unnamed"
 
     Boundary values:
-        BV1  event = None in mousePressEvent → early return after emit
-        BV2  event = real QEvent            → propagates to super()
+        BV1  event = None in mousePressEvent → clicked emitted, early return before super()
+        BV2  event = real QMouseEvent        → clicked emitted, propagates to super()
 
     Mocking strategy:
         No external dependencies require mocking; thumbnail presence is controlled via
         tmp_path.
 
     Constraints:
-        - mousePressEvent is invoked directly (not via qtbot.mouseClick) because the
-          widget need not be visible for the signal-emission path.
+        - mousePressEvent(None) is invoked directly for BV1 tests (widget need not be
+          visible for the signal-emission path).
+        - For BV2 (super() propagation), widget.show() is called before qtbot.mouseClick
+          because Qt's mouse event routing requires the widget to be realized.
         - Layout item indices: 0 = thumb_label, 1 = name_label.
     """
 
@@ -188,6 +191,20 @@ class TestPresetItem:
         # Assert
         assert received == [data]
 
+    def test_mouse_press_real_event_propagates_to_base_class(self, qtbot: QtBot) -> None:
+        """
+        Given a shown PresetItem (BV2: real QMouseEvent via qtbot.mouseClick),
+        When the left mouse button is clicked,
+        Then clicked is emitted and no exception is raised (super().mousePressEvent called).
+        """
+        # Arrange
+        item = PresetItem({"name": "Click Test"}, "nonexistent.png")
+        qtbot.addWidget(item)
+        item.show()
+        # Act + Assert
+        with qtbot.waitSignal(item.clicked, timeout=1000):
+            qtbot.mouseClick(item, Qt.LeftButton)
+
     def test_enter_event_none_applies_highlight_stylesheet(self, qtbot: QtBot) -> None:
         """
         Given a PresetItem with no highlight style,
@@ -274,7 +291,7 @@ class TestPresetPanel:
         - Non-.json files in the directory are skipped.
         - .json files with invalid JSON are skipped without raising.
         - Calling reload_presets() a second time clears old items before repopulating.
-        - Clicking the Save Preset button emits save_requested.
+        - Clicking the Save Preset button emits save_requested (accessed via panel.save_btn).
         - Clicking a PresetItem propagates preset_selected with the preset data.
 
     What is NOT tested:
@@ -303,6 +320,9 @@ class TestPresetPanel:
           them before the stretch at the last position.
         - deleteLater() is asynchronous but takeAt() removes items from the layout
           synchronously, so count() is reliable immediately after reload_presets().
+        - The Save Preset button is accessed via panel.save_btn (stored in __init__) to
+          avoid fragile findChild(QPushButton) lookups that break if PresetItem or any
+          descendant widget later introduces its own QPushButton.
     """
 
     @staticmethod
@@ -427,16 +447,15 @@ class TestPresetPanel:
     def test_save_button_click_emits_save_requested(self, qtbot: QtBot, tmp_path: Path) -> None:
         """
         Given a PresetPanel,
-        When the Save Preset button is clicked,
+        When the Save Preset button (panel.save_btn) is clicked,
         Then save_requested is emitted.
         """
         # Arrange
         panel = PresetPanel(str(tmp_path))
         qtbot.addWidget(panel)
-        save_btn = panel.findChild(QPushButton)
         # Act + Assert
         with qtbot.waitSignal(panel.save_requested, timeout=1000):
-            save_btn.click()
+            panel.save_btn.click()
 
     def test_preset_item_click_emits_preset_selected_with_data(self, qtbot: QtBot, tmp_path: Path) -> None:
         """
