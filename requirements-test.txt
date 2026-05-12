@@ -3,9 +3,6 @@ pytest==8.3.0
 pytest-cov==6.0.0
 coverage[toml]==7.5.0
 
-# Qt testing (PyQt5 provided by requirements-dev.txt for local dev, or by system in CI)
-pytest-qt>=4.4.0
-
 # Test documentation
 interrogate==1.5.0
 setuptools==69.1.0

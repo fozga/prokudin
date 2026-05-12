@@ -33,7 +33,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           pip install -r requirements-test.txt
-          pip install 'PyQt5==5.15.10'  # Pinned version; also in requirements-dev.txt for local dev
+          pip install 'pytest-qt>=4.4.0' 'PyQt5==5.15.10'
 
       - name: Run Qt tests with coverage
         env:

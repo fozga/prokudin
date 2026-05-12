@@ -60,7 +60,7 @@ def install_dependencies(*, qt: bool = False) -> None:
     """Install test and production dependencies if they've changed or are missing.
 
     Args:
-        qt: If True, also install PyQt5 for Qt testing (from requirements-dev.txt version).
+        qt: If True, also install pytest-qt and PyQt5 for Qt testing.
     """
     if not requirements_changed():
         return
@@ -75,9 +75,9 @@ def install_dependencies(*, qt: bool = False) -> None:
         cwd=Path.cwd(),
     )
     if qt:
-        print("Installing PyQt5 for Qt testing...")
+        print("Installing pytest-qt and PyQt5 for Qt testing...")
         subprocess.check_call(
-            [str(PYTHON_EXE), "-m", "pip", "install", "-q", "PyQt5==5.15.10"],
+            [str(PYTHON_EXE), "-m", "pip", "install", "-q", "pytest-qt>=4.4.0", "PyQt5==5.15.10"],
             cwd=Path.cwd(),
         )
     VENV_MARKER.write_text(get_requirements_hash())
