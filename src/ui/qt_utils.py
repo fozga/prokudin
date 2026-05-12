@@ -30,6 +30,8 @@ def convert_to_qimage(image: Union[np.ndarray, None]) -> QImage:
         image (numpy.ndarray | None):
             - Grayscale: HxW (uint8)
             - RGB: HxWx3 (uint8)
+            Arrays may be non-contiguous; they will be copied to C-contiguous
+            layout if necessary.
 
     Returns:
         QImage: Empty QImage if input invalid, otherwise formatted image.
@@ -41,7 +43,11 @@ def convert_to_qimage(image: Union[np.ndarray, None]) -> QImage:
     if image is None:
         return QImage()
 
-    if len(image.shape) == 2:  # Grayscale
-        return QImage(image.data, image.shape[1], image.shape[0], image.strides[0], QImage.Format_Grayscale8)
+    # Ensure C-contiguous layout for QImage compatibility
+    if not image.flags['C_CONTIGUOUS']:
+        image = np.ascontiguousarray(image)
 
-    return QImage(image.data, image.shape[1], image.shape[0], image.strides[0], QImage.Format_RGB888)
+    if len(image.shape) == 2:  # Grayscale
+        return QImage(bytes(image.tobytes()), image.shape[1], image.shape[0], image.strides[0], QImage.Format_Grayscale8)
+
+    return QImage(bytes(image.tobytes()), image.shape[1], image.shape[0], image.strides[0], QImage.Format_RGB888)

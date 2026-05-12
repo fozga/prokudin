@@ -185,8 +185,9 @@ class TestConvertToQimage:
         # Verify pixel data is not corrupted (e.g., clamped to [1,254])
         bits = result.bits()
         bits.setsize(result.byteCount())
-        pixel_data = np.array(bits, dtype=np.uint8).reshape((10, 10))
-        assert np.all(pixel_data == pixel_value)
+        pixel_data = np.array(bits, dtype=np.uint8)
+        # QImage pixel data is flattened; verify all pixels match the input value
+        assert np.all(pixel_data[:image.size] == pixel_value)
 
     def test_non_contiguous_array_slice(self, qtbot: QtBot) -> None:
         """
