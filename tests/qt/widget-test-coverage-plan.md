@@ -12,11 +12,11 @@ tests/
 ├── unit/          # existing tests — no Qt, no QApplication required
 ├── qt/            # widget tests — require QApplication (offscreen)
 │   ├── conftest.py
-│   ├── test_widget_qt_utils.py      ✅ done
-│   ├── test_widget_sliders.py
-│   ├── test_widget_status_bar.py
-│   ├── test_widget_grid_settings_dialog.py
-│   ├── test_widget_preset_panel.py
+│   ├── test_widget_qt_utils.py                ✅ done
+│   ├── test_widget_sliders.py                 ✅ done
+│   ├── test_widget_status_bar.py              ✅ done
+│   ├── test_widget_grid_settings_dialog.py    ✅ done
+│   ├── test_widget_preset_panel.py            ✅ done
 │   ├── test_widget_channel_controller.py
 │   ├── test_widget_image_viewer.py
 │   └── test_widget_grid_overlay.py
@@ -117,8 +117,8 @@ def test_widget_name(qtbot):
 | `src/ui/qt_utils.py` | 12 | ✅ 100% | 90%+ | `test_widget_qt_utils.py` | 1 — done |
 | `src/ui/widgets/sliders.py` | 12 | ✅ 100% | 90%+ | `test_widget_sliders.py` | 1 — done |
 | `src/ui/widgets/status_bar.py` | 27 | ✅ 100% | 80%+ | `test_widget_status_bar.py` | 1 — done |
-| `src/ui/widgets/grid_settings_dialog.py` | 86 | 0% | 75%+ | `test_widget_grid_settings_dialog.py` | 2 — grid configuration dialog |
-| `src/ui/widgets/preset_panel.py` | 98 | 0% | 70%+ | `test_widget_preset_panel.py` | 2 — QScrollArea + thumbnail IO |
+| `src/ui/widgets/grid_settings_dialog.py` | 86 | ✅ 100% | 75%+ | `test_widget_grid_settings_dialog.py` | 2 — done |
+| `src/ui/widgets/preset_panel.py` | 98 | ✅ 97% | 70%+ | `test_widget_preset_panel.py` | 2 — done |
 | `src/ui/widgets/channel_controller.py` | 136 | 0% | 75%+ | `test_widget_channel_controller.py` | 2 — sliders + text validation |
 | `src/ui/widgets/image_viewer.py` | 140 | 0% | 60%+ | `test_widget_image_viewer.py` | 3 — QGraphicsView, zoom, pan |
 | `src/ui/widgets/grid_overlay.py` | 193 | 0% | 70%+ | `test_widget_grid_overlay.py` | 2 — grid calculations + rendering |
@@ -177,21 +177,12 @@ def test_widget_name(qtbot):
 
 | Field | Value |
 |-------|-------|
-| **Priority** | 2 — Grid configuration dialog; internal state testable without rendering |
-| **Current coverage** | 0% (86 statements) |
+| **Priority** | 2 — done |
+| **Current coverage** | ✅ 100% (86 statements, 14 branches) |
 | **Target coverage** | 75%+ |
 | **Test file** | `tests/qt/test_widget_grid_settings_dialog.py` |
 | **Dependencies** | `pytest-qt`, `PyQt5.QtWidgets` |
-| **Notes** | Test default values, setters/getters, and signal propagation. Do not test appearance. |
-
-**Key test cases:**
-
-- Dialog initializes with the default grid type
-- Changing grid type via widget updates internal state
-- Changing grid colour propagates to `GridOverlay` (mock)
-- Changing line width — value clamped to allowed range
-- Changing opacity — value within 0–255
-- Dialog emits a signal after each settings change
+| **Notes** | Complete. 28 tests across 3 classes (Init, LineWidth, GridType). Covers default and custom init values, button enable/disable states at MIN/MAX boundaries, decrease/increase no-op paths at limits, signal emission on width and grid-type changes, _get_grid_type_value out-of-bounds (positive and negative), and _on_grid_type_changed with row=-1. Private methods are called directly because the Popup-flagged QFrame requires a visible window for mouse-event routing in headless mode. |
 
 ---
 
@@ -199,21 +190,12 @@ def test_widget_name(qtbot):
 
 | Field | Value |
 |-------|-------|
-| **Priority** | 2 — QScrollArea + thumbnail IO; IO mocked via `unittest.mock` |
-| **Current coverage** | 0% (98 statements) |
+| **Priority** | 2 — done |
+| **Current coverage** | ✅ 97% (98 statements, 20 branches) |
 | **Target coverage** | 70%+ |
 | **Test file** | `tests/qt/test_widget_preset_panel.py` |
-| **Dependencies** | `pytest-qt`, `PyQt5.QtWidgets`, `unittest.mock` |
-| **Notes** | Mock `cv2.imread` and file operations. Test preset list logic, not thumbnail rendering. |
-
-**Key test cases:**
-
-- Panel initializes with an empty preset list
-- `add_preset(name, path)` appends item to the list
-- `remove_preset(name)` removes item from the list
-- Clicking a preset emits signal with filename (`qtbot.waitSignal`)
-- Thumbnails loaded via mocked `cv2.imread` — no real IO in test
-- Empty state handled without errors
+| **Dependencies** | `pytest-qt`, `PyQt5.QtWidgets`, `tmp_path` |
+| **Notes** | Complete. 21 tests across 2 classes (PresetItem, PresetPanel). Covers thumbnail-missing ("No image") and thumbnail-exists branches, name/Unnamed fallback, mousePressEvent signal emission and payload, enterEvent/leaveEvent stylesheet changes with None and real QEvent, panel with nonexistent dir, empty dir, 1 and 2 preset files, non-.json skip, invalid-JSON skip, reload_presets idempotency (no duplication), save_requested and preset_selected signals. Two uncovered paths: super().mousePressEvent(event) (line 77) requires a visible widget for mouse routing; the item.widget() == None defensive check (line 145 branch) cannot be triggered via takeAt() in Qt's normal behaviour — both excluded from coverage targets by design. |
 
 ---
 
@@ -308,6 +290,6 @@ def test_widget_name(qtbot):
 2. ✅ **`qt_utils.py`** — 100% coverage, 12 tests, non-contiguous array handling added to implementation
 3. ✅ **`sliders.py`** — 100% coverage, 9 tests, both branches of mouseDoubleClickEvent covered
 4. ✅ **`status_bar.py`** — 100% coverage, 20 tests, all four update_mode_from_state branches and BVA on loaded_channels threshold
-5. **Dialogs and panels** — `grid_settings_dialog.py`, `preset_panel.py` (mock IO)
+5. ✅ **Dialogs and panels** — `grid_settings_dialog.py` (100%, 28 tests), `preset_panel.py` (97%, 21 tests)
 6. **Central widget** — `channel_controller.py` (highest UX impact)
 7. **Views** — `image_viewer.py`, `grid_overlay.py` (mock QPainter)
