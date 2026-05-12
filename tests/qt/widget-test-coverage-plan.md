@@ -116,7 +116,7 @@ def test_widget_name(qtbot):
 |--------|-------|----------|--------|-----------|----------|
 | `src/ui/qt_utils.py` | 12 | ✅ 100% | 90%+ | `test_widget_qt_utils.py` | 1 — done |
 | `src/ui/widgets/sliders.py` | 12 | ✅ 100% | 90%+ | `test_widget_sliders.py` | 1 — done |
-| `src/ui/widgets/status_bar.py` | 27 | 0% | 80%+ | `test_widget_status_bar.py` | 1 — QStatusBar wrapper |
+| `src/ui/widgets/status_bar.py` | 27 | ✅ 100% | 80%+ | `test_widget_status_bar.py` | 1 — done |
 | `src/ui/widgets/grid_settings_dialog.py` | 86 | 0% | 75%+ | `test_widget_grid_settings_dialog.py` | 2 — grid configuration dialog |
 | `src/ui/widgets/preset_panel.py` | 98 | 0% | 70%+ | `test_widget_preset_panel.py` | 2 — QScrollArea + thumbnail IO |
 | `src/ui/widgets/channel_controller.py` | 136 | 0% | 75%+ | `test_widget_channel_controller.py` | 2 — sliders + text validation |
@@ -164,20 +164,12 @@ def test_widget_name(qtbot):
 
 | Field | Value |
 |-------|-------|
-| **Priority** | 1 — QStatusBar wrapper, the simplest widget in the project |
-| **Current coverage** | 0% (27 statements) |
+| **Priority** | 1 — done |
+| **Current coverage** | ✅ 100% (27 statements, 6 branches) |
 | **Target coverage** | 80%+ |
 | **Test file** | `tests/qt/test_widget_status_bar.py` |
 | **Dependencies** | `pytest-qt`, `PyQt5.QtWidgets.QStatusBar` |
-| **Notes** | No business logic — test public API only (set_message, clear, etc.). |
-
-**Key test cases:**
-
-- Widget initializes without errors
-- `set_message(text)` displays text (verified via `findChild` or attribute)
-- `set_message("")` clears the message
-- `set_error(text)` — if present — changes visual state (colour/style)
-- Widget handles long text without crashing
+| **Notes** | Complete. Tests cover initialization (size grip, mode label, initial message), set_message (text, empty string, timeout constant, long text), set_mode (parametrized across all modes), and all four branches of update_mode_from_state including saving-over-crop priority and loaded_channels boundary values (0, 2, 3). |
 
 ---
 
@@ -315,7 +307,7 @@ def test_widget_name(qtbot):
 1. ✅ **Infrastructure** — `pip install pytest-qt`, `conftest.py`, `widget` marker in `pytest.ini`, CI with `QT_QPA_PLATFORM=offscreen`
 2. ✅ **`qt_utils.py`** — 100% coverage, 12 tests, non-contiguous array handling added to implementation
 3. ✅ **`sliders.py`** — 100% coverage, 9 tests, both branches of mouseDoubleClickEvent covered
-4. **Quick wins** — `status_bar.py` (27 stmts, no external dependencies)
+4. ✅ **`status_bar.py`** — 100% coverage, 20 tests, all four update_mode_from_state branches and BVA on loaded_channels threshold
 5. **Dialogs and panels** — `grid_settings_dialog.py`, `preset_panel.py` (mock IO)
 6. **Central widget** — `channel_controller.py` (highest UX impact)
 7. **Views** — `image_viewer.py`, `grid_overlay.py` (mock QPainter)
