@@ -182,8 +182,10 @@ class TestConvertToQimage:
         result = convert_to_qimage(image)
         # Assert
         assert not result.isNull()
-        # Verify pixel data is not corrupted by checking first and last pixels
-        # (skip full pixel verification due to QImage stride/padding complexity)
+        # Verify pixel data is not corrupted by checking first and last pixels.
+        # Use pixelColor() instead of raw memory access: QImage pads scanlines to
+        # 4-byte boundaries, so byteCount() > image.size. pixelColor() handles
+        # stride/padding automatically and correctly interprets grayscale pixels.
         first_pixel = result.pixelColor(0, 0).red()
         last_pixel = result.pixelColor(9, 9).red()
         assert first_pixel == pixel_value
