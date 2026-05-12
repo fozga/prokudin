@@ -470,6 +470,11 @@ Examples:
         help="Stop after first test suite fails. Only applies to --suite all.",
     )
     parser.add_argument(
+        "--skip-docs",
+        action="store_true",
+        help="Skip documentation coverage checks, run tests only",
+    )
+    parser.add_argument(
         "--qt",
         action="store_true",
         help="Deprecated: use --suite qt instead",
@@ -518,11 +523,14 @@ Examples:
         print("=" * 60)
 
         if args.suite == "all":
-            # Run docs first, then tests, then print test results
-            print("\n📋 Documentation Coverage Checks")
-            print("-" * 60)
-            doc_result = check_test_docs(module=args.module, verbose=args.verbose)
-            qt_doc_result = check_test_docs(verbose=args.verbose, test_dir="tests/qt")
+            # Run docs first (unless skipped), then tests, then print test results
+            if not args.skip_docs:
+                print("\n📋 Documentation Coverage Checks")
+                print("-" * 60)
+                doc_result = check_test_docs(module=args.module, verbose=args.verbose)
+                qt_doc_result = check_test_docs(verbose=args.verbose, test_dir="tests/qt")
+            else:
+                doc_result = qt_doc_result = 0
 
             # Run tests with suppressed output
             test_result, test_output = run_tests(module=args.module, verbose=args.verbose, args=pytest_args, suppress_header=True)
@@ -544,15 +552,19 @@ Examples:
 
             results = {
                 "Business Logic Tests": test_result,
-                "Business Logic Docs": doc_result,
                 "Qt Tests": qt_result,
-                "Qt Docs": qt_doc_result,
             }
-            overall_result = max(test_result, doc_result, qt_result, qt_doc_result)
+            if not args.skip_docs:
+                results["Business Logic Docs"] = doc_result
+                results["Qt Docs"] = qt_doc_result
+            overall_result = max(test_result, qt_result, doc_result if not args.skip_docs else 0, qt_doc_result if not args.skip_docs else 0)
         elif args.suite == "business-logic":
-            print("\n📋 Documentation Coverage Checks")
-            print("-" * 60)
-            doc_result = check_test_docs(module=args.module, verbose=args.verbose)
+            if not args.skip_docs:
+                print("\n📋 Documentation Coverage Checks")
+                print("-" * 60)
+                doc_result = check_test_docs(module=args.module, verbose=args.verbose)
+            else:
+                doc_result = 0
 
             test_result, test_output = run_tests(module=args.module, verbose=args.verbose, args=pytest_args, suppress_header=True)
 
@@ -560,15 +572,17 @@ Examples:
             print("-" * 60)
             print(test_output.rstrip())
 
-            results = {
-                "Business Logic Tests": test_result,
-                "Business Logic Docs": doc_result,
-            }
-            overall_result = max(test_result, doc_result)
+            results = {"Business Logic Tests": test_result}
+            if not args.skip_docs:
+                results["Business Logic Docs"] = doc_result
+            overall_result = max(test_result, doc_result if not args.skip_docs else 0)
         elif args.suite == "qt":
-            print("\n📋 Documentation Coverage Checks")
-            print("-" * 60)
-            doc_result = check_test_docs(verbose=args.verbose, test_dir="tests/qt")
+            if not args.skip_docs:
+                print("\n📋 Documentation Coverage Checks")
+                print("-" * 60)
+                doc_result = check_test_docs(verbose=args.verbose, test_dir="tests/qt")
+            else:
+                doc_result = 0
 
             test_result, qt_output = run_qt_tests(verbose=args.verbose, args=pytest_args, suppress_header=True)
 
@@ -576,11 +590,10 @@ Examples:
             print("-" * 60)
             print(qt_output.rstrip())
 
-            results = {
-                "Qt Tests": test_result,
-                "Qt Docs": doc_result,
-            }
-            overall_result = max(test_result, doc_result)
+            results = {"Qt Tests": test_result}
+            if not args.skip_docs:
+                results["Qt Docs"] = doc_result
+            overall_result = max(test_result, doc_result if not args.skip_docs else 0)
 
         print("\n" + "=" * 60)
         print("SUMMARY")
