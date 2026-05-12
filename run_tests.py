@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Cross-platform script to run unit tests with automatic venv management.
+"""Cross-platform script to run unit and widget tests with automatic venv management.
 
 Usage:
-    python3 run_tests.py                    # Run with summary output
+    python3 run_tests.py                    # Run unit tests with summary output
     python3 run_tests.py -v, --verbose      # Show detailed coverage report
     python3 run_tests.py -m core.align      # Run tests for specific module
     python3 run_tests.py -m handlers.channels -v  # Module tests with verbose output
     python3 run_tests.py --pytest-only      # Run pytest only (no coverage/docs checks)
     python3 run_tests.py --pytest-only -k "test_align"  # Pytest only with filter
+    python3 run_tests.py --widget           # Run Qt widget tests (QT_QPA_PLATFORM=offscreen set automatically)
+    python3 run_tests.py --widget -v        # Widget tests with detailed coverage report
+    python3 run_tests.py --widget --pytest-only  # Widget pytest only (visible output)
 """
 
 import argparse
@@ -220,12 +223,13 @@ def run_tests(*, module: str | None = None, verbose: bool = False, args: list[st
         return 1
 
 
-def check_test_docs(module: str | None = None, verbose: bool = False) -> int:
+def check_test_docs(module: str | None = None, verbose: bool = False, test_dir: str = "tests") -> int:
     """Check that all tests are documented.
 
     Args:
         module: Specific module to check, or None for all
         verbose: Show detailed documentation report
+        test_dir: Directory to check (default "tests"; use "tests/qt" for widget tests)
 
     Documentation coverage is always enforced at 100% for test files.
     """
@@ -233,8 +237,8 @@ def check_test_docs(module: str | None = None, verbose: bool = False) -> int:
         # Check specific module's test file
         target = f"tests/unit/test_{module.replace('.', '_')}.py"
     else:
-        # Check all test files
-        target = "tests"
+        # Check all test files in the given directory
+        target = test_dir
 
     print(f"\n{'=' * 60}")
     print("Checking test documentation...")
@@ -271,19 +275,75 @@ def check_test_docs(module: str | None = None, verbose: bool = False) -> int:
         return 1
 
 
+def run_widget_tests(*, verbose: bool = False, args: list[str] | None = None) -> int:
+    """Run Qt widget tests from tests/qt/ with coverage.
+
+    Sets QT_QPA_PLATFORM=offscreen automatically. Coverage is measured across
+    all of src/ui so progress is visible as widget tests are added.
+
+    Args:
+        verbose: Show full pytest output and coverage report
+        args: Additional pytest arguments
+    """
+    args = args or []
+
+    cmd = [
+        str(PYTHON_EXE),
+        "-m",
+        "pytest",
+        "tests/qt/",
+        "--cov=src.ui",
+        "--cov-branch",
+        "--cov-report=term-missing",
+        "--cov-report=html:htmlcov-widget",
+    ]
+    cmd.extend(args)
+
+    print(f"\n{'=' * 60}")
+    print("Running widget tests (QT_QPA_PLATFORM=offscreen)...")
+    print("=" * 60)
+
+    env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, env=env)
+
+        if verbose:
+            print(result.stdout)
+            if result.stderr:
+                print(result.stderr)
+        else:
+            test_summary = extract_test_summary(result.stdout)
+            coverage_pct = extract_coverage_summary(result.stdout)
+            print(test_summary)
+            if coverage_pct[0] != "N/A":
+                print(f"Code Coverage: {coverage_pct[0]}%")
+
+        if result.returncode != 0 and not verbose:
+            print("\n⚠️  Tests failed. Run with -v/--verbose for details.")
+
+        return result.returncode
+    except subprocess.CalledProcessError as e:
+        print(f"Error running widget tests: {e}")
+        return 1
+
+
 def main() -> None:
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Run unit tests with coverage and documentation checks",
+        description="Run unit or widget tests with coverage and documentation checks",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  %(prog)s                          Run all tests with summary output
+  %(prog)s                          Run all unit tests with summary output
   %(prog)s -v                       Run with detailed coverage report
   %(prog)s -m core.align            Run tests for align module only
   %(prog)s -m handlers.channels -v  Run module tests with verbose output
   %(prog)s --pytest-only            Run pytest directly (visible output, no checks)
   %(prog)s --pytest-only -k "test_align"  Pytest only, filtered by keyword
+  %(prog)s --widget                 Run Qt widget tests (offscreen, no display needed)
+  %(prog)s --widget -v              Widget tests with detailed coverage report
+  %(prog)s --widget --pytest-only   Widget pytest with visible output, no checks
         """,
     )
     parser.add_argument(
@@ -303,6 +363,11 @@ Examples:
         type=str,
         help="Run tests for specific module (e.g., core.align, handlers.channels)",
     )
+    parser.add_argument(
+        "--widget",
+        action="store_true",
+        help="Run Qt widget tests from tests/qt/ (QT_QPA_PLATFORM=offscreen set automatically)",
+    )
 
     args, pytest_args = parser.parse_known_args()
 
@@ -312,18 +377,26 @@ Examples:
 
         if args.pytest_only:
             cmd = [str(PYTHON_EXE), "-m", "pytest"]
-            if args.module:
-                cmd.append(f"tests/unit/test_{args.module.replace('.', '_')}.py")
-            cmd.extend(pytest_args)
-            result = subprocess.run(cmd)
+            if args.widget:
+                cmd.append("tests/qt/")
+                env = {**os.environ, "QT_QPA_PLATFORM": "offscreen"}
+                result = subprocess.run(cmd + pytest_args, env=env)
+            else:
+                if args.module:
+                    cmd.append(f"tests/unit/test_{args.module.replace('.', '_')}.py")
+                result = subprocess.run(cmd + pytest_args)
             sys.exit(result.returncode)
 
         print("\n" + "=" * 60)
         print("TEST COVERAGE REPORT")
         print("=" * 60)
 
-        test_result = run_tests(module=args.module, verbose=args.verbose, args=pytest_args)
-        doc_result = check_test_docs(module=args.module, verbose=args.verbose)
+        if args.widget:
+            test_result = run_widget_tests(verbose=args.verbose, args=pytest_args)
+            doc_result = check_test_docs(verbose=args.verbose, test_dir="tests/qt")
+        else:
+            test_result = run_tests(module=args.module, verbose=args.verbose, args=pytest_args)
+            doc_result = check_test_docs(module=args.module, verbose=args.verbose)
 
         print("\n" + "=" * 60)
         print("SUMMARY")
