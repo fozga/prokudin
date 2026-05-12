@@ -180,11 +180,21 @@ class TestStatusBarHandler:
         # Assert
         assert status_bar.currentMessage() == ""
 
-    def test_set_message_with_short_timeout_does_not_crash(self, qtbot: QtBot) -> None:
+    def test_short_timeout_constant_is_positive(self) -> None:
         """
-        Given a StatusBarHandler,
+        Given the StatusBarHandler class constant SHORT_TIMEOUT,
+        When its value is inspected,
+        Then it is a positive integer greater than zero.
+        """
+        # Arrange + Act  (class attribute — no widget required)
+        # Assert
+        assert StatusBarHandler.SHORT_TIMEOUT > 0
+
+    def test_set_message_with_short_timeout_displays_message(self, qtbot: QtBot) -> None:
+        """
+        Given a StatusBarHandler and SHORT_TIMEOUT is a positive integer,
         When set_message is called with SHORT_TIMEOUT,
-        Then the message is displayed without raising an exception.
+        Then the message is immediately visible in the status bar.
         """
         # Arrange
         handler, status_bar = self._make_handler(qtbot)
