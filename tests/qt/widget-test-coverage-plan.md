@@ -17,7 +17,7 @@ tests/
 │   ├── test_widget_status_bar.py              ✅ done
 │   ├── test_widget_grid_settings_dialog.py    ✅ done
 │   ├── test_widget_preset_panel.py            ✅ done
-│   ├── test_widget_channel_controller.py
+│   ├── test_widget_channel_controller.py      ✅ done
 │   ├── test_widget_image_viewer.py
 │   └── test_widget_grid_overlay.py
 └── integration/   # future tests — main_window, smoke tests, cross-component flows
@@ -119,7 +119,7 @@ def test_widget_name(qtbot):
 | `src/ui/widgets/status_bar.py` | 27 | ✅ 100% | 80%+ | `test_widget_status_bar.py` | 1 — done |
 | `src/ui/widgets/grid_settings_dialog.py` | 86 | ✅ 100% | 75%+ | `test_widget_grid_settings_dialog.py` | 2 — done |
 | `src/ui/widgets/preset_panel.py` | 98 | ✅ 97% | 70%+ | `test_widget_preset_panel.py` | 2 — done |
-| `src/ui/widgets/channel_controller.py` | 136 | 0% | 75%+ | `test_widget_channel_controller.py` | 2 — sliders + text validation |
+| `src/ui/widgets/channel_controller.py` | 136 | ✅ 100% | 90%+ | `test_widget_channel_controller.py` | 2 — done |
 | `src/ui/widgets/image_viewer.py` | 140 | 0% | 60%+ | `test_widget_image_viewer.py` | 3 — QGraphicsView, zoom, pan |
 | `src/ui/widgets/grid_overlay.py` | 193 | 0% | 70%+ | `test_widget_grid_overlay.py` | 2 — grid calculations + rendering |
 
@@ -203,24 +203,12 @@ def test_widget_name(qtbot):
 
 | Field | Value |
 |-------|-------|
-| **Priority** | 2 — Sliders + text validation + signals; central UI widget |
-| **Current coverage** | 0% (136 statements) |
-| **Target coverage** | 75%+ |
+| **Priority** | 2 — done |
+| **Current coverage** | ✅ 100% (136 statements, 30 branches) |
+| **Target coverage** | 90%+ |
 | **Test file** | `tests/qt/test_widget_channel_controller.py` |
-| **Dependencies** | `pytest-qt`, `numpy`, `PyQt5.QtWidgets`, `unittest.mock` |
-| **Notes** | Test slider↔text synchronization logic and reset without a real service. `processed_image` mocked as a numpy array. |
-
-**Key test cases:**
-
-- Widget initializes with correct default values (`DefaultState`)
-- Changing slider updates the text field (`_update_text_from_slider`)
-- Typing a value in the text field updates the slider (`_update_slider_from_text`)
-- Out-of-range text input — clamped to min/max
-- Non-numeric text input — restores previous slider value
-- `reset_all_sliders()` restores all sliders to default values
-- Every change emits `value_changed` (`qtbot.waitSignal`)
-- `clear_image()` clears `processed_image` and sets placeholder
-- `update_preview()` with valid numpy array — no crash
+| **Dependencies** | `pytest-qt`, `numpy`, `PyQt5.QtWidgets`, `PyQt5.QtCore.Qt` |
+| **Notes** | Complete. 58 tests across 4 classes (Init, SliderTextSync, Reset, Preview, PreviewCrop). Covers default init values/slider ranges/channel abbreviations, slider→text sync, text→slider sync with full EP/BVA clamping table, non-numeric and empty text restore, signal emission on every change, single and bulk slider reset, doubleClicked reset path, invalid-name no-op path, defensive reset_all_sliders guard, clear_image, update_preview (None and array), _set_preview with standard/wide/tall aspect ratios, and all 5 branches of the parent-traversal crop path (no viewer, None rect, crop_mode=True, valid intersection, empty intersection). |
 
 ---
 
@@ -291,5 +279,5 @@ def test_widget_name(qtbot):
 3. ✅ **`sliders.py`** — 100% coverage, 9 tests, both branches of mouseDoubleClickEvent covered
 4. ✅ **`status_bar.py`** — 100% coverage, 20 tests, all four update_mode_from_state branches and BVA on loaded_channels threshold
 5. ✅ **Dialogs and panels** — `grid_settings_dialog.py` (100%, 28 tests), `preset_panel.py` (97%, 21 tests)
-6. **Central widget** — `channel_controller.py` (highest UX impact)
+6. ✅ **Central widget** — `channel_controller.py` (100%, 58 tests)
 7. **Views** — `image_viewer.py`, `grid_overlay.py` (mock QPainter)
