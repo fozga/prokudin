@@ -183,7 +183,7 @@ def run_tests(*, module: str | None = None, args: list[str] | None = None, combi
 
     coverage_targets = get_business_logic_modules()
 
-    cmd = [str(PYTHON_EXE), "-m", "pytest"]
+    cmd = [str(PYTHON_EXE), "-m", "pytest", "-p", "no:pytest-qt", "tests/unit/"]
 
     if combined:
         cmd.extend(["--cov-branch", "--cov-report="])
@@ -194,7 +194,7 @@ def run_tests(*, module: str | None = None, args: list[str] | None = None, combi
         cmd.insert(3, f"--cov={target}")
 
     if module:
-        cmd.append(f"tests/unit/test_{module.replace('.', '_')}.py")
+        cmd[-1] = f"tests/unit/test_{module.replace('.', '_')}.py"
 
     cmd.extend(args)
 
@@ -379,15 +379,17 @@ Examples:
                 result = subprocess.run(cmd + pytest_args, env=env)
                 sys.exit(result.returncode)
             elif args.suite == "business-logic":
-                cmd = [str(PYTHON_EXE), "-m", "pytest"]
+                cmd = [str(PYTHON_EXE), "-m", "pytest", "-p", "no:pytest-qt"]
                 if args.module:
                     cmd.append(f"tests/unit/test_{args.module.replace('.', '_')}.py")
+                else:
+                    cmd.append("tests/unit/")
                 result = subprocess.run(cmd + pytest_args)
                 sys.exit(result.returncode)
             elif args.suite == "all":
-                unit_cmd = [str(PYTHON_EXE), "-m", "pytest", "tests/unit/"]
+                unit_cmd = [str(PYTHON_EXE), "-m", "pytest", "-p", "no:pytest-qt", "tests/unit/"]
                 if args.module:
-                    unit_cmd = [str(PYTHON_EXE), "-m", "pytest",
+                    unit_cmd = [str(PYTHON_EXE), "-m", "pytest", "-p", "no:pytest-qt",
                                 f"tests/unit/test_{args.module.replace('.', '_')}.py"]
                 print("Running business logic pytest...")
                 result = subprocess.run(unit_cmd + pytest_args)
