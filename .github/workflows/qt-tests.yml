@@ -1,4 +1,4 @@
-name: Widget Tests with Coverage
+name: Qt Tests with Coverage
 
 on:
   push:
@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 jobs:
-  widget-tests:
+  qt-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -34,15 +34,15 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-test.txt
 
-      - name: Run widget tests with coverage
+      - name: Run Qt tests with coverage
         env:
           QT_QPA_PLATFORM: offscreen
         run: |
-          pytest tests/qt/ --cov=src.ui --cov-branch --cov-report=term-missing --cov-report=html:htmlcov-widget
+          pytest tests/qt/ --cov=src.ui --cov-branch --cov-report=term-missing --cov-report=html:htmlcov-qt
 
       - name: Upload coverage HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: widget-coverage-html
-          path: htmlcov-widget
+          name: qt-coverage-html
+          path: htmlcov-qt
