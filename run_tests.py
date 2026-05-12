@@ -250,27 +250,36 @@ def combine_coverage_reports() -> tuple[int, str]:
     """Combine .coverage.unit and .coverage.qt into a single report.
 
     Returns:
-        Tuple of (returncode, coverage_report_output)
+        Tuple of (returncode, coverage_report_output).
+        Non-zero returncode if any step fails.
+
+    Raises:
+        RuntimeError: If 'coverage combine' fails (no valid report possible).
     """
-    # Combine coverage data files
-    subprocess.run(
+    combine_result = subprocess.run(
         [str(PYTHON_EXE), "-m", "coverage", "combine", ".coverage.unit", ".coverage.qt"],
         capture_output=True, text=True,
     )
+    if combine_result.returncode != 0:
+        error = combine_result.stderr.strip() or combine_result.stdout.strip()
+        raise RuntimeError(f"coverage combine failed: {error}")
 
-    # Generate terminal report (branch info already included from pytest --cov-branch)
     report_result = subprocess.run(
         [str(PYTHON_EXE), "-m", "coverage", "report", "--show-missing"],
         capture_output=True, text=True,
     )
+    if report_result.returncode != 0:
+        error = report_result.stderr.strip() or report_result.stdout.strip()
+        raise RuntimeError(f"coverage report failed: {error}")
 
-    # Generate combined HTML report
-    subprocess.run(
+    html_result = subprocess.run(
         [str(PYTHON_EXE), "-m", "coverage", "html", "-d", "htmlcov"],
         capture_output=True, text=True,
     )
+    if html_result.returncode != 0:
+        error = html_result.stderr.strip() or html_result.stdout.strip()
+        print(f"⚠️  HTML report generation failed: {error}", file=sys.stderr)
 
-    # Clean up temporary coverage files
     for f in [".coverage.unit", ".coverage.qt", ".coverage"]:
         Path(f).unlink(missing_ok=True)
 
