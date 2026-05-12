@@ -17,15 +17,13 @@
 
 """Pytest configuration for unit tests.
 
-Coverage enforcement threshold from coverage_config.py (default 90%).
+Coverage enforcement thresholds are in coverage_config.py.
 Coverage targets are set by run_tests.py via command-line --cov flags.
 """
 
 from typing import Any
 
 import pytest
-
-from .coverage_config import COVERAGE_THRESHOLD
 
 
 def pytest_configure(config: Any) -> None:
