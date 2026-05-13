@@ -17,11 +17,11 @@
 
 """Widget tests for src/ui/widgets/image_viewer.py."""
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
-from PyQt5.QtCore import QEvent, QPoint, QPointF, QRect, Qt
-from PyQt5.QtGui import QMouseEvent, QPixmap, QWheelEvent
+from PyQt5.QtCore import QEvent, QPoint, QPointF, QRect, QSize, Qt
+from PyQt5.QtGui import QMouseEvent, QPixmap, QResizeEvent, QWheelEvent
 from PyQt5.QtWidgets import QApplication, QGraphicsPixmapItem, QGraphicsView
 from pytestqt.plugin import QtBot
 
@@ -634,7 +634,7 @@ class TestImageViewerCropDelegation:
 @pytest.mark.widget
 class TestImageViewerNullEventHandlers:
     """
-    Test Design Specification: ImageViewer — None-guard event handlers
+    Test Design Specification: ImageViewer — None-guard and fit-to-view resize
     Module under test: src/ui/widgets/image_viewer.py
 
     Widget base class: QGraphicsView
@@ -644,13 +644,16 @@ class TestImageViewerNullEventHandlers:
         mouseReleaseEvent, mouseMoveEvent) each begin with a None guard that
         returns immediately when the event argument is None. This prevents
         crashes from callers that pass None to signal "no event".
+        resizeEvent additionally calls fitInView when fit_to_view is True,
+        which happens before the None guard and before delegating to super().
 
     Infrastructure:
         - Requires qtbot.
-        - No widget.show() needed — guard branches do not call Qt methods.
+        - widget.show() required for the fit-to-view resize test only.
 
     What is tested:
         - resizeEvent(None) → no exception.
+        - resizeEvent with real QResizeEvent when fit_to_view=True → fitInView called.
         - mousePressEvent(None) → no exception.
         - mouseReleaseEvent(None) → no exception.
         - mouseMoveEvent(None) → no exception.
@@ -660,12 +663,13 @@ class TestImageViewerNullEventHandlers:
 
     Equivalence partitions:
         EP1  event = None → early return, no state change, no exception.
+        EP2  fit_to_view = True + real event → fitInView called before super.
 
     Mocking strategy:
-        None — the guards do not interact with any dependencies.
+        fitInView patched with patch.object in the fit-to-view test.
 
     Constraints:
-        None.
+        widget.show() required before calling resizeEvent with a real event.
     """
 
     def test_resize_event_none_does_not_raise(self, qtbot: QtBot) -> None:
@@ -719,16 +723,20 @@ class TestImageViewerNullEventHandlers:
     def test_resize_event_fit_to_view_calls_fit_in_view(self, qtbot: QtBot) -> None:
         """
         Given an ImageViewer with fit_to_view=True,
-        When resizeEvent(None) is called (None guard fires before super),
-        Then no exception is raised (fit branch executes but None guard stops super call).
+        When resizeEvent is called with a real QResizeEvent,
+        Then fitInView is called to refit the image to the new size.
         """
         # Arrange
         viewer = ImageViewer()
         qtbot.addWidget(viewer)
         viewer.show()
         viewer.fit_to_view = True
-        # Act / Assert (fitInView runs, then None guard stops super call)
-        viewer.resizeEvent(None)
+        event = QResizeEvent(QSize(400, 300), QSize(300, 200))
+        # Act
+        with patch.object(viewer, "fitInView") as mock_fit:
+            viewer.resizeEvent(event)
+        # Assert
+        mock_fit.assert_called_once()
 
 
 @pytest.mark.widget
@@ -1016,8 +1024,6 @@ class TestImageViewerEdgeCases:
 
     Contract:
         Several methods guard against None or empty state:
-          - set_image: skips pixmap/fitInView when photo is None, still resets zoom.
-          - clear_image: skips removeItem when photo is None, still creates new photo.
           - confirm_crop: returns immediately when photo has a null pixmap.
           - set_crop_ratio: thin delegation to CropHandler.
 
@@ -1026,72 +1032,42 @@ class TestImageViewerEdgeCases:
         - CropHandler replaced with MagicMock where needed.
 
     What is tested:
-        - set_image with photo=None → zoom is reset to 1.0 without crash.
-        - clear_image with photo=None → photo is not None after the call.
         - confirm_crop with null pixmap → no exception, no CropHandler calls.
         - set_crop_ratio forwards ratio and photo to CropHandler.
 
     What is NOT tested:
         - confirm_crop with a real crop operation (large Qt scene manipulation).
+        - set_image / clear_image with None photo (defensive dead code not
+          reachable via public API; covered by TestImageViewerImage for the
+          normal-state behavior).
 
     Equivalence partitions:
-        EP1  photo = None before set_image   → defensive skip, zoom still reset
-        EP2  photo = None before clear_image → new photo created
-        EP3  photo = None before confirm_crop → early return (photo is None guard)
-        EP4  set_crop_ratio delegation       → handler receives correct args
+        EP1  photo.pixmap() returns falsy → confirm_crop early return
+        EP2  set_crop_ratio delegation    → handler receives correct args
 
     Mocking strategy:
         _crop_handler replaced with MagicMock for isolation.
+        photo replaced with MagicMock whose pixmap() returns False for EP1.
 
     Constraints:
         None.
     """
 
-    def test_set_image_with_photo_none_resets_zoom(self, qtbot: QtBot) -> None:
-        """
-        Given an ImageViewer with photo manually set to None (EP1),
-        When set_image is called with a valid pixmap,
-        Then zoom is reset to 1.0 without raising an exception.
-        """
-        # Arrange
-        viewer = ImageViewer()
-        qtbot.addWidget(viewer)
-        viewer.photo = None
-        viewer.zoom = 5.0
-        pixmap = QPixmap(10, 10)
-        # Act
-        viewer.set_image(pixmap)
-        # Assert
-        assert viewer.zoom == 1.0
-
-    def test_clear_image_with_photo_none_creates_new_photo(self, qtbot: QtBot) -> None:
-        """
-        Given an ImageViewer with photo manually set to None (EP2),
-        When clear_image is called,
-        Then photo is a QGraphicsPixmapItem (not None) after the call.
-        """
-        # Arrange
-        viewer = ImageViewer()
-        qtbot.addWidget(viewer)
-        viewer.photo = None
-        # Act
-        viewer.clear_image()
-        # Assert
-        assert viewer.photo is not None
-
     def test_confirm_crop_with_null_pixmap_returns_early(self, qtbot: QtBot) -> None:
         """
-        Given an ImageViewer with photo set to None (EP3),
+        Given an ImageViewer whose photo has a null pixmap (EP1),
         When confirm_crop is called,
         Then no exception is raised and no CropHandler crop methods are called
-        (the photo is None guard fires before any delegation).
+        (the not self.photo.pixmap() guard fires before any delegation).
         """
         # Arrange
         viewer = ImageViewer()
         qtbot.addWidget(viewer)
         mock_handler = MagicMock()
         viewer._crop_handler = mock_handler  # pylint: disable=protected-access
-        viewer.photo = None  # trigger the photo is None guard
+        mock_photo = MagicMock()
+        mock_photo.pixmap.return_value = False  # simulate null / falsy pixmap
+        viewer.photo = mock_photo
         # Act
         viewer.confirm_crop()
         # Assert
