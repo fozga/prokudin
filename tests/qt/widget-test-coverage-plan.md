@@ -19,7 +19,7 @@ tests/
 │   ├── test_widget_preset_panel.py            ✅ done
 │   ├── test_widget_channel_controller.py      ✅ done
 │   ├── test_widget_image_viewer.py            ✅ done
-│   └── test_widget_grid_overlay.py
+│   └── test_widget_grid_overlay.py            ✅ done
 └── integration/   # future tests — main_window, smoke tests, cross-component flows
 ```
 
@@ -121,7 +121,7 @@ def test_widget_name(qtbot):
 | `src/ui/widgets/preset_panel.py` | 98 | ✅ 97% | 70%+ | `test_widget_preset_panel.py` | 2 — done |
 | `src/ui/widgets/channel_controller.py` | 136 | ✅ 100% | 90%+ | `test_widget_channel_controller.py` | 2 — done |
 | `src/ui/widgets/image_viewer.py` | 140 | ✅ 83% | 60%+ | `test_widget_image_viewer.py` | 3 — done |
-| `src/ui/widgets/grid_overlay.py` | 193 | 0% | 70%+ | `test_widget_grid_overlay.py` | 2 — grid calculations + rendering |
+| `src/ui/widgets/grid_overlay.py` | 193 | ✅ 100% | 70%+ | `test_widget_grid_overlay.py` | 2 — done |
 
 > **Note:** `crop_handler.py` and `main_window.py` are excluded from this plan.
 > `crop_handler.py` requires prior refactoring (extracting geometry logic into `src/core/crop_geometry.py`),
@@ -229,25 +229,12 @@ def test_widget_name(qtbot):
 
 | Field | Value |
 |-------|-------|
-| **Priority** | 2 — State setters/getters testable without QPainter; line calculations tested via mock painter |
-| **Current coverage** | 0% (193 statements) |
+| **Priority** | 2 — done |
+| **Current coverage** | ✅ 100% (193 statements, 20 branches) |
 | **Target coverage** | 70%+ |
 | **Test file** | `tests/qt/test_widget_grid_overlay.py` |
 | **Dependencies** | `pytest-qt`, `PyQt5.QtGui`, `unittest.mock` |
-| **Notes** | Test state (enabled, color, opacity, grid_type) without rendering. Test line calculations via mock QPainter — verify `drawLine` arguments. Do not check pixels. |
-
-**Key test cases:**
-
-- `__init__` — default grid type is `GRID_TYPE_3X3`, enabled=True, opacity=128
-- `set_enabled(False)` → `is_enabled()` returns False
-- `set_grid_type(GRID_TYPE_GOLDEN_RATIO)` → `get_grid_type()` returns correct type
-- `set_color(QColor("red"))` — colour stored correctly
-- `set_line_width(2)` → `get_line_width()` returns 2
-- `draw_grid()` with `enabled=False` — `painter.drawLine` never called (mock)
-- `draw_grid()` with zero-width rect — `painter.drawLine` never called
-- `_draw_3x3_grid()` with mock painter — `drawLine` called exactly 4 times (2 vertical + 2 horizontal)
-- `_draw_golden_ratio_grid()` — `drawLine` calls with arguments matching golden ratio positions (0.382/0.618 × dimensions)
-- Unknown grid type — fallback to `_draw_3x3_grid` without exception
+| **Notes** | Complete. 46 tests across 8 classes (Init, StateSetters, DrawGrid, 3x3Grid, GoldenRatioGrid, Diagonal1_1Grid, DiagonalRatioGrids, DiagonalCompositeGrids). Covers all default state values, all 11 grid type setter/getter round-trips, ValueError on invalid type, opacity clamping at 0/255/above/below, draw_grid disabled guard, zero-width/zero-height/negative-width early exit, painter save/restore, QRect→QRectF conversion, unknown-type fallback to 3×3, exact int-truncated positions for 3×3 and golden ratio lines, all 3 aspect-ratio branches of diagonal 1:1 (square/tall/wide), all 4 ratio wrappers (2:3, 3:2, 3:4, 4:3), zero-ratio guard in _draw_diagonal_ratio_grid, and all 4 composite diagonal methods (6 lines each). QPainter is mocked throughout — no real paint device required. |
 
 ---
 
@@ -270,4 +257,4 @@ def test_widget_name(qtbot):
 5. ✅ **Dialogs and panels** — `grid_settings_dialog.py` (100%, 28 tests), `preset_panel.py` (97%, 21 tests)
 6. ✅ **Central widget** — `channel_controller.py` (100%, 58 tests)
 7. ✅ **Image viewer** — `image_viewer.py` (83%, 40 tests, zoom/crop delegation/drawForeground)
-8. **Grid overlay** — `grid_overlay.py` (mock QPainter, all 11 grid types)
+8. ✅ **Grid overlay** — `grid_overlay.py` (100%, 46 tests, all 11 grid types + mock QPainter math)
