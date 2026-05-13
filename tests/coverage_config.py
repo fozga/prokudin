@@ -56,6 +56,7 @@ QT_MODULES = {
     "src.ui.widgets.channel_controller",
     "src.ui.widgets.grid_overlay",
     "src.ui.widgets.grid_settings_dialog",
+    "src.ui.widgets.image_viewer",
     "src.ui.widgets.preset_panel",
     "src.ui.widgets.sliders",
     "src.ui.widgets.status_bar",
@@ -66,7 +67,6 @@ QT_MODULES = {
 EXCLUDED_MODULES = {
     "src.ui.main_window",
     "src.ui.widgets.crop_handler",
-    "src.ui.widgets.image_viewer",
 }
 
 
