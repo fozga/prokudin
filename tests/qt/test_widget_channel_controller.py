@@ -455,7 +455,7 @@ class TestChannelControllerSliderTextSync:
         """
         Given a ChannelController with intensity range [0, 100],
         When the user enters "-50" in the intensity text input and fires editingFinished,
-        Then the slider is clamped to 0.
+        Then the slider is clamped to 0 and the text input shows "0".
         """
         # Arrange
         widget = ChannelController("red", Qt.red)
@@ -466,6 +466,7 @@ class TestChannelControllerSliderTextSync:
         text_input.editingFinished.emit()
         # Assert
         assert widget.sliders["intensity"].value() == 0
+        assert text_input.text() == "0"
 
 
 @pytest.mark.widget
@@ -680,17 +681,19 @@ class TestChannelControllerReset:
         Given a ChannelController with the "brightness" key removed from default_values
         (simulating a defensive guard that is normally unreachable),
         When reset_all_sliders() is called,
-        Then no exception is raised and the other sliders are reset normally.
+        Then no exception is raised, contrast is reset, and brightness slider is unchanged.
         """
         # Arrange
         widget = ChannelController("red", Qt.red)
         qtbot.addWidget(widget)
+        widget.sliders["brightness"].setValue(50)
         widget.sliders["contrast"].setValue(-50)
         del widget.default_values["brightness"]
         # Act
         widget.reset_all_sliders()
-        # Assert — contrast is reset; no crash
+        # Assert — contrast is reset; brightness slider left unchanged (no key to reset to)
         assert widget.sliders["contrast"].value() == 0
+        assert widget.sliders["brightness"].value() == 50
 
 
 @pytest.mark.widget
@@ -969,6 +972,10 @@ class TestChannelControllerPreviewCrop:
         Given a parent with a viewer returning a valid QRect but crop_mode=True,
         When _set_preview() is called,
         Then the crop is skipped and the preview is rendered without error. (EP3, Branch D)
+
+        The explicit crop_mode=True assignment (not relying on getattr default) ensures
+        this test exercises Branch D. The assertion that get_saved_crop_rect was called
+        confirms the code reached the crop-decision point and chose to skip.
         """
         # Arrange
         parent = QWidget()
@@ -978,10 +985,12 @@ class TestChannelControllerPreviewCrop:
         parent.viewer = mock_viewer  # type: ignore[attr-defined]
         parent.crop_mode = True  # type: ignore[attr-defined]
         widget = ChannelController("red", Qt.red, parent=parent)
+        mock_viewer.get_saved_crop_rect.reset_mock()  # clear calls made during __init__
         img = np.full((120, 160), 100, dtype=np.uint8)
         # Act
         widget._set_preview(img)
-        # Assert
+        # Assert — crop decision point reached but crop skipped
+        mock_viewer.get_saved_crop_rect.assert_called_once()
         assert not widget.preview_label.pixmap().isNull()
 
     def test_valid_crop_rect_applies_crop(self, qtbot: QtBot) -> None:
