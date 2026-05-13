@@ -18,7 +18,7 @@ tests/
 │   ├── test_widget_grid_settings_dialog.py    ✅ done
 │   ├── test_widget_preset_panel.py            ✅ done
 │   ├── test_widget_channel_controller.py      ✅ done
-│   ├── test_widget_image_viewer.py
+│   ├── test_widget_image_viewer.py            ✅ done
 │   └── test_widget_grid_overlay.py
 └── integration/   # future tests — main_window, smoke tests, cross-component flows
 ```
@@ -120,7 +120,7 @@ def test_widget_name(qtbot):
 | `src/ui/widgets/grid_settings_dialog.py` | 86 | ✅ 100% | 75%+ | `test_widget_grid_settings_dialog.py` | 2 — done |
 | `src/ui/widgets/preset_panel.py` | 98 | ✅ 97% | 70%+ | `test_widget_preset_panel.py` | 2 — done |
 | `src/ui/widgets/channel_controller.py` | 136 | ✅ 100% | 90%+ | `test_widget_channel_controller.py` | 2 — done |
-| `src/ui/widgets/image_viewer.py` | 140 | 0% | 60%+ | `test_widget_image_viewer.py` | 3 — QGraphicsView, zoom, pan |
+| `src/ui/widgets/image_viewer.py` | 140 | ✅ 83% | 60%+ | `test_widget_image_viewer.py` | 3 — done |
 | `src/ui/widgets/grid_overlay.py` | 193 | 0% | 70%+ | `test_widget_grid_overlay.py` | 2 — grid calculations + rendering |
 
 > **Note:** `crop_handler.py` and `main_window.py` are excluded from this plan.
@@ -216,23 +216,12 @@ def test_widget_name(qtbot):
 
 | Field | Value |
 |-------|-------|
-| **Priority** | 3 — QGraphicsView; test state, not rendering |
-| **Current coverage** | 0% (140 statements) |
+| **Priority** | 3 — done |
+| **Current coverage** | ✅ 83% (140 statements, 52 branches) |
 | **Target coverage** | 60%+ |
 | **Test file** | `tests/qt/test_widget_image_viewer.py` |
 | **Dependencies** | `pytest-qt`, `PyQt5.QtWidgets`, `PyQt5.QtGui.QPixmap` |
-| **Notes** | Zoom and pan require a shown widget — use `qtbot.addWidget` + `widget.show()`. Test crop via mocked `CropHandler`. |
-
-**Key test cases:**
-
-- Widget initializes with default zoom=1.0, fit_to_view=True
-- `set_image(pixmap)` — scene contains QGraphicsPixmapItem
-- `clear_image()` — scene contains no pixmap
-- `toggle_view()` — display mode changes
-- Zoom via `wheelEvent` with Ctrl — `zoom` changes up/down
-- `set_crop_mode(True)` delegates to `CropHandler.set_crop_mode` (mock)
-- `get_saved_crop_rect()` returns None before being set
-- `set_saved_crop_rect(rect)` / `get_saved_crop_rect()` round-trip
+| **Notes** | Complete. 40 tests across 9 classes (Init, Image, ToggleView, WheelZoom, CropDelegation, NullEventHandlers, MouseEventHandlers, DrawForeground, EdgeCases). Covers default init values, set_image/clear_image with both normal and photo=None paths, toggle_view round-trip, Ctrl+wheel zoom up/down/exit-fit-to-view, no-Ctrl wheel pass-through, None-guard for all 5 event overrides, resize+fit_to_view branch, mouse press/release/move delegation with mock handler, crop delegation for all 7 CropHandler methods, drawForeground painter=None, drawForeground with valid pixmap and crop mode False (grid drawn), drawForeground in crop mode (grid skipped), confirm_crop early return with photo=None. Uncovered paths (17%): crop handler consuming events (handle_* returning True), non-left-button press, enterEvent/leaveEvent cursor-change body (unreachable — QEvent.Enter is not QMouseEvent in Qt5), confirm_crop body (complex image manipulation requiring a fully painted scene). |
 
 ---
 
@@ -280,4 +269,5 @@ def test_widget_name(qtbot):
 4. ✅ **`status_bar.py`** — 100% coverage, 20 tests, all four update_mode_from_state branches and BVA on loaded_channels threshold
 5. ✅ **Dialogs and panels** — `grid_settings_dialog.py` (100%, 28 tests), `preset_panel.py` (97%, 21 tests)
 6. ✅ **Central widget** — `channel_controller.py` (100%, 58 tests)
-7. **Views** — `image_viewer.py`, `grid_overlay.py` (mock QPainter)
+7. ✅ **Image viewer** — `image_viewer.py` (83%, 40 tests, zoom/crop delegation/drawForeground)
+8. **Grid overlay** — `grid_overlay.py` (mock QPainter, all 11 grid types)
