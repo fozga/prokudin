@@ -20,8 +20,8 @@
 from unittest.mock import MagicMock
 
 import pytest
-from PyQt5.QtCore import QRect, QRectF
-from PyQt5.QtGui import QColor
+from PyQt5.QtCore import QRect, QRectF, Qt
+from PyQt5.QtGui import QColor, QPen
 from pytestqt.plugin import QtBot
 
 from src.ui.widgets.grid_overlay import GridOverlay
@@ -1016,3 +1016,242 @@ class TestGridOverlayDiagonalCompositeGrids:
         method(mock_painter, rect)
         # Assert
         assert mock_painter.drawLine.call_count == 6
+
+
+@pytest.mark.widget
+class TestGridOverlayPenSetup:
+    """
+    Test Design Specification: GridOverlay — QPen configuration in draw_grid
+    Module under test: src/ui/widgets/grid_overlay.py
+
+    Widget base class: Plain Python class (not a QWidget).
+
+    Contract:
+        draw_grid creates a QPen from the overlay's colour (with opacity applied
+        as alpha), line width, and line style, then calls painter.setPen() exactly
+        once before drawing. It also calls painter.setBrush(Qt.BrushStyle.NoBrush)
+        to ensure grid lines are drawn without fill. Regressions in pen setup
+        (wrong alpha, wrong width, brush left as default) would not affect
+        coverage metrics but would silently break rendering.
+
+    Infrastructure:
+        - Requires qtbot for QApplication (QPen, QColor construction).
+        - QPainter replaced with MagicMock to intercept setPen and setBrush calls.
+
+    What is tested:
+        - painter.setPen is called exactly once per draw_grid invocation.
+        - The QPen passed to setPen has width equal to _line_width (default 4).
+        - The QPen colour has alpha equal to _opacity (default 128).
+        - painter.setBrush is called with Qt.BrushStyle.NoBrush.
+
+    What is NOT tested:
+        - Exact RGBA colour value beyond the alpha channel (colour correctness
+          is validated by set_color round-trip tests in TestGridOverlayStateSetters).
+
+    Equivalence partitions:
+        EP1  Default overlay state → pen width 4, alpha 128, NoBrush.
+        EP2  Custom opacity (255)  → pen alpha 255.
+        EP3  Custom line width (2) → pen width 2.
+
+    Boundary values:
+        BV1  opacity = 255  (upper bound applied to alpha)
+        BV2  line_width = 1 (minimum practical width)
+
+    Mocking strategy:
+        QPainter replaced with MagicMock. The QPen arg to setPen is a real Qt
+        object and its properties are inspected via pen.width() / pen.color().alpha().
+
+    Constraints:
+        QApplication must be running for QPen and QColor construction inside draw_grid.
+    """
+
+    def test_set_pen_called_exactly_once(self, qtbot: QtBot) -> None:
+        """
+        Given an enabled GridOverlay with a valid rect,
+        When draw_grid is called,
+        Then painter.setPen is called exactly once.
+        """
+        # Arrange
+        overlay = GridOverlay()
+        mock_painter = MagicMock()
+        rect = QRectF(0, 0, 300, 300)
+        # Act
+        overlay.draw_grid(mock_painter, rect)
+        # Assert
+        assert mock_painter.setPen.call_count == 1
+
+    def test_pen_width_equals_line_width(self, qtbot: QtBot) -> None:
+        """
+        Given an enabled GridOverlay with default line_width=4 (EP1),
+        When draw_grid is called,
+        Then the QPen passed to painter.setPen has width() == 4.
+        """
+        # Arrange
+        overlay = GridOverlay()
+        mock_painter = MagicMock()
+        rect = QRectF(0, 0, 300, 300)
+        # Act
+        overlay.draw_grid(mock_painter, rect)
+        # Assert
+        pen = mock_painter.setPen.call_args[0][0]
+        assert isinstance(pen, QPen)
+        assert pen.width() == 4
+
+    def test_pen_color_alpha_equals_opacity(self, qtbot: QtBot) -> None:
+        """
+        Given an enabled GridOverlay with default opacity=128 (EP1),
+        When draw_grid is called,
+        Then the QPen's colour alpha equals 128 (opacity applied via setAlpha).
+        """
+        # Arrange
+        overlay = GridOverlay()
+        mock_painter = MagicMock()
+        rect = QRectF(0, 0, 300, 300)
+        # Act
+        overlay.draw_grid(mock_painter, rect)
+        # Assert
+        pen = mock_painter.setPen.call_args[0][0]
+        assert pen.color().alpha() == 128
+
+    def test_pen_color_alpha_reflects_custom_opacity(self, qtbot: QtBot) -> None:
+        """
+        Given an enabled GridOverlay with opacity set to 255 (EP2, BV1),
+        When draw_grid is called,
+        Then the QPen's colour alpha equals 255.
+        """
+        # Arrange
+        overlay = GridOverlay()
+        overlay.set_opacity(255)
+        mock_painter = MagicMock()
+        rect = QRectF(0, 0, 300, 300)
+        # Act
+        overlay.draw_grid(mock_painter, rect)
+        # Assert
+        pen = mock_painter.setPen.call_args[0][0]
+        assert pen.color().alpha() == 255
+
+    def test_pen_width_reflects_custom_line_width(self, qtbot: QtBot) -> None:
+        """
+        Given an enabled GridOverlay with line_width set to 2 (EP3),
+        When draw_grid is called,
+        Then the QPen passed to setPen has width() == 2.
+        """
+        # Arrange
+        overlay = GridOverlay()
+        overlay.set_line_width(2)
+        mock_painter = MagicMock()
+        rect = QRectF(0, 0, 300, 300)
+        # Act
+        overlay.draw_grid(mock_painter, rect)
+        # Assert
+        pen = mock_painter.setPen.call_args[0][0]
+        assert pen.width() == 2
+
+    def test_set_brush_called_with_no_brush(self, qtbot: QtBot) -> None:
+        """
+        Given an enabled GridOverlay with a valid rect,
+        When draw_grid is called,
+        Then painter.setBrush is called exactly once with Qt.BrushStyle.NoBrush.
+        """
+        # Arrange
+        overlay = GridOverlay()
+        mock_painter = MagicMock()
+        rect = QRectF(0, 0, 300, 300)
+        # Act
+        overlay.draw_grid(mock_painter, rect)
+        # Assert
+        assert mock_painter.setBrush.call_count == 1
+        assert mock_painter.setBrush.call_args[0][0] == Qt.BrushStyle.NoBrush
+
+
+@pytest.mark.widget
+class TestGridOverlayDispatch:
+    """
+    Test Design Specification: GridOverlay — draw_grid dispatch to private methods
+    Module under test: src/ui/widgets/grid_overlay.py
+
+    Widget base class: Plain Python class (not a QWidget).
+
+    Contract:
+        draw_grid uses a dictionary to dispatch to the private drawing method that
+        matches the current _grid_type. Each valid type must map to the correct
+        method so that setting a type via the public API and then calling draw_grid
+        produces the expected number of lines. A mis-wired entry in
+        _grid_drawing_methods (e.g., swapped keys) would be silent under the
+        existing test suite but is caught here.
+
+    Infrastructure:
+        - Requires qtbot for QApplication (QPen, QColor construction inside draw_grid).
+        - QPainter replaced with MagicMock.
+
+    What is tested:
+        - For every valid grid type constant, setting the type via set_grid_type
+          then calling draw_grid produces the documented drawLine call count.
+
+    What is NOT tested:
+        - Exact line positions (covered by grid-specific test classes).
+        - Early-exit conditions (covered by TestGridOverlayDrawGrid).
+
+    Equivalence partitions:
+        EP1  4-line grid types (3x3, golden ratio, four diagonal ratio variants,
+             diagonal 1:1) → drawLine called 4 times.
+        EP2  6-line composite types (four diagonal+division-point variants)
+             → drawLine called 6 times.
+
+    Boundary values:
+        None (dispatch is categorical, not numeric).
+
+    Mocking strategy:
+        QPainter replaced with MagicMock.
+
+    Constraints:
+        draw_grid is called through the public API (set_grid_type → draw_grid)
+        to verify the full setter→dispatch integration.
+    """
+
+    @pytest.mark.parametrize(
+        "grid_type, expected_calls",
+        [
+            (GRID_TYPE_3X3, 4),                      # EP1: rule-of-thirds
+            (GRID_TYPE_GOLDEN_RATIO, 4),              # EP1: golden ratio
+            (GRID_TYPE_DIAGONAL_1_1, 4),              # EP1: 45-degree diagonals
+            (GRID_TYPE_DIAGONAL_2_3, 4),              # EP1: 2:3 ratio diagonals
+            (GRID_TYPE_DIAGONAL_3_2, 4),              # EP1: 3:2 ratio diagonals
+            (GRID_TYPE_DIAGONAL_3_4, 4),              # EP1: 3:4 ratio diagonals
+            (GRID_TYPE_DIAGONAL_4_3, 4),              # EP1: 4:3 ratio diagonals
+            (GRID_TYPE_DIAGONAL_THIRDS_V, 6),         # EP2: diagonals + vertical thirds
+            (GRID_TYPE_DIAGONAL_THIRDS_H, 6),         # EP2: diagonals + horizontal thirds
+            (GRID_TYPE_DIAGONAL_GOLDEN_V, 6),         # EP2: diagonals + vertical golden
+            (GRID_TYPE_DIAGONAL_GOLDEN_H, 6),         # EP2: diagonals + horizontal golden
+        ],
+        ids=[
+            "3x3",
+            "golden_ratio",
+            "diagonal_1_1",
+            "diagonal_2_3",
+            "diagonal_3_2",
+            "diagonal_3_4",
+            "diagonal_4_3",
+            "diagonal_thirds_v",
+            "diagonal_thirds_h",
+            "diagonal_golden_v",
+            "diagonal_golden_h",
+        ],
+    )
+    def test_draw_grid_dispatches_to_correct_method(
+        self, qtbot: QtBot, grid_type: str, expected_calls: int
+    ) -> None:
+        """
+        Given a GridOverlay with grid type set via the public setter,
+        When draw_grid is called with a 300×300 rect,
+        Then painter.drawLine is called the expected number of times for that type.
+        """
+        # Arrange
+        overlay = GridOverlay()
+        overlay.set_grid_type(grid_type)
+        mock_painter = MagicMock()
+        rect = QRectF(0, 0, 300, 300)
+        # Act
+        overlay.draw_grid(mock_painter, rect)
+        # Assert
+        assert mock_painter.drawLine.call_count == expected_calls
