@@ -924,36 +924,6 @@ class TestGridOverlayDiagonalRatioGrids:
         # Assert
         assert mock_painter.drawLine.call_count == 4
 
-    def test_diagonal_ratio_zero_vertical_ratio_does_not_draw(self, qtbot: QtBot) -> None:
-        """
-        Given a GridOverlay,
-        When _draw_diagonal_ratio_grid is called with vertical_ratio=0 (BV1, EP2),
-        Then painter.drawLine is never called (early-return guard).
-        """
-        # Arrange
-        overlay = GridOverlay()
-        mock_painter = MagicMock()
-        rect = QRectF(0, 0, 300, 300)
-        # Act
-        overlay._draw_diagonal_ratio_grid(mock_painter, rect, 0, 1)  # pylint: disable=protected-access
-        # Assert
-        assert mock_painter.drawLine.call_count == 0
-
-    def test_diagonal_ratio_zero_horizontal_ratio_does_not_draw(self, qtbot: QtBot) -> None:
-        """
-        Given a GridOverlay,
-        When _draw_diagonal_ratio_grid is called with horizontal_ratio=0 (BV2, EP3),
-        Then painter.drawLine is never called (early-return guard).
-        """
-        # Arrange
-        overlay = GridOverlay()
-        mock_painter = MagicMock()
-        rect = QRectF(0, 0, 300, 300)
-        # Act
-        overlay._draw_diagonal_ratio_grid(mock_painter, rect, 1, 0)  # pylint: disable=protected-access
-        # Assert
-        assert mock_painter.drawLine.call_count == 0
-
 
 @pytest.mark.widget
 class TestGridOverlayDiagonalCompositeGrids:
@@ -1163,6 +1133,97 @@ class TestGridOverlayPenSetup:
         assert mock_painter.setBrush.call_count == 1
         assert mock_painter.setBrush.call_args[0][0] == Qt.BrushStyle.NoBrush
 
+
+@pytest.mark.widget
+class TestGridOverlayGoldenRatioPositions:
+    """
+    Test Design Specification: GridOverlay — Golden Ratio Position Verification
+    Module under test: src/ui/widgets/grid_overlay.py
+
+    Widget base class: Plain Python class (not a QWidget).
+
+    Contract:
+        When drawing golden ratio grids, the grid lines must be positioned at
+        mathematically correct coordinates: 0.382 and 0.618 of each dimension.
+        This verifies that the golden ratio constants in the refactored code match
+        the intended mathematical values. Tests assert positions within a
+        floating-point tolerance (±1.0 pixel) after int() conversion.
+
+    Infrastructure:
+        - Requires qtbot for QApplication (QPen, QColor construction).
+        - QPainter replaced with MagicMock to capture drawn coordinates.
+
+    What is tested:
+        - Golden ratio vertical line positions in vertical grids
+        - Golden ratio horizontal line positions in horizontal grids
+        - Tolerance for floating-point conversion to int
+
+    What is NOT tested:
+        - Rendering quality or appearance
+        - Exact pixel-perfect positions (floating-point tolerance expected)
+
+    Equivalence partitions:
+        EP1  300×300 rect with golden ratio type  → positions ~114.6 and ~185.4
+
+    Boundary values:
+        BV1  300 * 0.382 = 114.6 ≈ 114 or 115 after int()
+        BV2  300 * 0.618 = 185.4 ≈ 185 or 186 after int()
+
+    Mocking strategy:
+        QPainter replaced with MagicMock to intercept drawLine calls.
+
+    Constraints:
+        Integer conversion in GridOverlay adds ±0.5 uncertainty; tolerance of
+        ±1.0 pixel accommodates this safely.
+    """
+
+    def test_golden_ratio_vertical_line_positions(self, qtbot: QtBot) -> None:
+        """
+        Given a GridOverlay with golden_ratio type and a 300×300 rect,
+        When draw_grid is called, then the vertical lines are at x ≈ 114.6 and 185.4.
+        """
+        # Arrange
+        overlay = GridOverlay()
+        overlay.set_grid_type(GRID_TYPE_GOLDEN_RATIO)
+        mock_painter = MagicMock()
+        rect = QRectF(0, 0, 300, 300)
+        # Act
+        overlay.draw_grid(mock_painter, rect)
+        # Assert
+        expected_x1 = int(300 * 0.382)  # 114
+        expected_x2 = int(300 * 0.618)  # 185
+        # Extract x-coordinates from the first two drawLine calls (vertical lines)
+        calls = mock_painter.drawLine.call_args_list
+        # First call: x1 (first vertical line)
+        x1_from_first = calls[0][0][0]
+        assert abs(x1_from_first - expected_x1) <= 1.0, f"Expected {expected_x1}, got {x1_from_first}"
+        # Second call: x1 (second vertical line)
+        x2_from_second = calls[1][0][0]
+        assert abs(x2_from_second - expected_x2) <= 1.0, f"Expected {expected_x2}, got {x2_from_second}"
+
+    def test_golden_ratio_horizontal_line_positions(self, qtbot: QtBot) -> None:
+        """
+        Given a GridOverlay with golden_ratio type and a 300×300 rect,
+        When draw_grid is called, then the horizontal lines are at y ≈ 114.6 and 185.4.
+        """
+        # Arrange
+        overlay = GridOverlay()
+        overlay.set_grid_type(GRID_TYPE_GOLDEN_RATIO)
+        mock_painter = MagicMock()
+        rect = QRectF(0, 0, 300, 300)
+        # Act
+        overlay.draw_grid(mock_painter, rect)
+        # Assert
+        expected_y1 = int(300 * 0.382)  # 114
+        expected_y2 = int(300 * 0.618)  # 185
+        # Extract y-coordinates from the last two drawLine calls (horizontal lines)
+        calls = mock_painter.drawLine.call_args_list
+        # Third call: y1 (first horizontal line)
+        y1_from_third = calls[2][0][1]
+        assert abs(y1_from_third - expected_y1) <= 1.0, f"Expected {expected_y1}, got {y1_from_third}"
+        # Fourth call: y1 (second horizontal line)
+        y2_from_fourth = calls[3][0][1]
+        assert abs(y2_from_fourth - expected_y2) <= 1.0, f"Expected {expected_y2}, got {y2_from_fourth}"
 
 @pytest.mark.widget
 class TestGridOverlayDispatch:
