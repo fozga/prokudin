@@ -568,7 +568,7 @@ class CropHandler:  # pylint: disable=too-many-public-methods
                         "top": rect.top(),
                         "bottom": rect.bottom() + 1,  # Qt's .bottom() is inclusive; convert to exclusive
                         "left": rect.left(),
-                        "right": rect.right() + 1,   # Qt's .right() is inclusive; convert to exclusive
+                        "right": rect.right() + 1,  # Qt's .right() is inclusive; convert to exclusive
                     }
                 else:
                     self._drag_info["fixed_edges"] = None
