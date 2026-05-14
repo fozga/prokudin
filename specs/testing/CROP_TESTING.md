@@ -1,4 +1,30 @@
-# Crop – Manual Testing
+# Crop – Testing
+
+## Unit Tests — `src/core/crop_geometry.py`
+
+Pure geometry logic is covered by `tests/unit/test_core_crop_geometry.py` (no Qt
+dependency). The test classes and their scope:
+
+| Test class | Functions covered |
+|---|---|
+| `TestRect` | `Rect` properties (`right`, `bottom`, `center_x`, `center_y`) |
+| `TestClampPointToBounds` | `clamp_point_to_bounds` — 8 cases (EP + BV) |
+| `TestClampRectToBounds` | `clamp_rect_to_bounds` — 7 cases including zero-size |
+| `TestAdjustDimensionsToRatio` | `adjust_dimensions_to_ratio` — ratio enforcement + corner mapping |
+| `TestResizeTopLeft` | `resize_top_left` — normal drag, min-size, ratio, bounds clamp |
+| `TestResizeTopRight` | `resize_top_right` |
+| `TestResizeBottomLeft` | `resize_bottom_left` |
+| `TestResizeBottomRight` | `resize_bottom_right` |
+| `TestEdgeResizeFreeAspect` | `edge_resize_free_aspect` — all 4 handles, min-size, bounds clamp |
+| `TestGetHorizontalConstraints` | `get_horizontal_constraints` — left/right, centering |
+| `TestGetVerticalConstraints` | `get_vertical_constraints` — top/bottom, centering |
+| `TestApplyHorizontalBoundsConstraints` | `apply_horizontal_bounds_constraints` — 4 violation cases |
+| `TestApplyVerticalBoundsConstraints` | `apply_vertical_bounds_constraints` — 4 violation cases |
+| `TestGetAnchorPoint` | `get_anchor_point` — all 8 named handles + unknown + None rect |
+
+---
+
+## Manual Tests — `CropHandler` (Qt-dependent)
 
 ## Objectives
 
