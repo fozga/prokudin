@@ -116,9 +116,9 @@ class PresetPanel(QWidget):
         title.setStyleSheet("font-weight: bold; font-size: 11pt;")
         layout.addWidget(title)
 
-        save_btn = QPushButton("Save Preset")
-        save_btn.clicked.connect(self.save_requested.emit)
-        layout.addWidget(save_btn)
+        self.save_btn = QPushButton("Save Preset")
+        self.save_btn.clicked.connect(self.save_requested.emit)
+        layout.addWidget(self.save_btn)
 
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)

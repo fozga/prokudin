@@ -15,24 +15,14 @@
 # You should have received a copy of the GNU General Public License
 # along with Prokudin.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Pytest configuration for unit tests.
-
-Coverage enforcement thresholds are in coverage_config.py.
-Coverage targets are set by run_tests.py via command-line --cov flags.
-"""
-
-from typing import Any
+"""Pytest configuration for widget tests."""
 
 import pytest
+from PyQt5.QtWidgets import QApplication
 
 
-def pytest_configure(config: Any) -> None:
-    """Register custom markers."""
-    config.addinivalue_line(
-        "markers",
-        "skip_coverage_enforcement: skip coverage requirement for this module",
-    )
-
-
-
-
+@pytest.fixture(scope="session")
+def qapp() -> QApplication:
+    """Session-scoped QApplication required by all widget tests."""
+    app = QApplication.instance() or QApplication([])
+    yield app  # type: ignore[misc]

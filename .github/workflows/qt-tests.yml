@@ -1,4 +1,4 @@
-name: Unit Tests with Coverage
+name: Qt Tests with Coverage
 
 on:
   push:
@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 jobs:
-  unit-tests:
+  qt-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -26,12 +26,15 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Run business logic tests with coverage
-        run: python3 run_tests.py --suite business-logic -v
+      - name: Install system Qt dependencies
+        run: sudo apt-get install -y libxkbcommon-x11-0 libgl1
+
+      - name: Run Qt tests with coverage
+        run: python3 run_tests.py --suite qt -v
 
       - name: Upload coverage HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-html
-          path: htmlcov
+          name: qt-coverage-html
+          path: htmlcov-qt

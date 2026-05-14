@@ -16,6 +16,11 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+    "unit: no Qt required",
+    "widget: requires QApplication (run with QT_QPA_PLATFORM=offscreen)",
+    "integration: requires full Qt application",
+]
 
 [tool.coverage.run]
 branch = true
