@@ -27,7 +27,6 @@ from PyQt5.QtGui import QColor, QMouseEvent, QPainter, QPen, QPixmap
 from PyQt5.QtWidgets import QApplication, QGraphicsPixmapItem, QGraphicsView
 
 from src.core.crop_geometry import (
-    EdgeConstraints,
     EdgeResizeContext,
     Point,
     Rect,
@@ -37,7 +36,9 @@ from src.core.crop_geometry import (
     clamp_point_to_bounds,
     clamp_rect_to_bounds,
     edge_resize_free_aspect,
-    get_anchor_point as _geo_get_anchor_point,
+)
+from src.core.crop_geometry import get_anchor_point as _geo_get_anchor_point
+from src.core.crop_geometry import (
     get_horizontal_constraints,
     get_vertical_constraints,
     resize_bottom_left,
@@ -50,14 +51,17 @@ from .grid_overlay import GridOverlay
 
 
 def _qrect_to_rect(r: QRect) -> Rect:
+    """Convert a QRect to a plain Rect."""
     return Rect(r.left(), r.top(), r.width(), r.height())
 
 
 def _qrectf_to_rect(r: QRectF) -> Rect:
+    """Convert a QRectF to a plain Rect (truncates to int)."""
     return Rect(int(r.left()), int(r.top()), int(r.width()), int(r.height()))
 
 
 def _rect_to_qrect(r: Rect) -> QRect:
+    """Convert a plain Rect to a QRect."""
     return QRect(r.left, r.top, r.width, r.height)
 
 

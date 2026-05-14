@@ -49,18 +49,22 @@ class Rect:
 
     @property
     def right(self) -> int:
+        """Exclusive right edge (left + width)."""
         return self.left + self.width
 
     @property
     def bottom(self) -> int:
+        """Exclusive bottom edge (top + height)."""
         return self.top + self.height
 
     @property
     def center_x(self) -> float:
+        """Horizontal centre coordinate."""
         return self.left + self.width / 2
 
     @property
     def center_y(self) -> float:
+        """Vertical centre coordinate."""
         return self.top + self.height / 2
 
 
@@ -274,9 +278,7 @@ def get_horizontal_constraints(params: ResizeParameters) -> EdgeConstraints:
     )
 
 
-def apply_horizontal_bounds_constraints(
-    c: EdgeConstraints, bounds: Rect, edge: str, target_ratio: float
-) -> Rect:
+def apply_horizontal_bounds_constraints(c: EdgeConstraints, bounds: Rect, edge: str, target_ratio: float) -> Rect:
     """Clamp horizontally-resized rectangle to image bounds, preserving aspect ratio."""
     new_left, new_top = c.left, c.top
     new_width, new_height = c.width, c.height
@@ -336,9 +338,7 @@ def get_vertical_constraints(params: ResizeParameters) -> EdgeConstraints:
     )
 
 
-def apply_vertical_bounds_constraints(
-    c: EdgeConstraints, bounds: Rect, edge: str, target_ratio: float
-) -> Rect:
+def apply_vertical_bounds_constraints(c: EdgeConstraints, bounds: Rect, edge: str, target_ratio: float) -> Rect:
     """Clamp vertically-resized rectangle to image bounds, preserving aspect ratio."""
     new_left, new_top = c.left, c.top
     new_width, new_height = c.width, c.height
