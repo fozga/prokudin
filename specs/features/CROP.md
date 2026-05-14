@@ -22,7 +22,8 @@ and leaves the previously saved crop (if any) untouched.
 
 | Component | Responsibility |
 |---|---|
-| `CropHandler` (`src/ui/widgets/crop_handler.py`) | Owns current and saved crop rectangles, handles mouse interaction and drawing. Qt-dependent. |
+| `CropGeometry` (`src/core/crop_geometry.py`) | Pure geometry: clamping, corner/edge resize arithmetic, anchor point calculation. No Qt. Unit-tested in `tests/unit/test_core_crop_geometry.py`. |
+| `CropHandler` (`src/ui/widgets/crop_handler.py`) | Owns current and saved crop rectangles, handles mouse interaction and drawing. Delegates all geometry to `CropGeometry`. Qt-dependent. |
 | `ImageViewer` (`src/ui/widgets/image_viewer.py`) | Hosts the `CropHandler` and shared `GridOverlay`. Exposes `get_saved_crop_rect()` / `set_saved_crop_rect()`. |
 | `AppState` (`src/ui/app_state.py`) | Stores `crop_mode` flag and `crop_ratio` (aspect constraint) but not the rectangle itself. |
 | `display` handlers (`src/ui/handlers/display.py`) | Apply the saved crop when fetching images from `ImageProcessorService` for display. |
@@ -102,8 +103,8 @@ rectangle:
   `width / height ≈ ratio_w / ratio_h`.
 - The rectangle is always clamped to the image bounds.
 
-> Planned (issue #56): all ratio and clamping logic will be extracted to
-> `src/core/crop_geometry.py` so that it can be unit-tested without Qt.
+> Implemented (issue #56): all ratio and clamping logic lives in
+> `src/core/crop_geometry.py` and is unit-tested without Qt.
 
 ---
 
@@ -141,8 +142,8 @@ High-level behaviour:
 - **Mouse release:**
   - Clear `_state["dragging"]` and `_drag_info`.
 
-> Planned (issue #56): the above arithmetic will be delegated to
-> `crop_geometry` helper functions such as `resize_top_left`, `edge_resize_free_aspect`,
+> Implemented (issue #56): the above arithmetic is delegated to
+> `crop_geometry` helper functions: `resize_top_left`, `edge_resize_free_aspect`,
 > `clamp_rect_to_bounds`, etc.
 
 ### Drawing
@@ -251,26 +252,26 @@ is temporarily suspended while editing).
 
 ---
 
-## Planned Core Extraction — `crop_geometry.py` (Issue #56)
+## Core Geometry Module — `crop_geometry.py` (Issue #56, Implemented)
 
-Crop geometry logic is currently embedded in `CropHandler` and depends on Qt
-classes such as `QRect` and `QPointF`, making it hard to unit-test. Issue #56
-proposes a refactor that splits responsibilities:
+All pure geometry logic has been extracted to `src/core/crop_geometry.py`:
 
-- `src/core/crop_geometry.py` — pure geometry helpers operating on plain
-  dataclasses and tuples:
-  - `clamp_point_to_bounds(point, bounds)`
-  - `clamp_rect_to_bounds(rect, bounds)`
-  - `adjust_dimensions_to_ratio(width, height, ratio)`
-  - `resize_top_left`, `resize_top_right`, `resize_bottom_left`, `resize_bottom_right`
-  - Horizontal/vertical constraint helpers
-  - `edge_resize_free_aspect(context)`
-  - `get_anchor_point(handle, rect)`
-- `CropHandler` — remains responsible for Qt event handling and drawing only,
-  delegating geometry decisions to `crop_geometry`.
+- `Point` / `Rect` — plain dataclasses replacing Qt `QPointF` / `QRect`.
+- `EdgeConstraints`, `ResizeParameters`, `EdgeResizeContext` — parameter bundles
+  for constraint calculation (no Qt fields).
+- `clamp_point_to_bounds(point, bounds)` — clamp point to image area.
+- `clamp_rect_to_bounds(rect, bounds)` — intersection clamp.
+- `adjust_dimensions_to_ratio(dimensions, fixed_point, corner, ratio)` — ratio enforcement.
+- `resize_top_left`, `resize_top_right`, `resize_bottom_left`, `resize_bottom_right` — corner drag arithmetic.
+- `get_horizontal_constraints`, `apply_horizontal_bounds_constraints` — left/right edge with ratio.
+- `get_vertical_constraints`, `apply_vertical_bounds_constraints` — top/bottom edge with ratio.
+- `edge_resize_free_aspect(context)` — single-edge resize without ratio.
+- `get_anchor_point(handle, rect)` — fixed point for a drag operation.
 
-This change will not alter the observable behaviour of the crop feature but will
-make its geometry rules testable at the `src/core/` layer.
+`CropHandler` holds all Qt-dependent code and delegates geometry decisions to
+the functions above via thin conversion wrappers. No user-visible behaviour has changed.
+
+Unit tests live in `tests/unit/test_core_crop_geometry.py`.
 
 ---
 
