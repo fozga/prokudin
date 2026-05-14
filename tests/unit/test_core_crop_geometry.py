@@ -79,64 +79,64 @@ class TestRect:
     """
 
     def test_right_is_left_plus_width(self) -> None:
-        """Given Rect(10, 20, 100, 50), when right is accessed, then it equals 110."""
+        """Given Rect(10, 20, 100, 50), when right is accessed, then it equals 109 (inclusive)."""
         # Arrange
         r = Rect(10, 20, 100, 50)
         # Act
         result = r.right
         # Assert
-        assert result == 110
+        assert result == 109
 
     def test_bottom_is_top_plus_height(self) -> None:
-        """Given Rect(10, 20, 100, 50), when bottom is accessed, then it equals 70."""
+        """Given Rect(10, 20, 100, 50), when bottom is accessed, then it equals 69 (inclusive)."""
         # Arrange
         r = Rect(10, 20, 100, 50)
         # Act
         result = r.bottom
         # Assert
-        assert result == 70
+        assert result == 69
 
     def test_center_x(self) -> None:
-        """Given Rect(10, 0, 100, 0), when center_x is accessed, then it equals 60.0."""
+        """Given Rect(10, 0, 100, 0), when center_x is accessed, then it equals 59.5."""
         # Arrange
         r = Rect(10, 0, 100, 0)
         # Act
         result = r.center_x
         # Assert
-        assert result == 60.0
+        assert result == 59.5
 
     def test_center_y(self) -> None:
-        """Given Rect(0, 20, 0, 80), when center_y is accessed, then it equals 60.0."""
+        """Given Rect(0, 20, 0, 80), when center_y is accessed, then it equals 59.5."""
         # Arrange
         r = Rect(0, 20, 0, 80)
         # Act
         result = r.center_y
         # Assert
-        assert result == 60.0
+        assert result == 59.5
 
     def test_zero_size_rect(self) -> None:
-        """Given Rect with zero width and height (BV1), when right/bottom accessed, then they equal left/top."""
+        """Given Rect with zero width and height (BV1), when right/bottom accessed, then they equal left-1/top-1."""
         # Arrange
         r = Rect(5, 7, 0, 0)
         # Act / Assert
-        assert r.right == 5
-        assert r.bottom == 7
+        assert r.right == 4
+        assert r.bottom == 6
 
     def test_origin_anchored_rect(self) -> None:
-        """Given Rect(0, 0, 100, 80) at origin (BV2), when right/bottom accessed, then they equal width/height."""
+        """Given Rect(0, 0, 100, 80) at origin (BV2), when right/bottom accessed, then they equal width-1/height-1."""
         # Arrange
         r = Rect(0, 0, 100, 80)
         # Act / Assert
-        assert r.right == 100
-        assert r.bottom == 80
+        assert r.right == 99
+        assert r.bottom == 79
 
     def test_negative_left_top_properties_correct(self) -> None:
         """Given Rect(-50, -30, 100, 80) with negative origin (EP3), when properties accessed, then correct."""
         # Arrange
         r = Rect(-50, -30, 100, 80)
         # Act / Assert
-        assert r.right == 50
-        assert r.bottom == 50
+        assert r.right == 49
+        assert r.bottom == 49
 
 
 # ---------------------------------------------------------------------------
@@ -197,13 +197,13 @@ class TestClampPointToBounds:
         assert result.x == 0.0
 
     def test_x_above_right_clamped(self, unit_bounds: Rect) -> None:
-        """Given point with x=1100 (right of bounds), when clamped, then x is set to bounds.right=1000."""
+        """Given point with x=1100 (right of bounds), when clamped, then x is set to bounds.right=999."""
         # Arrange
         point = Point(1100.0, 400.0)
         # Act
         result = clamp_point_to_bounds(point, unit_bounds)
         # Assert
-        assert result.x == 1000.0
+        assert result.x == 999.0
 
     def test_y_above_top_clamped(self, unit_bounds: Rect) -> None:
         """Given point with y=-10 (above bounds), when clamped, then y is set to bounds.top=0."""
@@ -215,13 +215,13 @@ class TestClampPointToBounds:
         assert result.y == 0.0
 
     def test_y_below_bottom_clamped(self, unit_bounds: Rect) -> None:
-        """Given point with y=900 (below bounds), when clamped, then y is set to bounds.bottom=800."""
+        """Given point with y=900 (below bounds), when clamped, then y is set to bounds.bottom=799."""
         # Arrange
         point = Point(500.0, 900.0)
         # Act
         result = clamp_point_to_bounds(point, unit_bounds)
         # Assert
-        assert result.y == 800.0
+        assert result.y == 799.0
 
     def test_both_axes_out_of_bounds(self, unit_bounds: Rect) -> None:
         """Given point (-100, 900) with both axes out of bounds (EP6), when clamped, then both are clamped."""
@@ -231,7 +231,7 @@ class TestClampPointToBounds:
         result = clamp_point_to_bounds(point, unit_bounds)
         # Assert
         assert result.x == 0.0
-        assert result.y == 800.0
+        assert result.y == 799.0
 
     def test_point_at_left_boundary_unchanged(self, unit_bounds: Rect) -> None:
         """Given point exactly at bounds.left=0 (BV1), when clamped, then x remains 0."""
@@ -243,13 +243,13 @@ class TestClampPointToBounds:
         assert result.x == 0.0
 
     def test_point_at_right_boundary_unchanged(self, unit_bounds: Rect) -> None:
-        """Given point exactly at bounds.right=1000 (BV2), when clamped, then x remains 1000."""
+        """Given point exactly at bounds.right=999 (BV2), when clamped, then x remains 999."""
         # Arrange
-        point = Point(1000.0, 400.0)
+        point = Point(999.0, 400.0)
         # Act
         result = clamp_point_to_bounds(point, unit_bounds)
         # Assert
-        assert result.x == 1000.0
+        assert result.x == 999.0
 
 
 # ---------------------------------------------------------------------------
@@ -307,14 +307,14 @@ class TestClampRectToBounds:
         assert result.width == 150  # 200 - 50
 
     def test_rect_clipped_at_right(self, unit_bounds: Rect) -> None:
-        """Given rect extending 50px right of bounds (EP3), when clamped, then right=1000 and width reduced."""
+        """Given rect extending 50px right of bounds (EP3), when clamped, then right=999 and width=100."""
         # Arrange
         r = Rect(900, 100, 200, 150)
         # Act
         result = clamp_rect_to_bounds(r, unit_bounds)
         # Assert
-        assert result.right == 1000
-        assert result.width == 100  # 1000 - 900
+        assert result.right == 999
+        assert result.width == 100
 
     def test_rect_clipped_at_top(self, unit_bounds: Rect) -> None:
         """Given rect extending 30px above bounds (EP4), when clamped, then top=0 and height reduced by 30."""
@@ -327,14 +327,14 @@ class TestClampRectToBounds:
         assert result.height == 120  # 150 - 30
 
     def test_rect_clipped_at_bottom(self, unit_bounds: Rect) -> None:
-        """Given rect extending 50px below bounds (EP5), when clamped, then bottom=800 and height reduced."""
+        """Given rect extending 50px below bounds (EP5), when clamped, then bottom=799 and height=100."""
         # Arrange
         r = Rect(100, 700, 200, 150)
         # Act
         result = clamp_rect_to_bounds(r, unit_bounds)
         # Assert
-        assert result.bottom == 800
-        assert result.height == 100  # 800 - 700
+        assert result.bottom == 799
+        assert result.height == 100
 
     def test_rect_entirely_outside_x_returns_zero_width(self, unit_bounds: Rect) -> None:
         """Given rect entirely to the right of bounds (EP6), when clamped, then width=0."""
@@ -509,8 +509,8 @@ class TestResizeTopLeft:
         # Assert
         assert result.left == 300
         assert result.top == 200
-        assert result.right == 600
-        assert result.bottom == 500
+        assert result.right == 599  # inclusive: 300 + 300 - 1
+        assert result.bottom == 499  # inclusive: 200 + 300 - 1
 
     def test_minimum_width_enforced(self, unit_bounds: Rect) -> None:
         """Given mouse x past fixed_right (EP2), when dragged, then width is at least 10px."""
@@ -609,8 +609,8 @@ class TestResizeTopRight:
         # Assert
         assert result.left == 400
         assert result.top == 200
-        assert result.right == 700
-        assert result.bottom == 500
+        assert result.right == 699  # inclusive: 400 + 300 - 1
+        assert result.bottom == 499  # inclusive: 200 + 300 - 1
 
     def test_minimum_width_enforced(self, unit_bounds: Rect) -> None:
         """Given mouse x less than fixed_left + 10 (EP2), when dragged, then width is at least 10px."""
@@ -681,8 +681,8 @@ class TestResizeBottomLeft:
         # Assert
         assert result.left == 300
         assert result.top == 300
-        assert result.right == 600
-        assert result.bottom == 500
+        assert result.right == 599  # inclusive: 300 + 300 - 1
+        assert result.bottom == 499  # inclusive: 300 + 200 - 1
 
     def test_minimum_width_enforced(self, unit_bounds: Rect) -> None:
         """Given mouse x past fixed_right (EP2), when dragged, then width is at least 10px."""
@@ -753,8 +753,8 @@ class TestResizeBottomRight:
         # Assert
         assert result.left == 400
         assert result.top == 300
-        assert result.right == 700
-        assert result.bottom == 500
+        assert result.right == 699  # inclusive: 400 + 300 - 1
+        assert result.bottom == 499  # inclusive: 300 + 200 - 1
 
     def test_minimum_width_enforced(self, unit_bounds: Rect) -> None:
         """Given mouse x less than fixed_left + 10 (EP2), when dragged, then width is at least 10px."""
@@ -943,9 +943,9 @@ class TestGetHorizontalConstraints:
         # Act
         c = get_horizontal_constraints(params)
         # Assert
-        assert c.right == center_rect.right
+        assert c.right == center_rect.right + 1  # Exclusive edge in constraints
         assert c.left == 350
-        assert c.width == center_rect.right - 350
+        assert c.width == center_rect.right + 1 - 350
         assert abs(c.width / c.height - 16 / 9) < 0.01
 
     def test_right_handle_computes_correct_constraints(self, center_rect: Rect) -> None:
@@ -983,11 +983,11 @@ class TestGetHorizontalConstraints:
         assert abs(computed_center_y - center_y) <= 1  # integer rounding tolerance
 
     def test_left_handle_minimum_width_at_boundary(self, center_rect: Rect) -> None:
-        """Given left handle at fixed_right - 10 (BV1), when computed, then width == 10."""
+        """Given left handle at exclusive_right - 10 (BV1), when computed, then width == 10."""
         # Arrange
         params = ResizeParameters(
             handle="left",
-            mouse=Point(float(center_rect.right - 10), 0.0),
+            mouse=Point(float(center_rect.right + 1 - 10), 0.0),  # exclusive_right - 10
             rect=center_rect,
             target_ratio=1.0,
             center_point=int(center_rect.center_y),
@@ -1058,7 +1058,7 @@ class TestGetVerticalConstraints:
         # Act
         c = get_vertical_constraints(params)
         # Assert
-        assert c.bottom == center_rect.bottom
+        assert c.bottom == center_rect.bottom + 1  # Exclusive edge in constraints
         assert c.top == 250
         assert c.width == c.height
 
@@ -1080,11 +1080,11 @@ class TestGetVerticalConstraints:
         assert abs(c.width / c.height - 4 / 3) < 0.01
 
     def test_top_handle_minimum_height_at_boundary(self, center_rect: Rect) -> None:
-        """Given top handle at fixed_bottom - 10 (BV1), when computed, then height == 10."""
+        """Given top handle at exclusive_bottom - 10 (BV1), when computed, then height == 10."""
         # Arrange
         params = ResizeParameters(
             handle="top",
-            mouse=Point(0.0, float(center_rect.bottom - 10)),
+            mouse=Point(0.0, float(center_rect.bottom + 1 - 10)),  # exclusive_bottom - 10
             rect=center_rect,
             target_ratio=1.0,
             center_point=int(center_rect.center_x),
@@ -1306,9 +1306,9 @@ class TestGetAnchorPoint:
     @pytest.mark.parametrize(
         "handle, expected_x, expected_y",
         [
-            ("top_left", 300, 150),     # EP1: opposite corner = (right=300, bottom=150)
-            ("top_right", 100, 150),    # EP2: opposite corner = (left=100, bottom=150)
-            ("bottom_left", 300, 50),   # EP3: opposite corner = (right=300, top=50)
+            ("top_left", 299, 149),     # EP1: opposite corner = (right=299, bottom=149)
+            ("top_right", 100, 149),    # EP2: opposite corner = (left=100, bottom=149)
+            ("bottom_left", 299, 50),   # EP3: opposite corner = (right=299, top=50)
             ("bottom_right", 100, 50),  # EP4: opposite corner = (left=100, top=50)
         ],
         ids=["top_left", "top_right", "bottom_left", "bottom_right"],
@@ -1379,11 +1379,11 @@ class TestGetAnchorPoint:
         assert pt.y == 0.0
 
     def test_zero_size_rect_anchor_equals_position(self) -> None:
-        """Given zero-size rect (BV1), when top_left anchor computed, then x=right=left and y=bottom=top."""
+        """Given zero-size rect (BV1), when top_left anchor computed, then x=r.right and y=r.bottom."""
         # Arrange
         r = Rect(200, 150, 0, 0)
         # Act
         pt = get_anchor_point("top_left", r)
         # Assert
-        assert pt.x == r.left  # right == left when width == 0
-        assert pt.y == r.top   # bottom == top when height == 0
+        assert pt.x == r.right  # right = left + 0 - 1
+        assert pt.y == r.bottom # bottom = top + 0 - 1

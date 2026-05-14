@@ -39,7 +39,10 @@ class Point:
 class Rect:
     """Plain integer rectangle (left, top, width, height).
 
-    Uses the half-open convention: right = left + width, bottom = top + height.
+    Uses the inclusive convention (matching Qt's QRect):
+    right = left + width - 1, bottom = top + height - 1.
+    This matches Qt semantics to ensure consistency when converting
+    from/to QRect without off-by-one errors.
     """
 
     left: int
@@ -49,23 +52,23 @@ class Rect:
 
     @property
     def right(self) -> int:
-        """Exclusive right edge (left + width)."""
-        return self.left + self.width
+        """Inclusive right edge (left + width - 1)."""
+        return self.left + self.width - 1
 
     @property
     def bottom(self) -> int:
-        """Exclusive bottom edge (top + height)."""
-        return self.top + self.height
+        """Inclusive bottom edge (top + height - 1)."""
+        return self.top + self.height - 1
 
     @property
     def center_x(self) -> float:
         """Horizontal centre coordinate."""
-        return self.left + self.width / 2
+        return self.left + self.width / 2 - 0.5
 
     @property
     def center_y(self) -> float:
         """Vertical centre coordinate."""
-        return self.top + self.height / 2
+        return self.top + self.height / 2 - 0.5
 
 
 @dataclass
@@ -114,8 +117,8 @@ def clamp_rect_to_bounds(rect: Rect, bounds: Rect) -> Rect:
     top = max(rect.top, bounds.top)
     right = min(rect.right, bounds.right)
     bottom = min(rect.bottom, bounds.bottom)
-    width = max(0, right - left)
-    height = max(0, bottom - top)
+    width = max(0, right - left + 1)
+    height = max(0, bottom - top + 1)
     return Rect(left, top, width, height)
 
 
@@ -258,7 +261,7 @@ def get_horizontal_constraints(params: ResizeParameters) -> EdgeConstraints:
     center_y = params.center_point
 
     if handle == "left":
-        fixed_right = rect.right
+        fixed_right = rect.right + 1  # Convert inclusive to exclusive
         new_left = min(int(mouse.x), fixed_right - 10)
         width = fixed_right - new_left
         height = int(round(width / target_ratio))
@@ -300,7 +303,7 @@ def apply_horizontal_bounds_constraints(c: EdgeConstraints, bounds: Rect, edge: 
             new_left = right_edge - new_width
 
     if new_bottom > bounds.bottom:
-        new_bottom = bounds.bottom
+        new_bottom = bounds.bottom + 1  # Convert inclusive to exclusive for height calculation
         new_height = new_bottom - new_top
         new_width = int(round(new_height * target_ratio))
         if edge == "left":
@@ -318,7 +321,7 @@ def get_vertical_constraints(params: ResizeParameters) -> EdgeConstraints:
     center_x = params.center_point
 
     if handle == "top":
-        fixed_bottom = rect.bottom
+        fixed_bottom = rect.bottom + 1  # Convert inclusive to exclusive
         new_top = min(int(mouse.y), fixed_bottom - 10)
         height = fixed_bottom - new_top
         width = int(round(height * target_ratio))
@@ -360,7 +363,7 @@ def apply_vertical_bounds_constraints(c: EdgeConstraints, bounds: Rect, edge: st
             new_top = bottom_edge - new_height
 
     if new_right > bounds.right:
-        new_right = bounds.right
+        new_right = bounds.right + 1  # Convert inclusive to exclusive for width calculation
         new_width = new_right - new_left
         new_height = int(round(new_width / target_ratio))
         if edge == "top":
@@ -397,7 +400,7 @@ def edge_resize_free_aspect(context: EdgeResizeContext) -> Rect:
     top = max(bounds.top, top)
     bottom = min(bounds.bottom, bottom)
 
-    return Rect(left, top, right - left, bottom - top)
+    return Rect(left, top, right - left + 1, bottom - top + 1)
 
 
 def get_anchor_point(handle: str, rect: Optional[Rect]) -> Point:

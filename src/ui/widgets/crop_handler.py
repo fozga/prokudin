@@ -558,6 +558,7 @@ class CropHandler:  # pylint: disable=too-many-public-methods
                 )
 
                 # Store fixed edges for corner handles
+                # Convert Qt's inclusive edges to exclusive edges for pure geometry functions
                 if (
                     self._drag_info["handle"] in ["top_left", "top_right", "bottom_left", "bottom_right"]
                     and self._rectangles["current"] is not None
@@ -565,9 +566,9 @@ class CropHandler:  # pylint: disable=too-many-public-methods
                     rect = self._rectangles["current"]
                     self._drag_info["fixed_edges"] = {
                         "top": rect.top(),
-                        "bottom": rect.bottom(),
+                        "bottom": rect.bottom() + 1,  # Qt's .bottom() is inclusive; convert to exclusive
                         "left": rect.left(),
-                        "right": rect.right(),
+                        "right": rect.right() + 1,   # Qt's .right() is inclusive; convert to exclusive
                     }
                 else:
                     self._drag_info["fixed_edges"] = None
