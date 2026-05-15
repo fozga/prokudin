@@ -577,7 +577,90 @@ class TestCalculateDiagonalGoldenHLines:
             assert close_to_golden, f"Line {i}: {lines[i]} doesn't have golden point"
 
 
-class TestEdgeCases:
+class TestCalculateDiagonalRatioHelper:
+    """
+    Test Design Specification: _calculate_diagonal_ratio_lines()
+    Module under test: src/core/grid_geometry.py
+
+    Contract:
+        _calculate_diagonal_ratio_lines is a private helper that calculates
+        corner-to-edge diagonals with parameterized slope. It returns 4 line
+        tuples for positive ratios, or an empty list if either ratio is ≤ 0
+        (defensive guard against misuse).
+
+    Equivalence partitions:
+        EP1  Both ratios > 0           → returns 4 lines
+        EP2  vertical_ratio = 0        → returns empty list (guard)
+        EP3  horizontal_ratio = 0      → returns empty list (guard)
+        EP4  Both ratios < 0           → returns empty list (guard)
+
+    Boundary values:
+        BV1  vertical_ratio = 0        (at boundary, triggers guard)
+        BV2  horizontal_ratio = 0      (at boundary, triggers guard)
+        BV3  vertical_ratio = 0.0001   (just above zero, passes guard)
+
+    Exclusions:
+        - Negative ratios are not explicitly tested (EP4 covers both ≤ 0)
+
+    Constraints:
+        - This is a private helper (_calculate_diagonal_ratio_lines);
+          tested directly for defensive programming validation.
+    """
+
+    def test_valid_ratios_returns_four_lines(self, rect_300_square: tuple[float, float, float, float]) -> None:
+        """
+        Given valid positive ratios (2.0, 3.0) and a 300×300 rect,
+        when _calculate_diagonal_ratio_lines is called,
+        then it returns a list of 4 line tuples.
+        """
+        # Arrange / Act
+        from src.core.grid_geometry import _calculate_diagonal_ratio_lines
+
+        result = _calculate_diagonal_ratio_lines(rect_300_square, vertical_ratio=2.0, horizontal_ratio=3.0)
+        # Assert
+        assert len(result) == 4
+
+    def test_zero_vertical_ratio_returns_empty(self, rect_300_square: tuple[float, float, float, float]) -> None:
+        """
+        Given vertical_ratio=0 (guard boundary, EP2, BV1),
+        when _calculate_diagonal_ratio_lines is called,
+        then it returns an empty list (early-return guard).
+        """
+        # Arrange / Act
+        from src.core.grid_geometry import _calculate_diagonal_ratio_lines
+
+        result = _calculate_diagonal_ratio_lines(rect_300_square, vertical_ratio=0.0, horizontal_ratio=3.0)
+        # Assert
+        assert result == []
+
+    def test_zero_horizontal_ratio_returns_empty(self, rect_300_square: tuple[float, float, float, float]) -> None:
+        """
+        Given horizontal_ratio=0 (guard boundary, EP3, BV2),
+        when _calculate_diagonal_ratio_lines is called,
+        then it returns an empty list (early-return guard).
+        """
+        # Arrange / Act
+        from src.core.grid_geometry import _calculate_diagonal_ratio_lines
+
+        result = _calculate_diagonal_ratio_lines(rect_300_square, vertical_ratio=2.0, horizontal_ratio=0.0)
+        # Assert
+        assert result == []
+
+    def test_negative_vertical_ratio_returns_empty(self, rect_300_square: tuple[float, float, float, float]) -> None:
+        """
+        Given vertical_ratio < 0 (invalid, EP4),
+        when _calculate_diagonal_ratio_lines is called,
+        then it returns an empty list (guard catches ≤ 0).
+        """
+        # Arrange / Act
+        from src.core.grid_geometry import _calculate_diagonal_ratio_lines
+
+        result = _calculate_diagonal_ratio_lines(rect_300_square, vertical_ratio=-1.0, horizontal_ratio=3.0)
+        # Assert
+        assert result == []
+
+
+
     """
     Test Design Specification: Edge cases for all grid geometry functions
     Module under test: src/core/grid_geometry.py

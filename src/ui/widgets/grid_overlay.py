@@ -23,7 +23,7 @@ golden ratio grids, and diagonal lines.
 
 from typing import Callable, Dict, Union
 
-from PyQt5.QtCore import QRect, QRectF, Qt
+from PyQt5.QtCore import QLineF, QRect, QRectF, Qt
 from PyQt5.QtGui import QColor, QPainter, QPen
 
 from src.core.grid_geometry import (
@@ -218,7 +218,7 @@ class GridOverlay:
         """
         lines = calculate_diagonal_thirds_v_lines((rect.left(), rect.top(), rect.width(), rect.height()))
         for x1, y1, x2, y2 in lines:
-            painter.drawLine(int(x1), int(y1), int(x2), int(y2))
+            painter.drawLine(QLineF(x1, y1, x2, y2))
 
     def _draw_diagonal_thirds_h_grid(self, painter: QPainter, rect: QRectF) -> None:
         """
@@ -230,7 +230,7 @@ class GridOverlay:
         """
         lines = calculate_diagonal_thirds_h_lines((rect.left(), rect.top(), rect.width(), rect.height()))
         for x1, y1, x2, y2 in lines:
-            painter.drawLine(int(x1), int(y1), int(x2), int(y2))
+            painter.drawLine(QLineF(x1, y1, x2, y2))
 
     def _draw_diagonal_golden_v_grid(self, painter: QPainter, rect: QRectF) -> None:
         """
@@ -242,7 +242,7 @@ class GridOverlay:
         """
         lines = calculate_diagonal_golden_v_lines((rect.left(), rect.top(), rect.width(), rect.height()))
         for x1, y1, x2, y2 in lines:
-            painter.drawLine(int(x1), int(y1), int(x2), int(y2))
+            painter.drawLine(QLineF(x1, y1, x2, y2))
 
     def _draw_diagonal_golden_h_grid(self, painter: QPainter, rect: QRectF) -> None:
         """
@@ -254,7 +254,7 @@ class GridOverlay:
         """
         lines = calculate_diagonal_golden_h_lines((rect.left(), rect.top(), rect.width(), rect.height()))
         for x1, y1, x2, y2 in lines:
-            painter.drawLine(int(x1), int(y1), int(x2), int(y2))
+            painter.drawLine(QLineF(x1, y1, x2, y2))
 
     def _draw_3x3_grid(self, painter: QPainter, rect: QRectF) -> None:
         """
@@ -266,7 +266,7 @@ class GridOverlay:
         """
         lines = calculate_3x3_lines((rect.left(), rect.top(), rect.width(), rect.height()))
         for x1, y1, x2, y2 in lines:
-            painter.drawLine(int(x1), int(y1), int(x2), int(y2))
+            painter.drawLine(QLineF(x1, y1, x2, y2))
 
     def _draw_golden_ratio_grid(self, painter: QPainter, rect: QRectF) -> None:
         """
@@ -281,7 +281,7 @@ class GridOverlay:
         """
         lines = calculate_golden_ratio_lines((rect.left(), rect.top(), rect.width(), rect.height()))
         for x1, y1, x2, y2 in lines:
-            painter.drawLine(int(x1), int(y1), int(x2), int(y2))
+            painter.drawLine(QLineF(x1, y1, x2, y2))
 
     def _draw_diagonal_1_1_grid(self, painter: QPainter, rect: QRectF) -> None:  # pylint: disable=too-many-locals
         """
@@ -299,7 +299,7 @@ class GridOverlay:
         """
         lines = calculate_diagonal_1_1_lines((rect.left(), rect.top(), rect.width(), rect.height()))
         for x1, y1, x2, y2 in lines:
-            painter.drawLine(int(x1), int(y1), int(x2), int(y2))
+            painter.drawLine(QLineF(x1, y1, x2, y2))
 
     def _draw_diagonal_2_3_grid(self, painter: QPainter, rect: QRectF) -> None:  # pylint: disable=too-many-locals
         """
@@ -314,7 +314,7 @@ class GridOverlay:
         """
         lines = calculate_diagonal_2_3_lines((rect.left(), rect.top(), rect.width(), rect.height()))
         for x1, y1, x2, y2 in lines:
-            painter.drawLine(int(x1), int(y1), int(x2), int(y2))
+            painter.drawLine(QLineF(x1, y1, x2, y2))
 
     def _draw_diagonal_3_2_grid(self, painter: QPainter, rect: QRectF) -> None:  # pylint: disable=too-many-locals
         """
@@ -329,7 +329,7 @@ class GridOverlay:
         """
         lines = calculate_diagonal_3_2_lines((rect.left(), rect.top(), rect.width(), rect.height()))
         for x1, y1, x2, y2 in lines:
-            painter.drawLine(int(x1), int(y1), int(x2), int(y2))
+            painter.drawLine(QLineF(x1, y1, x2, y2))
 
     def _draw_diagonal_3_4_grid(self, painter: QPainter, rect: QRectF) -> None:  # pylint: disable=too-many-locals
         """
@@ -344,7 +344,7 @@ class GridOverlay:
         """
         lines = calculate_diagonal_3_4_lines((rect.left(), rect.top(), rect.width(), rect.height()))
         for x1, y1, x2, y2 in lines:
-            painter.drawLine(int(x1), int(y1), int(x2), int(y2))
+            painter.drawLine(QLineF(x1, y1, x2, y2))
 
     def _draw_diagonal_4_3_grid(self, painter: QPainter, rect: QRectF) -> None:  # pylint: disable=too-many-locals
         """
@@ -359,4 +359,4 @@ class GridOverlay:
         """
         lines = calculate_diagonal_4_3_lines((rect.left(), rect.top(), rect.width(), rect.height()))
         for x1, y1, x2, y2 in lines:
-            painter.drawLine(int(x1), int(y1), int(x2), int(y2))
+            painter.drawLine(QLineF(x1, y1, x2, y2))

@@ -582,9 +582,9 @@ class TestGridOverlay3x3Grid:
         # Act
         overlay._draw_3x3_grid(mock_painter, rect)  # pylint: disable=protected-access
         # Assert
-        args = mock_painter.drawLine.call_args_list[0][0]  # (x1, y1, x2, y2)
-        assert args[0] == 100  # x1
-        assert args[2] == 100  # x2 (vertical line — same x)
+        line = mock_painter.drawLine.call_args_list[0][0][0]
+        assert line.x1() == 100.0  # x1
+        assert line.x2() == 100.0  # x2 (vertical line)
 
     def test_3x3_vertical_line_2_at_two_thirds_x(self, qtbot: QtBot) -> None:
         """
@@ -599,9 +599,9 @@ class TestGridOverlay3x3Grid:
         # Act
         overlay._draw_3x3_grid(mock_painter, rect)  # pylint: disable=protected-access
         # Assert
-        args = mock_painter.drawLine.call_args_list[1][0]  # (x1, y1, x2, y2)
-        assert args[0] == 200  # x1
-        assert args[2] == 200  # x2
+        line = mock_painter.drawLine.call_args_list[1][0][0]
+        assert line.x1() == 200.0  # x1
+        assert line.x2() == 200.0  # x2 (vertical line)
 
     def test_3x3_horizontal_line_1_at_one_third_y(self, qtbot: QtBot) -> None:
         """
@@ -616,9 +616,9 @@ class TestGridOverlay3x3Grid:
         # Act
         overlay._draw_3x3_grid(mock_painter, rect)  # pylint: disable=protected-access
         # Assert
-        args = mock_painter.drawLine.call_args_list[2][0]  # (x1, y1, x2, y2)
-        assert args[1] == 100  # y1
-        assert args[3] == 100  # y2 (horizontal line — same y)
+        line = mock_painter.drawLine.call_args_list[2][0][0]
+        assert line.y1() == 100.0  # y1
+        assert line.y2() == 100.0  # y2 (horizontal line — same y)
 
     def test_3x3_horizontal_line_2_at_two_thirds_y(self, qtbot: QtBot) -> None:
         """
@@ -633,9 +633,9 @@ class TestGridOverlay3x3Grid:
         # Act
         overlay._draw_3x3_grid(mock_painter, rect)  # pylint: disable=protected-access
         # Assert
-        args = mock_painter.drawLine.call_args_list[3][0]  # (x1, y1, x2, y2)
-        assert args[1] == 200  # y1
-        assert args[3] == 200  # y2
+        line = mock_painter.drawLine.call_args_list[3][0][0]
+        assert line.y1() == 200.0  # y1
+        assert line.y2() == 200.0  # y2
 
 
 @pytest.mark.widget
@@ -697,73 +697,73 @@ class TestGridOverlayGoldenRatioGrid:
         """
         Given a GridOverlay and a 300×300 rect,
         When _draw_golden_ratio_grid is called,
-        Then the first drawLine call has x1 = x2 = int(300 * 0.382) = 114 (BV1).
+        Then the first drawLine call has x1 = x2 = 300 * 0.382 = 114.6 (BV1).
         """
         # Arrange
         overlay = GridOverlay()
         mock_painter = MagicMock()
         rect = QRectF(0, 0, 300, 300)
-        expected_x = int(300 * 0.382)  # 114
+        expected_x = 300 * 0.382  # 114.6 (floating-point preserved)
         # Act
         overlay._draw_golden_ratio_grid(mock_painter, rect)  # pylint: disable=protected-access
         # Assert
-        args = mock_painter.drawLine.call_args_list[0][0]
-        assert args[0] == expected_x  # x1
-        assert args[2] == expected_x  # x2
+        line = mock_painter.drawLine.call_args_list[0][0][0]
+        assert abs(line.x1() - expected_x) < 1e-10  # floating-point comparison
+        assert abs(line.x2() - expected_x) < 1e-10  # floating-point comparison
 
     def test_golden_ratio_vertical_line_2_at_0_618_x(self, qtbot: QtBot) -> None:
         """
         Given a GridOverlay and a 300×300 rect,
         When _draw_golden_ratio_grid is called,
-        Then the second drawLine call has x1 = x2 = int(300 * 0.618) = 185 (BV1).
+        Then the second drawLine call has x1 = x2 = 300 * 0.618 = 185.4 (BV1).
         """
         # Arrange
         overlay = GridOverlay()
         mock_painter = MagicMock()
         rect = QRectF(0, 0, 300, 300)
-        expected_x = int(300 * 0.618)  # 185
+        expected_x = 300 * 0.618  # 185.4 (floating-point preserved)
         # Act
         overlay._draw_golden_ratio_grid(mock_painter, rect)  # pylint: disable=protected-access
         # Assert
-        args = mock_painter.drawLine.call_args_list[1][0]
-        assert args[0] == expected_x
-        assert args[2] == expected_x
+        line = mock_painter.drawLine.call_args_list[1][0][0]
+        assert abs(line.x1() - expected_x) < 1e-10
+        assert abs(line.x2() - expected_x) < 1e-10
 
     def test_golden_ratio_horizontal_line_1_at_0_382_y(self, qtbot: QtBot) -> None:
         """
         Given a GridOverlay and a 300×300 rect,
         When _draw_golden_ratio_grid is called,
-        Then the third drawLine call has y1 = y2 = int(300 * 0.382) = 114.
+        Then the third drawLine call has y1 = y2 = 300 * 0.382 = 114.6.
         """
         # Arrange
         overlay = GridOverlay()
         mock_painter = MagicMock()
         rect = QRectF(0, 0, 300, 300)
-        expected_y = int(300 * 0.382)  # 114
+        expected_y = 300 * 0.382  # 114.6 (floating-point preserved)
         # Act
         overlay._draw_golden_ratio_grid(mock_painter, rect)  # pylint: disable=protected-access
         # Assert
-        args = mock_painter.drawLine.call_args_list[2][0]
-        assert args[1] == expected_y  # y1
-        assert args[3] == expected_y  # y2
+        line = mock_painter.drawLine.call_args_list[2][0][0]
+        assert abs(line.y1() - expected_y) < 1e-10  # floating-point comparison
+        assert abs(line.y2() - expected_y) < 1e-10  # floating-point comparison
 
     def test_golden_ratio_horizontal_line_2_at_0_618_y(self, qtbot: QtBot) -> None:
         """
         Given a GridOverlay and a 300×300 rect,
         When _draw_golden_ratio_grid is called,
-        Then the fourth drawLine call has y1 = y2 = int(300 * 0.618) = 185.
+        Then the fourth drawLine call has y1 = y2 = 300 * 0.618 = 185.4.
         """
         # Arrange
         overlay = GridOverlay()
         mock_painter = MagicMock()
         rect = QRectF(0, 0, 300, 300)
-        expected_y = int(300 * 0.618)  # 185
+        expected_y = 300 * 0.618  # 185.4 (floating-point preserved)
         # Act
         overlay._draw_golden_ratio_grid(mock_painter, rect)  # pylint: disable=protected-access
         # Assert
-        args = mock_painter.drawLine.call_args_list[3][0]
-        assert args[1] == expected_y
-        assert args[3] == expected_y
+        line = mock_painter.drawLine.call_args_list[3][0][0]
+        assert abs(line.y1() - expected_y) < 1e-10
+        assert abs(line.y2() - expected_y) < 1e-10
 
 
 @pytest.mark.widget
@@ -1195,10 +1195,12 @@ class TestGridOverlayGoldenRatioPositions:
         # Extract x-coordinates from the first two drawLine calls (vertical lines)
         calls = mock_painter.drawLine.call_args_list
         # First call: x1 (first vertical line)
-        x1_from_first = calls[0][0][0]
+        line1 = calls[0][0][0]
+        x1_from_first = line1.x1()
         assert abs(x1_from_first - expected_x1) <= 1.0, f"Expected {expected_x1}, got {x1_from_first}"
         # Second call: x1 (second vertical line)
-        x2_from_second = calls[1][0][0]
+        line2 = calls[1][0][0]
+        x2_from_second = line2.x1()
         assert abs(x2_from_second - expected_x2) <= 1.0, f"Expected {expected_x2}, got {x2_from_second}"
 
     def test_golden_ratio_horizontal_line_positions(self, qtbot: QtBot) -> None:
@@ -1219,10 +1221,12 @@ class TestGridOverlayGoldenRatioPositions:
         # Extract y-coordinates from the last two drawLine calls (horizontal lines)
         calls = mock_painter.drawLine.call_args_list
         # Third call: y1 (first horizontal line)
-        y1_from_third = calls[2][0][1]
+        line3 = calls[2][0][0]
+        y1_from_third = line3.y1()
         assert abs(y1_from_third - expected_y1) <= 1.0, f"Expected {expected_y1}, got {y1_from_third}"
         # Fourth call: y1 (second horizontal line)
-        y2_from_fourth = calls[3][0][1]
+        line4 = calls[3][0][0]
+        y2_from_fourth = line4.y1()
         assert abs(y2_from_fourth - expected_y2) <= 1.0, f"Expected {expected_y2}, got {y2_from_fourth}"
 
 @pytest.mark.widget
