@@ -54,6 +54,7 @@ def _discover_modules() -> list[str]:
 QT_MODULES = {
     "src.ui.qt_utils",
     "src.ui.widgets.channel_controller",
+    "src.ui.widgets.crop_handler",
     "src.ui.widgets.grid_overlay",
     "src.ui.widgets.grid_settings_dialog",
     "src.ui.widgets.image_viewer",
@@ -66,7 +67,6 @@ QT_MODULES = {
 # Remove modules from here as tests are added to either tests/unit/ or tests/qt/.
 EXCLUDED_MODULES = {
     "src.ui.main_window",
-    "src.ui.widgets.crop_handler",
 }
 
 

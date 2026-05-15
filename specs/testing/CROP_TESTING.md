@@ -24,7 +24,70 @@ dependency). The test classes and their scope:
 
 ---
 
-## Manual Tests — `CropHandler` (Qt-dependent)
+## Automated Qt Widget Tests — `tests/qt/test_widget_crop_handler.py`
+
+Qt widget tests for the `CropHandler` class cover interactive behavior, state management, and rendering (code coverage: 85%, required 80%).
+
+### Test Coverage by Feature
+
+| Feature | Test Classes | Test Count |
+|---------|---|---|
+| Initialization & defaults | `TestCropHandlerInit` | 4 |
+| State management (rect, mode, ratio) | `TestCropHandlerStateSetters` | 7 |
+| Handle detection (9 handles) | `TestCropHandlerGetHandleAt` | 8 |
+| Mouse interaction (press/move/release) | `TestCropHandlerMouseInteraction`, `TestCropHandlerMouseMove` | 10 |
+| Rectangle operations (confirm, cancel, apply) | `TestCropHandlerRectangleOperations` | 3 |
+| Aspect ratio enforcement | `TestCropHandlerAspectRatioEnforcement` | 2 |
+| Cursor management (all 9 handle types) | `TestCropHandlerCursorManagement` | 12 |
+| Rectangle constraints (clamping) | `TestCropHandlerConstraints` | 4 |
+| Drawing/rendering | `TestCropHandlerDrawing` | 3 |
+| Edge cases & error conditions | `TestCropHandlerEdgeCases` | 9 |
+| Comprehensive workflows | `TestCropHandlerComprehensive` | 10 |
+| **Total** | **11 classes** | **72 tests** |
+
+### Test Design Pattern
+
+All tests follow the **Test Design Specification (TDS) + Test Case Specification (TCS)** format:
+
+- **TDS (class docstring)**: Contract, infrastructure dependencies, equivalence partitions, boundary values, mocking strategy, constraints
+- **TCS (function docstring)**: Given/When/Then scenario with Arrange/Act/Assert implementation
+
+Example:
+
+```python
+def test_set_crop_rect_stores_rect(self, qtbot: QtBot, crop_handler: CropHandler) -> None:
+    """
+    Given a CropHandler,
+    When set_crop_rect(QRect(50, 50, 100, 100)) is called,
+    Then get_crop_rect() returns QRect(50, 50, 100, 100).
+    """
+    # Arrange
+    rect = QRect(50, 50, 100, 100)
+    # Act
+    crop_handler.set_crop_rect(rect)
+    # Assert
+    assert crop_handler.get_crop_rect() == rect
+```
+
+### Key Test Scenarios
+
+1. **Initialization**: Default state, default geometry, default state dict
+2. **State Transitions**: Crop mode enable/disable, rect persistence, ratio application
+3. **Handle Detection**: All 9 handles (corners, edges, move), outside rect
+4. **Mouse Interaction**: Press/move/release sequences, different handle types, ratio constraints, bounds checking
+5. **Aspect Ratio**: Landscape (16:9), portrait (9:16), square (1:1), unconstrained
+6. **Constraint Enforcement**: Minimum size, image bounds, ratio maintenance during clamping
+7. **Rendering**: Overlay, grid, handles (8 squares at corners/edges)
+8. **Integration**: Full workflows (enter→adjust→confirm/cancel), state restoration after cancel
+
+### Coverage Gaps (By Design)
+
+- **Helper functions** (`_qrect_to_rect`, etc.): Low-level converters; Qt/geometry semantics covered elsewhere
+- **Complex resize algorithms** (edge resize with ratio): Delegated to `src.core.crop_geometry` (unit-tested separately)
+- **Drawing compositing**: Qt painter internals; test verifies methods called, not pixel output
+- **QApplication event processing**: Mocked to avoid GUI requirements
+
+
 
 ## Objectives
 
