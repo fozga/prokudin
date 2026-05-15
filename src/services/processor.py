@@ -128,12 +128,15 @@ class ImageProcessorService:  # pylint: disable=too-few-public-methods
     def get_channel(self, channel_idx: int, crop: Optional[Tuple[int, int, int, int]] = None) -> Optional[np.ndarray]:
         """Get a single channel image, optionally cropped.
 
+        Returns an independent copy of the processed image. Modifying the returned
+        array does not affect the service's internal state.
+
         Args:
             channel_idx (int): Channel index (0=Red, 1=Green, 2=Blue).
             crop (tuple[int,int,int,int] | None): Crop rect as (x, y, width, height) or None.
 
         Returns:
-            np.ndarray | None: Grayscale image (HxW uint8) or None if not loaded.
+            np.ndarray | None: Independent copy of grayscale image (HxW uint8) or None if not loaded.
         """
         if self.processed[channel_idx] is None:
             return None
@@ -143,7 +146,7 @@ class ImageProcessorService:  # pylint: disable=too-few-public-methods
         if crop is not None:
             x, y, w, h = crop
             return cast(np.ndarray, img[y : y + h, x : x + w].copy())
-        return img
+        return cast(np.ndarray, img.copy())
 
     def get_combined(
         self, crop: Optional[Tuple[int, int, int, int]] = None, intensities: Optional[List[int]] = None
