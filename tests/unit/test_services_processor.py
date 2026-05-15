@@ -497,11 +497,11 @@ class TestGetChannel:
     Module under test: src/services/processor.py
 
     Contract:
-        Returns a single channel's processed image, optionally cropped to a rectangular region.
+        Returns an independent copy of a single channel's processed image, optionally cropped.
         Returns None if the channel has not been loaded.
         Crop tuple is (x, y, width, height); extracts region [y:y+h, x:x+w].
-        When crop is provided, returns a .copy() (independent copy).
-        When crop is None, returns internal reference (mutation affects service state).
+        Both cropped and non-cropped paths return .copy() (independent copies).
+        Modifying returned arrays never affects service state.
         No side effects except copy creation.
 
     Equivalence partitions:
@@ -528,7 +528,6 @@ class TestGetChannel:
     Constraints:
         - Requires ImageProcessorService initialized with channels loaded
         - Mocked align_images for test setup
-        - Known bug (xfail): without crop returns reference instead of copy
     """
 
     @staticmethod
@@ -615,10 +614,6 @@ class TestGetChannel:
         # Assert
         assert result.base is None or result.base is not svc.processed[0]
 
-    @pytest.mark.xfail(
-        reason="Bug: get_channel() without crop returns internal reference instead of copy, "
-        "so modifying the result corrupts service state. The crop path returns .copy()."
-    )
     @patch("src.services.processor.align_images")
     def test_get_channel_without_crop_returns_independent_copy(self, mock_align: MagicMock) -> None:
         """Given: all 3 channels loaded without crop argument
@@ -652,9 +647,12 @@ class TestGetCombined:
 
     Contract:
         Combines three processed channel images into a single RGB image (HxWx3 uint8).
+        Delegates to combine_channels() which always allocates a fresh array.
         Optionally applies per-channel intensity scaling via intensities list [r, g, b].
         Defaults to intensities [100, 100, 100] (no scaling) if not specified.
         Optionally crops result to a rectangular region (x, y, width, height).
+        When no crop: returns freshly allocated array from combine_channels() (safe to modify).
+        When crop: returns .copy() of the cropped region (independent copy).
         Returns None if channels not loaded or combine_channels returns None.
         Delegates combining to combine_channels() function (mocked in tests).
 
