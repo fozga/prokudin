@@ -153,6 +153,10 @@ class ImageProcessorService:  # pylint: disable=too-few-public-methods
     ) -> Optional[np.ndarray]:
         """Get combined RGB image with optional cropping and intensity adjustments.
 
+        Returns the combined RGB image. When no crop is specified, the returned array
+        is freshly allocated by combine_channels() and safe to modify.
+        When crop is specified, returns an independent copy of the cropped region.
+
         Args:
             crop (tuple[int,int,int,int] | None): Crop rect as (x, y, width, height) or None.
             intensities (list[int] | None): Intensity multipliers [R%, G%, B%] or None for [100, 100, 100].

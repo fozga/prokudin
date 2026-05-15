@@ -647,9 +647,12 @@ class TestGetCombined:
 
     Contract:
         Combines three processed channel images into a single RGB image (HxWx3 uint8).
+        Delegates to combine_channels() which always allocates a fresh array.
         Optionally applies per-channel intensity scaling via intensities list [r, g, b].
         Defaults to intensities [100, 100, 100] (no scaling) if not specified.
         Optionally crops result to a rectangular region (x, y, width, height).
+        When no crop: returns freshly allocated array from combine_channels() (safe to modify).
+        When crop: returns .copy() of the cropped region (independent copy).
         Returns None if channels not loaded or combine_channels returns None.
         Delegates combining to combine_channels() function (mocked in tests).
 
