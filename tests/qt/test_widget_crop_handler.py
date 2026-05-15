@@ -541,35 +541,45 @@ class TestCropHandlerMouseInteraction:
         # Assert
         assert crop_handler._drag_info["start"] == QPointF(100, 100)  # pylint: disable=protected-access
 
-    def test_mouse_release_clears_dragging(self, qtbot: QtBot, crop_handler: CropHandler) -> None:
+    def test_mouse_release_clears_dragging(self, qtbot: QtBot, crop_handler: CropHandler, mock_photo: MagicMock) -> None:
         """
         Given a CropHandler with dragging=True,
         When handle_mouse_release() is called,
         Then dragging=False.
         """
         # Arrange
+        crop_handler.set_crop_mode(True, mock_photo)
         crop_handler.set_crop_rect(QRect(50, 50, 100, 100))
         mock_press_event = MagicMock(spec=QMouseEvent)
         mock_press_event.pos.return_value = QPoint(50, 50)
+        mock_press_event.button.return_value = Qt.MouseButton.LeftButton
         crop_handler.handle_mouse_press(mock_press_event)
         # Act
-        crop_handler.handle_mouse_release(MagicMock())
+        mock_release_event = MagicMock(spec=QMouseEvent)
+        mock_release_event.button.return_value = Qt.MouseButton.LeftButton
+        mock_release_event.pos.return_value = QPoint(50, 50)
+        crop_handler.handle_mouse_release(mock_release_event)
         # Assert
         assert crop_handler._state["dragging"] is False  # pylint: disable=protected-access
 
-    def test_mouse_release_clears_drag_info(self, qtbot: QtBot, crop_handler: CropHandler) -> None:
+    def test_mouse_release_clears_drag_info(self, qtbot: QtBot, crop_handler: CropHandler, mock_photo: MagicMock) -> None:
         """
         Given a CropHandler with drag_info set,
         When handle_mouse_release() is called,
         Then drag_info is cleared (all fields set to None).
         """
         # Arrange
+        crop_handler.set_crop_mode(True, mock_photo)
         crop_handler.set_crop_rect(QRect(50, 50, 100, 100))
         mock_press_event = MagicMock(spec=QMouseEvent)
         mock_press_event.pos.return_value = QPoint(50, 50)
+        mock_press_event.button.return_value = Qt.MouseButton.LeftButton
         crop_handler.handle_mouse_press(mock_press_event)
         # Act
-        crop_handler.handle_mouse_release(MagicMock())
+        mock_release_event = MagicMock(spec=QMouseEvent)
+        mock_release_event.button.return_value = Qt.MouseButton.LeftButton
+        mock_release_event.pos.return_value = QPoint(50, 50)
+        crop_handler.handle_mouse_release(mock_release_event)
         # Assert
         assert crop_handler._drag_info["handle"] is None  # pylint: disable=protected-access
         assert crop_handler._drag_info["start"] is None  # pylint: disable=protected-access
@@ -1361,7 +1371,7 @@ class TestCropHandlerComprehensive:
         constrained = crop_handler.get_crop_rect()
         assert constrained is not None
         # Should be clamped and ratio applied
-        assert constrained.right() <= 800 or constrained.bottom() <= 600
+        assert constrained.right() <= 800 and constrained.bottom() <= 600
 
     def test_apply_crop_with_partially_outside_rect(
         self, qtbot: QtBot, crop_handler: CropHandler, mock_photo: MagicMock

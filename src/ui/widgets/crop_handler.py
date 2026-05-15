@@ -587,6 +587,7 @@ class CropHandler:  # pylint: disable=too-many-public-methods
         if event.button() == Qt.MouseButton.LeftButton and self._state["dragging"]:
             self._state["dragging"] = False
             self._drag_info["handle"] = None
+            self._drag_info["start"] = None
             # Update cursor based on current position
             handle = self.get_handle_at(event.pos())
             self.update_cursor_for_handle(handle)
