@@ -223,96 +223,102 @@ it may influence autosave (through updated slider values) and will be reflected 
 **FR-40 — Presets and reset.**  
 Resetting the current session shall not delete or modify preset files; presets shall remain available and usable after a reset.
 
+**FR-41 — Preset management (rename and delete).**  
+The application shall provide a right-click context menu on any preset item in the preset panel with the following actions:
+- **Rename**: Open a dialog to enter a new preset name. Validation shall prevent empty names, invalid filename characters, and duplicate preset names. The preset list shall update immediately after successful rename.
+- **Delete**: Remove the preset immediately without a confirmation dialog, cleaning up both the JSON file and associated thumbnail.  
+Protected default presets (if any) shall be non-renamable and non-deletable; the context menu shall not show these options for protected presets.
+
 ---
 
 ## 7. Autosave and Session Management
 
-**FR-41 — Automatic session save.**  
+**FR-42 — Automatic session save.**  
 The application shall automatically save the current session state — including channel file paths, per‑channel adjustment values, and the accepted crop rectangle — to a local JSON file (`autosave.json`) in a configuration directory, without explicit user action.
 
-**FR-42 — Debounced autosave triggering.**  
+**FR-43 — Debounced autosave triggering.**  
 Autosave shall be driven by a debounced timer tied to slider changes: the timer restarts on each change and fires only after a defined period of inactivity (e.g. 500 ms), resulting in a single write for a burst of interactions rather than one write per change.
 
-**FR-43 — Session restore on startup.**  
+**FR-44 — Session restore on startup.**  
 On startup, if `autosave.json` exists and is valid, the application shall:
 - restore each channel whose path is still accessible and readable,  
 - restore slider values for all channels,  
 - restore the saved crop rectangle (if any), and  
 - update previews and the main display accordingly.
 
-**FR-44 — Behaviour with missing or invalid autosave.**  
+**FR-45 — Behaviour with missing or invalid autosave.**  
 If:
 - `autosave.json` does not exist, or  
 - is unreadable or malformed,  
 
 the application shall skip restoration and start in a clean default state without crashing or blocking the user.
 
-**FR-45 — Partial restore on missing files.**  
+**FR-46 — Partial restore on missing files.**  
 During restore, if a channel file path recorded in `autosave.json` no longer exists or cannot be opened, the application shall:
 - skip loading that channel,  
 - report the failure in a non‑blocking status-bar message, and  
 - continue restoring other channels and UI state.
 
-**FR-46 — Autosave content constraints.**  
+**FR-47 — Autosave content constraints.**  
 Autosave shall never write raw image pixel data; it shall store only:
 - file paths,  
 - numeric adjustments, and  
 - crop rectangle coordinates (or `null`).
 
-**FR-47 — Signal blocking during restore.**  
+**FR-48 — Signal blocking during restore.**  
 When restoring slider values from autosave, the implementation shall block adjustment signals while programmatically setting values, then re‑enable them to avoid spurious reprocessing or redundant autosave triggers.
 
-**FR-48 — Single autosave slot.**  
+**FR-49 — Single autosave slot.**  
 Only one autosave slot (`autosave.json`) shall exist; the application shall not manage multiple named sessions or a history of autosaves. **(explicit constraint)**
 
 ---
 
 ## 8. Image Saving
 
-**FR-49 — Save availability conditions.**  
+**FR-50 — Save availability conditions.**  
 The Save action (e.g. button/menu item) shall be enabled only when a valid aligned combined image is available (i.e. alignment has succeeded for the required channels); otherwise it shall be disabled and not invocable.
 
-**FR-50 — Save dialog and formats.**  
+**FR-51 — Save dialog and formats.**  
 When Save is invoked, the application shall show a modal file dialog for selecting:
 - destination path, and  
 - output format (supporting at least JPEG, PNG, and TIFF).  
 
 If the user cancels the dialog, no files shall be written and the status bar may indicate that the save was cancelled.
 
-**FR-51 — Output files and naming.**  
+**FR-52 — Output files and naming.**  
 A save operation shall produce:
 - one combined-colour image at the chosen base path, and  
 - up to three per‑channel colour images with distinguishable suffixes (e.g. `_ir`, `_vis`, `_uv`),  
 
 depending on configuration and available channels.
 
-**FR-52 — Export fidelity and adjustments.**  
+**FR-53 — Export fidelity and adjustments.**  
 Exported images shall be built from aligned channel data. Whether per‑channel adjustments are reflected in the exported combined/per‑channel images shall follow the explicit design in the project specs; currently the combined image is specified to be built from aligned grayscale channels without adjustments, so the export may differ from the on‑screen preview. **(take current spec as source of truth)**
 
-**FR-53 — Crop interaction with saving.**  
+**FR-54 — Crop interaction with saving.**  
 If an accepted crop rectangle exists and Crop mode is inactive, all exported images (combined and per‑channel) shall be cropped to exactly that rectangle. If Crop mode is active and a crop is being edited, the previously accepted crop (if any) shall be applied; an in‑progress crop shall not affect exports.
 
-**FR-54 — Save error handling.**  
+**FR-55 — Save error handling.**  
 If any output file cannot be written (e.g. due to permission errors, missing directories, insufficient disk space, or codec failure), the system shall:
 - report the failure in the status bar with a clear message,  
 - avoid crashing, and  
 - leave the current session intact so the user can try again with different parameters.
 
-**FR-55 — No overwriting of input files.**  
+**FR-56 — No overwriting of input files.**  
 The application shall never overwrite original input channel files when saving; only new output files at user-specified locations shall be created or overwritten.
 
 ---
 
 ## 9. Reset (New)
 
-**FR-56 — Reset entry points.**  
+**FR-57 — Reset entry points.**  
 The application shall provide a Reset (New) action accessible at least via:
 - a toolbar or menu action, and  
 - a keyboard shortcut (e.g. Ctrl+N),  
 
 both of which invoke the same reset logic.
 
-**FR-57 — Reset effect on session state.**  
+**FR-58 — Reset effect on session state.**  
 Reset shall:
 - clear all loaded image data and intermediate processing results,  
 - reset all sliders to their default values,  
@@ -321,20 +327,20 @@ Reset shall:
 - delete the autosave file, and  
 - disable Save (and other actions that require loaded data).
 
-**FR-58 — Reset and autosave.**  
+**FR-59 — Reset and autosave.**  
 During reset, the autosave debounce timer shall be stopped and `autosave.json` shall be removed so that a subsequent application start does not restore the pre‑reset session. Any failure to delete `autosave.json` (e.g. file missing or permissions) shall be silently ignored.
 
-**FR-59 — Reset and persistent data.**  
+**FR-60 — Reset and persistent data.**  
 Reset shall not remove or modify persistent user data such as presets or global configuration files (other than the autosave file); presets shall remain available for subsequent sessions.
 
-**FR-60 — Reset from empty state.**  
+**FR-61 — Reset from empty state.**  
 Invoking Reset when the application is already in its initial empty state shall have no effect other than possibly displaying a brief status message.
 
 ---
 
 ## 10. General UI & Workflow
 
-**FR-61 — Combined workflow support.**  
+**FR-62 — Combined workflow support.**  
 Within a single run, the application shall support a complete workflow consisting of:
 - loading channels,  
 - alignment,  
@@ -347,15 +353,15 @@ Within a single run, the application shall support a complete workflow consistin
 
 without requiring application restart.
 
-**FR-62 — Sequential projects in one session.**  
+**FR-63 — Sequential projects in one session.**  
 The user shall be able to complete one project (from load to save), reset or clear it, and start another project with different inputs in the same application session.
 
-**FR-63 — Status bar feedback and control enabling.**  
+**FR-64 — Status bar feedback and control enabling.**  
 The status bar shall provide concise feedback on major operations and errors (loading, alignment, autosave, saving, reset, restore). Controls such as Save, Crop, and Align shall be enabled or disabled context‑sensitively based on the current state so that unusable actions cannot be invoked.
 
-**FR-64 — Non-blocking error reporting.**  
+**FR-65 — Non-blocking error reporting.**  
 Where possible, errors (e.g. load/save failures, alignment issues, missing restore files) shall be reported using non‑blocking UI elements (e.g. status bar) rather than modal dialogs, except for clearly destructive actions that require confirmation. **(partly inferred)**
 
-**FR-65 — Graceful shutdown.**  
+**FR-66 — Graceful shutdown.**  
 On application exit, any in‑progress operations (e.g. autosave) shall either complete or be safely aborted, and the last consistent state shall be reflected in autosave where applicable. The application shall shut down without leaving corrupted config or autosave files. **(inferred)**
 

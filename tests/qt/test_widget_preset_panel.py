@@ -17,8 +17,11 @@
 
 """Widget tests for src/ui/widgets/preset_panel.py."""
 
+# pylint: disable=protected-access
+
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from PyQt5.QtCore import QEvent, Qt
@@ -40,10 +43,13 @@ class TestPresetItem:
         On construction it renders a thumbnail label (THUMBNAIL_W × THUMBNAIL_H) and a
         name label. If thumbnail_path exists on disk the path is loaded into QPixmap;
         otherwise the label shows "No image". The name is read from preset_data["name"]
-        and falls back to "Unnamed" when the key is absent.
+        and falls back to "Unnamed" when the key is absent. The is_protected flag controls
+        whether rename and delete context menu options are available.
         mousePressEvent always emits clicked(preset_data) then propagates the event to the
         parent class unless the event is None. enterEvent and leaveEvent update the
         stylesheet for highlight feedback before optionally propagating.
+        contextMenuEvent shows a menu with Rename and Delete options (if not protected)
+        that emit rename_requested and delete_requested signals respectively.
 
     Infrastructure:
         - Requires qtbot fixture (QApplication, widget cleanup).
@@ -60,25 +66,36 @@ class TestPresetItem:
         - clicked signal emitted with preset_data when mousePressEvent(None) is called.
         - Signal payload equals the original preset_data dict.
         - mousePressEvent with a real QMouseEvent (via qtbot.mouseClick on a shown widget)
-          propagates to super() at line 77 — covers the non-None branch.
+          propagates to super() at line 96 — covers the non-None branch.
         - enterEvent(None) updates the stylesheet to the highlight colour.
         - leaveEvent(None) resets the stylesheet to transparent.
         - enterEvent and leaveEvent with a real QEvent do not raise an exception.
+        - is_protected=False allows rename and delete context menu actions.
+        - is_protected=True hides rename and delete context menu actions.
+        - contextMenuEvent emits rename_requested with preset_data and new name.
+        - contextMenuEvent emits delete_requested with preset_data.
+        - Rename dialog rejects empty names and shows warning.
+        - Delete action immediately emits without confirmation.
 
     What is NOT tested:
         - Actual pixel content of the thumbnail (rendered image).
         - Cursor shape or hover visual cues (not observable in headless mode).
         - QFrame.enterEvent / leaveEvent base-class side-effects.
+        - Context menu visual appearance or positioning.
 
     Equivalence partitions:
         EP1  thumbnail_path exists   → QPixmap loaded (may be null), label has pixmap
         EP2  thumbnail_path missing  → label shows "No image"
         EP3  preset_data has "name"  → name label shows that value
         EP4  preset_data missing key → name label shows "Unnamed"
+        EP5  is_protected=False      → rename and delete actions visible
+        EP6  is_protected=True       → rename and delete actions hidden
 
     Boundary values:
         BV1  event = None in mousePressEvent → clicked emitted, early return before super()
         BV2  event = real QMouseEvent        → clicked emitted, propagates to super()
+        BV3  rename with empty string        → shows warning, no signal emitted
+        BV4  rename with same name           → no signal emitted
 
     Mocking strategy:
         No external dependencies require mocking; thumbnail presence is controlled via
@@ -260,6 +277,66 @@ class TestPresetItem:
         # Act + Assert
         item.leaveEvent(event)
 
+    def test_protected_preset_hides_rename_delete_options(self, qtbot: QtBot) -> None:
+        """
+        Given a PresetItem with is_protected=True (EP6),
+        When the widget is created,
+        Then the rename_requested and delete_requested signals are available but context menu shows no actions.
+        """
+        # Arrange + Act
+        item = PresetItem({"name": "Protected"}, "nonexistent.png", is_protected=True)
+        qtbot.addWidget(item)
+        # Assert
+        assert item.is_protected is True
+
+    def test_unprotected_preset_shows_rename_delete_options(self, qtbot: QtBot) -> None:
+        """
+        Given a PresetItem with is_protected=False (EP5),
+        When the widget is created,
+        Then rename_requested and delete_requested signals are available.
+        """
+        # Arrange + Act
+        item = PresetItem({"name": "Unprotected"}, "nonexistent.png", is_protected=False)
+        qtbot.addWidget(item)
+        # Assert
+        assert item.is_protected is False
+
+    def test_rename_requested_emitted_with_new_name(self, qtbot: QtBot) -> None:
+        """
+        Given a PresetItem and a rename with a valid new name,
+        When _handle_rename is called,
+        Then rename_requested signal is emitted with preset_data and new name.
+        """
+        # Arrange
+        data = {"name": "Old Name", "brightness": 10}
+        item = PresetItem(data, "nonexistent.png")
+        qtbot.addWidget(item)
+        received: list[tuple] = []
+        item.rename_requested.connect(lambda d, n: received.append((d, n)))
+        # Act
+        item._handle_rename = lambda: item.rename_requested.emit(data, "New Name")
+        item._handle_rename()
+        # Assert
+        assert len(received) == 1
+        assert received[0] == (data, "New Name")
+
+    def test_delete_requested_emitted(self, qtbot: QtBot) -> None:
+        """
+        Given a PresetItem and a delete action,
+        When _handle_delete is called,
+        Then delete_requested signal is emitted with preset_data.
+        """
+        # Arrange
+        data = {"name": "Test Preset", "brightness": 10}
+        item = PresetItem(data, "nonexistent.png")
+        qtbot.addWidget(item)
+        received: list[dict] = []
+        item.delete_requested.connect(received.append)
+        # Act
+        item._handle_delete()
+        # Assert
+        assert received == [data]
+
 
 @pytest.mark.widget
 class TestPresetPanel:
@@ -278,6 +355,9 @@ class TestPresetPanel:
         skipped. reload_presets() clears existing items before repopulating.
         save_requested is emitted when the Save Preset button is clicked. preset_selected
         is emitted (with the preset data dict) when any PresetItem is clicked.
+        Rename and delete operations are handled via _handle_rename_preset and
+        _handle_delete_preset, which validate names, check for duplicates, update files
+        on disk, and emit preset_renamed and preset_deleted signals on success.
 
     Infrastructure:
         - Requires qtbot fixture (QApplication, widget cleanup).
@@ -293,10 +373,18 @@ class TestPresetPanel:
         - Calling reload_presets() a second time clears old items before repopulating.
         - Clicking the Save Preset button emits save_requested (accessed via panel.save_btn).
         - Clicking a PresetItem propagates preset_selected with the preset data.
+        - Rename with valid name updates JSON file and emits preset_renamed.
+        - Rename with empty name shows warning and does not emit signal.
+        - Rename with invalid characters shows warning and does not emit signal.
+        - Rename with duplicate name shows warning and does not emit signal.
+        - Rename with same name does not emit signal.
+        - Delete removes JSON and thumbnail files and emits preset_deleted.
+        - Thumbnail file is renamed when preset is renamed.
 
     What is NOT tested:
         - Visual appearance of the scroll area or the preset thumbnails.
         - Ordering guarantees beyond "sorted(os.listdir)" (implementation detail).
+        - QMessageBox visual appearance or button interactions.
 
     Equivalence partitions:
         EP1  presets_dir is an existing directory   → presets loaded
@@ -304,11 +392,17 @@ class TestPresetPanel:
         EP3  file ends with .json, valid JSON       → PresetItem created
         EP4  file ends with .json, invalid JSON     → skipped silently
         EP5  file does not end with .json           → skipped silently
+        EP6  rename with valid new name             → JSON updated, signal emitted
+        EP7  rename with empty name                 → warning shown, no signal
+        EP8  rename with invalid characters         → warning shown, no signal
+        EP9  rename with duplicate name             → warning shown, no signal
+        EP10 delete preset                          → files removed, signal emitted
 
     Boundary values:
         BV1  0 .json files in directory             (empty, only stretch in layout)
         BV2  1 .json file in directory              (exactly one PresetItem)
         BV3  2 .json files in directory             (two PresetItems)
+        BV4  rename with same name                  (early return, no emission)
 
     Mocking strategy:
         Real files are written to tmp_path; no OS-level mocking is used.
@@ -323,6 +417,8 @@ class TestPresetPanel:
         - The Save Preset button is accessed via panel.save_btn (stored in __init__) to
           avoid fragile findChild(QPushButton) lookups that break if PresetItem or any
           descendant widget later introduces its own QPushButton.
+        - File operations use the safe_name derived from the preset's display name, not
+          the filename, to handle renames correctly.
     """
 
     @staticmethod
@@ -472,3 +568,231 @@ class TestPresetPanel:
         # Act + Assert
         with qtbot.waitSignal(panel.preset_selected, timeout=1000):
             preset_item.mousePressEvent(None)
+
+    def test_rename_with_valid_name_updates_file_and_emits_signal(self, qtbot: QtBot, tmp_path: Path) -> None:
+        """
+        Given a PresetPanel with one preset (EP6),
+        When _handle_rename_preset is called with a valid new name,
+        Then the JSON file is updated with the new name, and preset_renamed is emitted.
+        """
+        # Arrange
+        original_data = {"name": "old_name", "brightness": 5}
+        self._write_preset(tmp_path, "old_name", original_data)
+        panel = PresetPanel(str(tmp_path))
+        qtbot.addWidget(panel)
+        # Act
+        received: list[tuple] = []
+        panel.preset_renamed.connect(lambda o, n: received.append((o, n)))
+        panel._handle_rename_preset(original_data, "new_name")
+        # Assert
+        assert len(received) == 1
+        assert received[0] == ("old_name", "new_name")
+        new_json_path = tmp_path / "new_name.json"
+        assert new_json_path.exists()
+        new_data = json.loads(new_json_path.read_text())
+        assert new_data["name"] == "new_name"
+
+    @patch("src.ui.widgets.preset_panel.QMessageBox.warning")
+    def test_rename_with_empty_name_shows_warning_no_signal(
+        self, mock_warning, qtbot: QtBot, tmp_path: Path
+    ) -> None:
+        """
+        Given a PresetPanel with one preset (EP7),
+        When _handle_rename_preset is called with an empty name,
+        Then a warning is shown and preset_renamed is not emitted.
+        """
+        # Arrange
+        original_data = {"name": "Test", "brightness": 5}
+        self._write_preset(tmp_path, "test", original_data)
+        panel = PresetPanel(str(tmp_path))
+        qtbot.addWidget(panel)
+        received: list[tuple] = []
+        panel.preset_renamed.connect(lambda o, n: received.append((o, n)))
+        # Act
+        panel._handle_rename_preset(original_data, "")
+        # Assert
+        assert len(received) == 0
+        mock_warning.assert_called_once()
+
+    @patch("src.ui.widgets.preset_panel.QMessageBox.warning")
+    def test_rename_with_duplicate_name_shows_warning_no_signal(
+        self, mock_warning, qtbot: QtBot, tmp_path: Path
+    ) -> None:
+        """
+        Given a PresetPanel with two presets including "Existing" (EP9),
+        When _handle_rename_preset is called with "Existing" as the new name,
+        Then a warning is shown and preset_renamed is not emitted.
+        """
+        # Arrange
+        data1 = {"name": "Existing", "brightness": 5}
+        data2 = {"name": "Original", "brightness": 10}
+        self._write_preset(tmp_path, "existing", data1)
+        self._write_preset(tmp_path, "original", data2)
+        panel = PresetPanel(str(tmp_path))
+        qtbot.addWidget(panel)
+        received: list[tuple] = []
+        panel.preset_renamed.connect(lambda o, n: received.append((o, n)))
+        # Act
+        panel._handle_rename_preset(data2, "Existing")
+        # Assert
+        assert len(received) == 0
+        mock_warning.assert_called_once()
+
+    def test_rename_with_same_name_no_signal(self, qtbot: QtBot, tmp_path: Path) -> None:
+        """
+        Given a PresetPanel with one preset (BV4),
+        When _handle_rename_preset is called with the same name,
+        Then preset_renamed is not emitted and no files are modified.
+        """
+        # Arrange
+        data = {"name": "same_name", "brightness": 5}
+        self._write_preset(tmp_path, "same_name", data)
+        panel = PresetPanel(str(tmp_path))
+        qtbot.addWidget(panel)
+        received: list[tuple] = []
+        panel.preset_renamed.connect(lambda o, n: received.append((o, n)))
+        # Act
+        panel._handle_rename_preset(data, "same_name")
+        # Assert
+        assert len(received) == 0
+
+    @patch("src.ui.widgets.preset_panel.QMessageBox.warning")
+    def test_rename_detects_safe_name_collision(self, mock_warning, qtbot: QtBot, tmp_path: Path) -> None:
+        """
+        Given presets "hello_world" and attempting to rename "hello world" to "hello world",
+        When different display names map to the same safe name (e.g., "hello world" → "hello_world"),
+        Then _preset_exists detects the collision and blocks the rename to prevent data loss.
+        """
+        # Arrange: Create preset with safe name "hello_world"
+        data1 = {"name": "hello_world", "brightness": 5}
+        data2 = {"name": "hello", "brightness": 10}
+        self._write_preset(tmp_path, "hello_world", data1)
+        self._write_preset(tmp_path, "hello", data2)
+        panel = PresetPanel(str(tmp_path))
+        qtbot.addWidget(panel)
+        received: list[tuple] = []
+        panel.preset_renamed.connect(lambda o, n: received.append((o, n)))
+        # Act: Try to rename "hello" to "hello world" (will map to safe name "hello_world")
+        panel._handle_rename_preset(data2, "hello world")
+        # Assert: Rename is blocked due to safe-name collision
+        assert len(received) == 0
+        mock_warning.assert_called_once()
+
+    def test_delete_removes_json_and_thumbnail_emits_signal(self, qtbot: QtBot, tmp_path: Path) -> None:
+        """
+        Given a PresetPanel with one preset and a thumbnail file (EP10),
+        When _handle_delete_preset is called,
+        Then the JSON and thumbnail files are removed and preset_deleted is emitted.
+        """
+        # Arrange
+        data = {"name": "to_delete", "brightness": 5}
+        self._write_preset(tmp_path, "to_delete", data)
+        thumb_path = tmp_path / "to_delete.png"
+        thumb_path.write_bytes(b"fake image data")
+        panel = PresetPanel(str(tmp_path))
+        qtbot.addWidget(panel)
+        received: list[str] = []
+        panel.preset_deleted.connect(received.append)
+        # Act
+        panel._handle_delete_preset(data)
+        # Assert
+        assert len(received) == 1
+        assert received[0] == "to_delete"
+        json_path = tmp_path / "to_delete.json"
+        assert not json_path.exists()
+        assert not thumb_path.exists()
+
+    def test_delete_handles_missing_thumbnail_gracefully(self, qtbot: QtBot, tmp_path: Path) -> None:
+        """
+        Given a PresetPanel with one preset but no thumbnail file,
+        When _handle_delete_preset is called,
+        Then the JSON file is removed and preset_deleted is emitted.
+        """
+        # Arrange
+        data = {"name": "no_thumb", "brightness": 5}
+        self._write_preset(tmp_path, "no_thumb", data)
+        panel = PresetPanel(str(tmp_path))
+        qtbot.addWidget(panel)
+        received: list[str] = []
+        panel.preset_deleted.connect(received.append)
+        # Act
+        panel._handle_delete_preset(data)
+        # Assert
+        assert len(received) == 1
+        json_path = tmp_path / "no_thumb.json"
+        assert not json_path.exists()
+
+    @patch("src.ui.widgets.preset_panel.QMessageBox.warning")
+    def test_rename_with_invalid_characters_shows_warning(
+        self, mock_warning, qtbot: QtBot, tmp_path: Path
+    ) -> None:
+        """
+        Given a PresetPanel with one preset (EP8),
+        When _handle_rename_preset is called with invalid filename characters,
+        Then a warning is shown and preset_renamed is not emitted.
+        """
+        # Arrange
+        original_data = {"name": "Test", "brightness": 5}
+        self._write_preset(tmp_path, "test", original_data)
+        panel = PresetPanel(str(tmp_path))
+        qtbot.addWidget(panel)
+        received: list[tuple] = []
+        panel.preset_renamed.connect(lambda o, n: received.append((o, n)))
+        # Act
+        panel._handle_rename_preset(original_data, "Invalid<>Name|")
+        # Assert
+        assert len(received) == 0
+        mock_warning.assert_called_once()
+
+    def test_rename_with_thumbnail_moves_file(self, qtbot: QtBot, tmp_path: Path) -> None:
+        """
+        Given a preset with an existing thumbnail file,
+        When _handle_rename_preset is called with a valid new name,
+        Then the thumbnail file is renamed along with the JSON file.
+        """
+        # Arrange
+        original_data = {"name": "old", "brightness": 5}
+        self._write_preset(tmp_path, "old", original_data)
+        thumb_path = tmp_path / "old.png"
+        thumb_path.write_bytes(b"image data")
+        panel = PresetPanel(str(tmp_path))
+        qtbot.addWidget(panel)
+        # Act
+        panel._handle_rename_preset(original_data, "new")
+        # Assert
+        assert not thumb_path.exists()
+        new_thumb_path = tmp_path / "new.png"
+        assert new_thumb_path.exists()
+
+    def test_get_preset_names_skips_invalid_json(self, qtbot: QtBot, tmp_path: Path) -> None:
+        """
+        Given a presets directory with valid and invalid JSON files,
+        When _get_preset_names is called,
+        Then only names from valid JSON files are returned.
+        """
+        # Arrange
+        data1 = {"name": "Valid"}
+        data2 = {"name": "Also Valid"}
+        self._write_preset(tmp_path, "valid1", data1)
+        self._write_preset(tmp_path, "valid2", data2)
+        (tmp_path / "broken.json").write_text("{broken json", encoding="utf-8")
+        panel = PresetPanel(str(tmp_path))
+        qtbot.addWidget(panel)
+        # Act
+        names = panel._get_preset_names()
+        # Assert
+        assert sorted(names) == ["Also Valid", "Valid"]
+
+    def test_is_valid_preset_name_rejects_invalid_characters(self, qtbot: QtBot) -> None:
+        """
+        Given various preset names with invalid characters,
+        When _is_valid_preset_name is called,
+        Then only valid names are accepted.
+        """
+        # Arrange + Act + Assert
+        assert PresetPanel._is_valid_preset_name("Valid Name")
+        assert PresetPanel._is_valid_preset_name("Valid_Name")
+        assert PresetPanel._is_valid_preset_name("Valid-Name")
+        assert not PresetPanel._is_valid_preset_name("Invalid<Name>")
+        assert not PresetPanel._is_valid_preset_name("Invalid|Name")
+        assert not PresetPanel._is_valid_preset_name("Invalid:Name")
