@@ -300,12 +300,17 @@ class PresetPanel(QWidget):
         return bool(re.match(r"^[\w\s\-]+$", name))
 
     def _preset_exists(self, name: str) -> bool:
-        """Check if a preset with the given name already exists."""
+        """Check if a preset with the given name already exists (by display name or safe name collision)."""
         if not os.path.isdir(self.presets_dir):
             return False
 
+        safe_new_name = re.sub(r"[^\w\s-]", "", name).strip().replace(" ", "_")
+
         for existing_preset in self._get_preset_names():
             if existing_preset.lower() == name.lower():
+                return True
+            safe_existing_name = re.sub(r"[^\w\s-]", "", existing_preset).strip().replace(" ", "_")
+            if safe_existing_name == safe_new_name:
                 return True
         return False
 

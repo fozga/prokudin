@@ -21,6 +21,7 @@
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from PyQt5.QtCore import QEvent, Qt
@@ -591,7 +592,10 @@ class TestPresetPanel:
         new_data = json.loads(new_json_path.read_text())
         assert new_data["name"] == "New Name"
 
-    def test_rename_with_empty_name_shows_warning_no_signal(self, qtbot: QtBot, tmp_path: Path) -> None:
+    @patch("src.ui.widgets.preset_panel.QMessageBox.warning")
+    def test_rename_with_empty_name_shows_warning_no_signal(
+        self, mock_warning, qtbot: QtBot, tmp_path: Path
+    ) -> None:
         """
         Given a PresetPanel with one preset (EP7),
         When _handle_rename_preset is called with an empty name,
@@ -608,8 +612,12 @@ class TestPresetPanel:
         panel._handle_rename_preset(original_data, "")
         # Assert
         assert len(received) == 0
+        mock_warning.assert_called_once()
 
-    def test_rename_with_duplicate_name_shows_warning_no_signal(self, qtbot: QtBot, tmp_path: Path) -> None:
+    @patch("src.ui.widgets.preset_panel.QMessageBox.warning")
+    def test_rename_with_duplicate_name_shows_warning_no_signal(
+        self, mock_warning, qtbot: QtBot, tmp_path: Path
+    ) -> None:
         """
         Given a PresetPanel with two presets including "Existing" (EP9),
         When _handle_rename_preset is called with "Existing" as the new name,
@@ -628,6 +636,7 @@ class TestPresetPanel:
         panel._handle_rename_preset(data2, "Existing")
         # Assert
         assert len(received) == 0
+        mock_warning.assert_called_once()
 
     def test_rename_with_same_name_no_signal(self, qtbot: QtBot, tmp_path: Path) -> None:
         """
@@ -646,6 +655,28 @@ class TestPresetPanel:
         panel._handle_rename_preset(data, "Same Name")
         # Assert
         assert len(received) == 0
+
+    @patch("src.ui.widgets.preset_panel.QMessageBox.warning")
+    def test_rename_detects_safe_name_collision(self, mock_warning, qtbot: QtBot, tmp_path: Path) -> None:
+        """
+        Given presets "hello_world" and attempting to rename "hello world" to "hello world",
+        When different display names map to the same safe name (e.g., "hello world" → "hello_world"),
+        Then _preset_exists detects the collision and blocks the rename to prevent data loss.
+        """
+        # Arrange: Create preset with safe name "hello_world"
+        data1 = {"name": "hello_world", "brightness": 5}
+        data2 = {"name": "hello", "brightness": 10}
+        self._write_preset(tmp_path, "hello_world", data1)
+        self._write_preset(tmp_path, "hello", data2)
+        panel = PresetPanel(str(tmp_path))
+        qtbot.addWidget(panel)
+        received: list[tuple] = []
+        panel.preset_renamed.connect(lambda o, n: received.append((o, n)))
+        # Act: Try to rename "hello" to "hello world" (will map to safe name "hello_world")
+        panel._handle_rename_preset(data2, "hello world")
+        # Assert: Rename is blocked due to safe-name collision
+        assert len(received) == 0
+        mock_warning.assert_called_once()
 
     def test_delete_removes_json_and_thumbnail_emits_signal(self, qtbot: QtBot, tmp_path: Path) -> None:
         """
