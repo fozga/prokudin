@@ -576,21 +576,21 @@ class TestPresetPanel:
         Then the JSON file is updated with the new name, and preset_renamed is emitted.
         """
         # Arrange
-        original_data = {"name": "Old Name", "brightness": 5}
+        original_data = {"name": "old_name", "brightness": 5}
         self._write_preset(tmp_path, "old_name", original_data)
         panel = PresetPanel(str(tmp_path))
         qtbot.addWidget(panel)
         # Act
         received: list[tuple] = []
         panel.preset_renamed.connect(lambda o, n: received.append((o, n)))
-        panel._handle_rename_preset(original_data, "New Name")
+        panel._handle_rename_preset(original_data, "new_name")
         # Assert
         assert len(received) == 1
-        assert received[0] == ("Old Name", "New Name")
+        assert received[0] == ("old_name", "new_name")
         new_json_path = tmp_path / "new_name.json"
         assert new_json_path.exists()
         new_data = json.loads(new_json_path.read_text())
-        assert new_data["name"] == "New Name"
+        assert new_data["name"] == "new_name"
 
     @patch("src.ui.widgets.preset_panel.QMessageBox.warning")
     def test_rename_with_empty_name_shows_warning_no_signal(
@@ -645,14 +645,14 @@ class TestPresetPanel:
         Then preset_renamed is not emitted and no files are modified.
         """
         # Arrange
-        data = {"name": "Same Name", "brightness": 5}
+        data = {"name": "same_name", "brightness": 5}
         self._write_preset(tmp_path, "same_name", data)
         panel = PresetPanel(str(tmp_path))
         qtbot.addWidget(panel)
         received: list[tuple] = []
         panel.preset_renamed.connect(lambda o, n: received.append((o, n)))
         # Act
-        panel._handle_rename_preset(data, "Same Name")
+        panel._handle_rename_preset(data, "same_name")
         # Assert
         assert len(received) == 0
 
@@ -685,7 +685,7 @@ class TestPresetPanel:
         Then the JSON and thumbnail files are removed and preset_deleted is emitted.
         """
         # Arrange
-        data = {"name": "To Delete", "brightness": 5}
+        data = {"name": "to_delete", "brightness": 5}
         self._write_preset(tmp_path, "to_delete", data)
         thumb_path = tmp_path / "to_delete.png"
         thumb_path.write_bytes(b"fake image data")
@@ -697,7 +697,7 @@ class TestPresetPanel:
         panel._handle_delete_preset(data)
         # Assert
         assert len(received) == 1
-        assert received[0] == "To Delete"
+        assert received[0] == "to_delete"
         json_path = tmp_path / "to_delete.json"
         assert not json_path.exists()
         assert not thumb_path.exists()
@@ -709,7 +709,7 @@ class TestPresetPanel:
         Then the JSON file is removed and preset_deleted is emitted.
         """
         # Arrange
-        data = {"name": "No Thumb", "brightness": 5}
+        data = {"name": "no_thumb", "brightness": 5}
         self._write_preset(tmp_path, "no_thumb", data)
         panel = PresetPanel(str(tmp_path))
         qtbot.addWidget(panel)
@@ -721,3 +721,78 @@ class TestPresetPanel:
         assert len(received) == 1
         json_path = tmp_path / "no_thumb.json"
         assert not json_path.exists()
+
+    @patch("src.ui.widgets.preset_panel.QMessageBox.warning")
+    def test_rename_with_invalid_characters_shows_warning(
+        self, mock_warning, qtbot: QtBot, tmp_path: Path
+    ) -> None:
+        """
+        Given a PresetPanel with one preset (EP8),
+        When _handle_rename_preset is called with invalid filename characters,
+        Then a warning is shown and preset_renamed is not emitted.
+        """
+        # Arrange
+        original_data = {"name": "Test", "brightness": 5}
+        self._write_preset(tmp_path, "test", original_data)
+        panel = PresetPanel(str(tmp_path))
+        qtbot.addWidget(panel)
+        received: list[tuple] = []
+        panel.preset_renamed.connect(lambda o, n: received.append((o, n)))
+        # Act
+        panel._handle_rename_preset(original_data, "Invalid<>Name|")
+        # Assert
+        assert len(received) == 0
+        mock_warning.assert_called_once()
+
+    def test_rename_with_thumbnail_moves_file(self, qtbot: QtBot, tmp_path: Path) -> None:
+        """
+        Given a preset with an existing thumbnail file,
+        When _handle_rename_preset is called with a valid new name,
+        Then the thumbnail file is renamed along with the JSON file.
+        """
+        # Arrange
+        original_data = {"name": "old", "brightness": 5}
+        self._write_preset(tmp_path, "old", original_data)
+        thumb_path = tmp_path / "old.png"
+        thumb_path.write_bytes(b"image data")
+        panel = PresetPanel(str(tmp_path))
+        qtbot.addWidget(panel)
+        # Act
+        panel._handle_rename_preset(original_data, "new")
+        # Assert
+        assert not thumb_path.exists()
+        new_thumb_path = tmp_path / "new.png"
+        assert new_thumb_path.exists()
+
+    def test_get_preset_names_skips_invalid_json(self, qtbot: QtBot, tmp_path: Path) -> None:
+        """
+        Given a presets directory with valid and invalid JSON files,
+        When _get_preset_names is called,
+        Then only names from valid JSON files are returned.
+        """
+        # Arrange
+        data1 = {"name": "Valid"}
+        data2 = {"name": "Also Valid"}
+        self._write_preset(tmp_path, "valid1", data1)
+        self._write_preset(tmp_path, "valid2", data2)
+        (tmp_path / "broken.json").write_text("{broken json", encoding="utf-8")
+        panel = PresetPanel(str(tmp_path))
+        qtbot.addWidget(panel)
+        # Act
+        names = panel._get_preset_names()
+        # Assert
+        assert sorted(names) == ["Also Valid", "Valid"]
+
+    def test_is_valid_preset_name_rejects_invalid_characters(self, qtbot: QtBot) -> None:
+        """
+        Given various preset names with invalid characters,
+        When _is_valid_preset_name is called,
+        Then only valid names are accepted.
+        """
+        # Arrange + Act + Assert
+        assert PresetPanel._is_valid_preset_name("Valid Name")
+        assert PresetPanel._is_valid_preset_name("Valid_Name")
+        assert PresetPanel._is_valid_preset_name("Valid-Name")
+        assert not PresetPanel._is_valid_preset_name("Invalid<Name>")
+        assert not PresetPanel._is_valid_preset_name("Invalid|Name")
+        assert not PresetPanel._is_valid_preset_name("Invalid:Name")
