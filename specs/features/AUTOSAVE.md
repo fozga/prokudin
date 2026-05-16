@@ -21,7 +21,7 @@ Autosave never writes image pixel data to disk, only small JSON metadata.
 ### File path
 
 Autosave uses a single JSON file in the config directory determined by
-`MainWindow._resolve_dirs()`:
+`src.ui.config.get_config_dir()`:
 
 ```python
 _AUTOSAVE_FILENAME = "autosave.json"

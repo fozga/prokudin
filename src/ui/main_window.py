@@ -20,7 +20,6 @@ Main application window and UI layout for Prokudin.
 Handles state management, user interactions, and connects UI components to processing logic.
 """
 
-import os
 from typing import Callable, Union
 
 from PyQt5.QtCore import QRect, Qt, QTimer
@@ -40,6 +39,7 @@ from PyQt5.QtWidgets import (
 
 from ..services.processor import ImageProcessorService
 from .app_state import AppState
+from .config import get_config_dir, get_presets_dir
 from .handlers.autosave import clear_autosave, restore_autosave, save_autosave
 from .handlers.channels import adjust_channel, load_channel, show_single_channel, update_channel_preview
 from .handlers.display import show_combined_image, show_single_channel_image, update_main_display
@@ -115,7 +115,8 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self.svc = ImageProcessorService()
         self.state = AppState()
 
-        self.presets_dir, self.config_dir = self._resolve_dirs()
+        self.presets_dir = get_presets_dir()
+        self.config_dir = get_config_dir()
 
         assert self.presets_dir is not None
         assert self.config_dir is not None
@@ -132,44 +133,6 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
 
         # Restore previous session (loads images, sets sliders, applies crop)
         restore_autosave(self)
-
-    def _resolve_dirs(self) -> tuple[str, str]:
-        """
-        Locate writable presets and config directories, trying container paths first then local fallbacks.
-
-        Returns:
-            tuple: (presets_dir, config_dir) absolute paths.
-        """
-        current = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        project_root = current
-        for _ in range(5):
-            if os.path.exists(os.path.join(current, "requirements.txt")):
-                project_root = current
-                break
-            parent = os.path.dirname(current)
-            if parent == current:
-                break
-            current = parent
-
-        def _first_writable(candidates: list[str], label: str) -> str:
-            """Return the first candidate path that can be created with write permissions."""
-            for path in candidates:
-                try:
-                    os.makedirs(path, exist_ok=True)
-                    return path
-                except (OSError, PermissionError):
-                    continue
-            raise RuntimeError(f"Failed to create {label} directory in any location")
-
-        presets_dir = _first_writable(
-            ["/app/presets", os.path.join(project_root, "presets"), os.path.expanduser("~/.config/prokudin/presets")],
-            "presets",
-        )
-        config_dir = _first_writable(
-            ["/app/config", os.path.join(project_root, "config"), os.path.expanduser("~/.config/prokudin")],
-            "config",
-        )
-        return presets_dir, config_dir
 
     def init_ui(self) -> None:  # pylint: disable=too-many-statements
         """
