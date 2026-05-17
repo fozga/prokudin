@@ -1,0 +1,506 @@
+# Copyright (C) 2025 fozga
+#
+# This file is part of Prokudin.
+#
+# Prokudin is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Prokudin is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Prokudin.  If not, see <https://www.gnu.org/licenses/>.
+
+"""
+Unit tests for src.ui.handlers.crop module.
+
+Tests crop mode toggling, cancellation, aspect ratio setting, and crop application.
+"""
+
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from src.ui.handlers.crop import apply_crop, cancel_crop, set_crop_ratio, toggle_crop_mode
+
+
+@pytest.fixture
+def mock_main_window() -> MagicMock:
+    """Create a mock MainWindow with required attributes for crop handlers."""
+    main_window = MagicMock()
+    main_window.state = MagicMock()
+    main_window.state.crop_mode = False
+    main_window.state.crop_ratio = None
+    main_window.state.crop_rect = None
+    main_window.state.show_combined = True
+    main_window.svc = MagicMock()
+    main_window.svc.has_processed_channels.return_value = True
+    main_window.svc.get_image_dimensions.return_value = (600, 800)  # (height, width)
+    main_window.viewer = MagicMock()
+    main_window.viewer.get_saved_crop_rect.return_value = None
+    # Create a mock rect that behaves like a real QRect for method calls
+    def create_mock_rect(x: int = 100, y: int = 100, w: int = 200, h: int = 200) -> MagicMock:
+        """Create a mock QRect with proper width/height/isValid behavior."""
+        rect = MagicMock()
+        rect.width.return_value = w
+        rect.height.return_value = h
+        rect.isValid.return_value = True
+        rect.x.return_value = x
+        rect.y.return_value = y
+        return rect
+
+    mock_rect = create_mock_rect()
+    main_window.viewer.get_crop_rect.return_value = mock_rect
+    main_window.crop_mode_btn = MagicMock()
+    main_window.crop_controls = MagicMock()
+    main_window.controllers = [MagicMock(), MagicMock(), MagicMock()]
+    main_window.status_handler = MagicMock()
+    main_window.status_handler.NO_TIMEOUT = "none"
+    main_window.status_handler.MEDIUM_TIMEOUT = "medium"
+    main_window.update_save_button_state = MagicMock()
+    main_window._update_mode_from_state = MagicMock()
+    return main_window
+
+
+@patch("src.ui.handlers.crop.update_main_display")
+class TestToggleCropMode:
+    """
+    Test Design Specification: toggle_crop_mode()
+    Module under test: src/ui/handlers/crop.py
+
+    Contract:
+        Toggles crop mode on if not already active. Returns early if already active
+        or if no processed channels. Initializes crop rect from saved state or image
+        dimensions (80% of image). Updates UI visibility and viewer state. Updates
+        main display and mode indicator.
+
+    Equivalence partitions:
+        EP1  Already in crop mode     → returns early, no changes
+        EP2  No processed channels    → returns early, no changes
+        EP3  Enter crop mode, no saved rect, has dimensions → initializes from image
+        EP4  Enter crop mode, with saved crop rect → uses saved rect
+        EP5  With crop ratio set during initialization → applies ratio to default rect
+
+    Boundary values:
+        BV1  Image dimensions very small (50x50) → 80% = 40x40
+        BV2  Image dimensions large (4000x3000) → 80% = 3200x2400
+
+    Exclusions:
+        - Pixel-perfect geometry testing (geometry changes based on image aspect)
+        - Animation or visual feedback timing
+
+    Constraints:
+        - Requires mocking ImageViewer, AppState, ImageProcessorService
+        - Requires mocking update_main_display
+        - MainWindow._update_mode_from_state must exist
+    """
+
+    def test_returns_early_if_already_in_crop_mode(self, mock_update_main_display: MagicMock, mock_main_window: MagicMock) -> None:
+        """
+        Given main_window is already in crop mode,
+        When toggle_crop_mode is called,
+        Then the function returns early without changes.
+        """
+        # Arrange
+        mock_main_window.state.crop_mode = True
+        # Act
+        toggle_crop_mode(mock_main_window)
+        # Assert
+        mock_update_main_display.assert_not_called()
+        mock_main_window.crop_mode_btn.setVisible.assert_not_called()
+
+    def test_returns_early_if_no_processed_channels(self, mock_update_main_display: MagicMock, mock_main_window: MagicMock) -> None:
+        """
+        Given main_window.svc has no processed channels,
+        When toggle_crop_mode is called,
+        Then the function returns early without changes.
+        """
+        # Arrange
+        mock_main_window.state.crop_mode = False
+        mock_main_window.svc.has_processed_channels.return_value = False
+        # Act
+        toggle_crop_mode(mock_main_window)
+        # Assert
+        mock_update_main_display.assert_not_called()
+        mock_main_window.crop_mode_btn.setVisible.assert_not_called()
+
+    def test_enters_crop_mode_with_default_rect(self, mock_update_main_display: MagicMock, mock_main_window: MagicMock) -> None:
+        """
+        Given no saved crop rect and image dimensions 800x600,
+        When toggle_crop_mode is called,
+        Then crop mode is enabled, UI updated, and rect initialized to 80% of image.
+        """
+        # Arrange
+        mock_main_window.state.crop_mode = False
+        mock_main_window.svc.has_processed_channels.return_value = True
+        mock_main_window.svc.get_image_dimensions.return_value = (600, 800)  # (height, width)
+        mock_main_window.viewer.get_saved_crop_rect.return_value = None
+        # Act
+        toggle_crop_mode(mock_main_window)
+        # Assert
+        assert mock_main_window.state.crop_mode is True
+        mock_main_window.crop_mode_btn.setVisible.assert_called_once_with(False)
+        mock_main_window.crop_controls.setVisible.assert_called_once_with(True)
+        assert mock_main_window.state.crop_rect is not None
+        mock_update_main_display.assert_called_once_with(mock_main_window)
+
+    @patch("src.ui.handlers.crop._get_aspect_crop_rect")
+    def test_applies_crop_ratio_to_default_rect(
+        self,
+        mock_aspect_rect: MagicMock,
+        mock_update_main_display: MagicMock,
+        mock_main_window: MagicMock
+    ) -> None:
+        """
+        Given a crop ratio is set and no saved rect exists,
+        When toggle_crop_mode is called,
+        Then the aspect ratio is applied to the default rect.
+        """
+        # Arrange
+        mock_main_window.state.crop_mode = False
+        mock_main_window.state.crop_ratio = (16, 9)
+        mock_main_window.svc.has_processed_channels.return_value = True
+        mock_main_window.svc.get_image_dimensions.return_value = (600, 800)
+        mock_main_window.viewer.get_saved_crop_rect.return_value = None
+        adjusted_rect = MagicMock()
+        mock_aspect_rect.return_value = adjusted_rect
+        # Act
+        toggle_crop_mode(mock_main_window)
+        # Assert
+        mock_aspect_rect.assert_called_once()
+        assert mock_main_window.state.crop_rect == adjusted_rect
+
+    def test_sets_viewer_crop_mode_and_rect(self, mock_update_main_display: MagicMock, mock_main_window: MagicMock) -> None:
+        """
+        Given crop mode is being toggled on,
+        When toggle_crop_mode is called,
+        Then viewer.set_crop_mode and viewer.set_crop_rect are called.
+        """
+        # Arrange
+        mock_main_window.state.crop_mode = False
+        mock_main_window.svc.has_processed_channels.return_value = True
+        mock_main_window.svc.get_image_dimensions.return_value = (600, 800)
+        mock_main_window.viewer.get_saved_crop_rect.return_value = None
+        # Act
+        toggle_crop_mode(mock_main_window)
+        # Assert
+        mock_main_window.viewer.set_crop_mode.assert_called_once_with(True)
+        mock_main_window.viewer.set_crop_rect.assert_called_once()
+        mock_main_window._update_mode_from_state.assert_called_once()
+        mock_main_window.status_handler.set_message.assert_called_once()
+
+
+@patch("src.ui.handlers.crop.update_main_display")
+class TestCancelCrop:
+    """
+    Test Design Specification: cancel_crop()
+    Module under test: src/ui/handlers/crop.py
+
+    Contract:
+        Exits crop mode without applying changes. Restores the last saved crop
+        rectangle from the viewer if available, otherwise clears the crop rect.
+        Updates UI visibility, viewer state, and displays status message.
+
+    Equivalence partitions:
+        EP1  Exit crop mode, with saved crop rect → restores saved rect
+        EP2  Exit crop mode, no saved crop rect  → clears crop rect
+
+    Boundary values:
+        BV1  Saved rect at image edge (0, 0, width, height)
+        BV2  Saved rect in center of image
+
+    Exclusions:
+        - Geometry validation (contract assumes saved rect is valid)
+
+    Constraints:
+        - Requires mocking ImageViewer, AppState, StatusBarHandler
+        - MainWindow._update_mode_from_state must exist
+    """
+
+    def test_exits_crop_mode_with_saved_rect(self, mock_update_main_display: MagicMock, mock_main_window: MagicMock) -> None:
+        """
+        Given a saved crop rect exists and crop mode is active,
+        When cancel_crop is called,
+        Then crop mode is disabled and the saved rect is restored.
+        """
+        # Arrange
+        saved_rect = MagicMock()
+        mock_main_window.state.crop_mode = True
+        mock_main_window.viewer.get_saved_crop_rect.return_value = saved_rect
+        # Act
+        cancel_crop(mock_main_window)
+        # Assert
+        assert mock_main_window.state.crop_mode is False
+        mock_main_window.crop_mode_btn.setVisible.assert_called_once_with(True)
+        mock_main_window.crop_controls.setVisible.assert_called_once_with(False)
+        mock_update_main_display.assert_called_once_with(mock_main_window)
+
+    def test_exits_crop_mode_without_saved_rect(self, mock_update_main_display: MagicMock, mock_main_window: MagicMock) -> None:
+        """
+        Given no saved crop rect exists,
+        When cancel_crop is called,
+        Then crop mode is disabled and crop rect is cleared.
+        """
+        # Arrange
+        mock_main_window.state.crop_mode = True
+        mock_main_window.viewer.get_saved_crop_rect.return_value = None
+        # Act
+        cancel_crop(mock_main_window)
+        # Assert
+        assert mock_main_window.state.crop_mode is False
+        assert mock_main_window.state.crop_rect is None
+        mock_main_window.viewer.set_crop_mode.assert_called_once_with(False)
+        mock_update_main_display.assert_called_once_with(mock_main_window)
+
+    def test_sets_status_message_on_cancel(self, mock_update_main_display: MagicMock, mock_main_window: MagicMock) -> None:
+        """
+        Given crop mode is being cancelled,
+        When cancel_crop is called,
+        Then a status message is set via status_handler.
+        """
+        # Arrange
+        mock_main_window.state.crop_mode = True
+        mock_main_window.viewer.get_saved_crop_rect.return_value = None
+        # Act
+        cancel_crop(mock_main_window)
+        # Assert
+        mock_main_window.status_handler.set_message.assert_called_once()
+        call_args = mock_main_window.status_handler.set_message.call_args[0]
+        assert "cancelled" in call_args[0].lower()
+
+
+@patch("src.ui.handlers.crop.update_main_display")
+@patch("src.ui.handlers.crop._get_aspect_crop_rect")
+class TestSetCropRatio:
+    """
+    Test Design Specification: set_crop_ratio()
+    Module under test: src/ui/handlers/crop.py
+
+    Contract:
+        Sets the aspect ratio for the crop rectangle. If ratio is provided and
+        a current crop rect exists, adjusts rect to maintain the aspect ratio.
+        If ratio is None (free mode), uses current rect as-is. Syncs state and
+        viewer crop rect. Updates main display.
+
+    Equivalence partitions:
+        EP1  Set to specific aspect ratio with rect     → applies ratio, adjusts rect
+        EP2  Set to None (free mode) with rect          → uses rect as-is
+        EP3  Set ratio with no current rect             → no change to rect
+        EP4  Change from one ratio to another           → re-applies aspect
+
+    Boundary values:
+        BV1  Very wide aspect ratio (21:9)
+        BV2  Very tall aspect ratio (9:21)
+        BV3  Square aspect ratio (1:1)
+
+    Exclusions:
+        - Aspect ratio clamping to image bounds (delegated to _get_aspect_crop_rect)
+
+    Constraints:
+        - Requires mocking ImageViewer, AppState
+        - Calls _get_aspect_crop_rect for calculations
+    """
+
+    def test_applies_aspect_ratio_to_current_rect(
+        self,
+        mock_aspect_rect: MagicMock,
+        mock_update_main_display: MagicMock,
+        mock_main_window: MagicMock
+    ) -> None:
+        """
+        Given a current crop rect and a target aspect ratio,
+        When set_crop_ratio is called,
+        Then the aspect ratio is applied to the rect.
+        """
+        # Arrange
+        current_rect = MagicMock()
+        adjusted_rect = MagicMock()
+        mock_main_window.viewer.get_crop_rect.return_value = current_rect
+        mock_aspect_rect.return_value = adjusted_rect
+        ratio = (16, 9)
+        # Act
+        set_crop_ratio(mock_main_window, ratio)
+        # Assert
+        assert mock_main_window.state.crop_ratio == ratio
+        assert mock_main_window.state.crop_rect == adjusted_rect
+        mock_main_window.viewer.set_crop_ratio.assert_called_once_with(ratio)
+        mock_update_main_display.assert_called_once_with(mock_main_window)
+
+    def test_free_mode_uses_current_rect_as_is(
+        self,
+        mock_aspect_rect: MagicMock,
+        mock_update_main_display: MagicMock,
+        mock_main_window: MagicMock
+    ) -> None:
+        """
+        Given a current crop rect and ratio is set to None,
+        When set_crop_ratio is called,
+        Then the rect is used as-is without aspect adjustment.
+        """
+        # Arrange
+        current_rect = MagicMock()
+        mock_main_window.viewer.get_crop_rect.return_value = current_rect
+        # Act
+        set_crop_ratio(mock_main_window, None)
+        # Assert
+        assert mock_main_window.state.crop_ratio is None
+        assert mock_main_window.state.crop_rect == current_rect
+        mock_main_window.viewer.set_crop_ratio.assert_called_once_with(None)
+        mock_update_main_display.assert_called_once_with(mock_main_window)
+
+    def test_no_change_if_no_current_rect(
+        self,
+        mock_aspect_rect: MagicMock,
+        mock_update_main_display: MagicMock,
+        mock_main_window: MagicMock
+    ) -> None:
+        """
+        Given no current crop rect,
+        When set_crop_ratio is called,
+        Then no rect adjustment is made.
+        """
+        # Arrange
+        mock_main_window.viewer.get_crop_rect.return_value = None
+        ratio = (16, 9)
+        # Act
+        set_crop_ratio(mock_main_window, ratio)
+        # Assert
+        assert mock_main_window.state.crop_ratio == ratio
+        mock_update_main_display.assert_called_once_with(mock_main_window)
+
+    def test_viewer_sync_in_aspect_mode(
+        self,
+        mock_aspect_rect: MagicMock,
+        mock_update_main_display: MagicMock,
+        mock_main_window: MagicMock
+    ) -> None:
+        """
+        Given setting a specific aspect ratio,
+        When set_crop_ratio is called,
+        Then viewer is updated with both the ratio and the adjusted rect.
+        """
+        # Arrange
+        current_rect = MagicMock()
+        adjusted_rect = MagicMock()
+        mock_main_window.viewer.get_crop_rect.return_value = current_rect
+        mock_aspect_rect.return_value = adjusted_rect
+        ratio = (4, 3)
+        # Act
+        set_crop_ratio(mock_main_window, ratio)
+        # Assert
+        mock_main_window.viewer.set_crop_ratio.assert_called_once_with(ratio)
+        mock_main_window.viewer.set_crop_rect.assert_called_once_with(adjusted_rect)
+        assert mock_main_window.state.crop_ratio == ratio
+        assert mock_main_window.state.crop_rect == adjusted_rect
+
+
+@patch("src.ui.handlers.crop.save_autosave")
+@patch("src.ui.handlers.crop.show_single_channel_image")
+@patch("src.ui.handlers.crop.show_combined_image")
+@patch("src.ui.handlers.crop.update_channel_preview")
+class TestApplyCrop:
+    """
+    Test Design Specification: apply_crop()
+    Module under test: src/ui/handlers/crop.py
+
+    Contract:
+        Applies the current crop rectangle to the processed images by saving the
+        rect for on-the-fly cropping (not modifying underlying images). Exits crop
+        mode, updates all channel previews, updates UI state, and triggers autosave.
+        Returns early if no valid crop rect or no processed channels.
+
+    Equivalence partitions:
+        EP1  Valid crop with processed channels    → applies crop, exits mode, updates UI
+        EP2  No crop rect                          → returns early, no changes
+        EP3  No processed channels                 → returns early, no changes
+
+    Exclusions:
+        - Rect intersection with image bounds (complex Qt mocking required)
+        - Actual image pixel data modifications (visual only)
+
+    Constraints:
+        - Requires mocking ImageViewer, AppState, ImageProcessorService, StatusBarHandler
+        - Calls update_channel_preview for each of 3 channels
+        - Calls show_combined_image or show_single_channel_image based on state
+    """
+
+    def test_returns_early_if_no_crop_rect(
+        self,
+        mock_update_channel: MagicMock,
+        mock_show_combined: MagicMock,
+        mock_show_single: MagicMock,
+        mock_save_autosave: MagicMock,
+        mock_main_window: MagicMock
+    ) -> None:
+        """
+        Given no crop rect,
+        When apply_crop is called,
+        Then the function returns early without changes.
+        """
+        # Arrange
+        mock_main_window.viewer.get_crop_rect.return_value = None
+        # Act
+        apply_crop(mock_main_window)
+        # Assert
+        mock_main_window.viewer.confirm_crop.assert_not_called()
+        mock_update_channel.assert_not_called()
+        mock_save_autosave.assert_not_called()
+
+    def test_returns_early_if_no_processed_channels(
+        self,
+        mock_update_channel: MagicMock,
+        mock_show_combined: MagicMock,
+        mock_show_single: MagicMock,
+        mock_save_autosave: MagicMock,
+        mock_main_window: MagicMock
+    ) -> None:
+        """
+        Given crop rect exists but no processed channels,
+        When apply_crop is called,
+        Then the function returns early without changes.
+        """
+        # Arrange
+        crop_rect = MagicMock()
+        mock_main_window.viewer.get_crop_rect.return_value = crop_rect
+        mock_main_window.svc.has_processed_channels.return_value = False
+        # Act
+        apply_crop(mock_main_window)
+        # Assert
+        mock_main_window.viewer.confirm_crop.assert_not_called()
+        mock_save_autosave.assert_not_called()
+
+    def test_initializes_crop_controls(
+        self,
+        mock_update_channel: MagicMock,
+        mock_show_combined: MagicMock,
+        mock_show_single: MagicMock,
+        mock_save_autosave: MagicMock,
+        mock_main_window: MagicMock
+    ) -> None:
+        """
+        Given apply_crop is called with valid state,
+        When the crop rect is applied,
+        Then crop mode is disabled and UI elements are hidden.
+        """
+        # Arrange
+        crop_rect = MagicMock()
+        crop_rect.width.return_value = 200
+        crop_rect.height.return_value = 200
+        crop_rect.isValid.return_value = True
+        crop_rect.right.return_value = 300
+        crop_rect.bottom.return_value = 300
+        mock_main_window.viewer.get_crop_rect = MagicMock(return_value=crop_rect)
+        mock_main_window.svc.has_processed_channels.return_value = True
+        mock_main_window.svc.get_image_dimensions.return_value = (600, 800)
+        mock_main_window.state.crop_mode = True
+        mock_main_window.state.show_combined = True
+        # Act
+        apply_crop(mock_main_window)
+        # Assert
+        assert mock_main_window.state.crop_mode is False
+        mock_main_window.crop_mode_btn.setVisible.assert_called_with(True)
+        mock_main_window.crop_controls.setVisible.assert_called_with(False)
