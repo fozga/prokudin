@@ -20,13 +20,12 @@ Main application window and UI layout for Prokudin.
 Handles state management, user interactions, and connects UI components to processing logic.
 """
 
-from typing import Union
+from typing import Optional, Union
 
 from PyQt5.QtCore import QRect, Qt, QTimer
 from PyQt5.QtGui import QCloseEvent, QKeyEvent
 from PyQt5.QtWidgets import (
     QApplication,
-    QComboBox,
     QHBoxLayout,
     QMainWindow,
     QMessageBox,
@@ -46,6 +45,7 @@ from .handlers.image_saving import save_image_with_dialog
 from .handlers.keyboard import handle_key_press
 from .handlers.presets import apply_preset, save_preset
 from .widgets.channel_controller import ChannelController
+from .widgets.crop_controls import CropControlsWidget
 from .widgets.grid_settings_dialog import GridSettingsDialog
 from .widgets.grid_types import (
     GRID_TYPE_3X3,
@@ -173,31 +173,12 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self.crop_mode_btn = QPushButton("Crop")
         self.crop_mode_btn.clicked.connect(self.toggle_crop_mode)
 
-        # Crop controls widget (already present)
-        self.crop_ratio_combo = QComboBox()
-        self.crop_ratio_combo.addItem("Free", None)
-        self.crop_ratio_combo.addItem("16:9", (16, 9))
-        self.crop_ratio_combo.addItem("3:2", (3, 2))
-        self.crop_ratio_combo.addItem("4:3", (4, 3))
-        self.crop_ratio_combo.addItem("5:4", (5, 4))
-        self.crop_ratio_combo.addItem("1:1", (1, 1))
-        self.crop_ratio_combo.addItem("4:5", (4, 5))
-        self.crop_ratio_combo.addItem("3:4", (3, 4))
-        self.crop_ratio_combo.addItem("2:3", (2, 3))
-        self.crop_ratio_combo.addItem("9:16", (9, 16))
-        self.crop_ratio_combo.currentIndexChanged.connect(self.set_crop_ratio)
-
-        self.crop_controls_widget = QWidget()
-        crop_controls_layout = QHBoxLayout(self.crop_controls_widget)
-        crop_controls_layout.setContentsMargins(0, 0, 0, 0)
-        crop_controls_layout.addWidget(self.crop_ratio_combo)
-        self.accept_crop_btn = QPushButton("Accept Crop")
-        self.accept_crop_btn.clicked.connect(self.apply_crop)
-        crop_controls_layout.addWidget(self.accept_crop_btn)
-        self.cancel_crop_btn = QPushButton("Cancel Crop")
-        self.cancel_crop_btn.clicked.connect(self.cancel_crop)
-        crop_controls_layout.addWidget(self.cancel_crop_btn)
-        self.crop_controls_widget.setVisible(False)
+        # Crop controls widget
+        self.crop_controls = CropControlsWidget()
+        self.crop_controls.setVisible(False)
+        self.crop_controls.ratio_changed.connect(self.set_crop_ratio)
+        self.crop_controls.accept_requested.connect(self.apply_crop)
+        self.crop_controls.cancel_requested.connect(self.cancel_crop)
 
         # Left sidebar: preset panel + grid button
         left_sidebar = QVBoxLayout()
@@ -225,7 +206,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
 
         # Add the buttons layout to the center panel
         center_panel.addLayout(buttons_layout)
-        center_panel.addWidget(self.crop_controls_widget)
+        center_panel.addWidget(self.crop_controls)
         self.viewer = ImageViewer()
         center_panel.addWidget(self.viewer, 70)
 
@@ -273,7 +254,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
             return
         self.state.crop_mode = True
         self.crop_mode_btn.setVisible(False)
-        self.crop_controls_widget.setVisible(True)
+        self.crop_controls.setVisible(True)
         saved_crop_rect = self.viewer.get_saved_crop_rect() if self.viewer else None
         if saved_crop_rect:
             self.state.crop_rect = QRect(saved_crop_rect)
@@ -314,7 +295,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         """
         self.state.crop_mode = False
         self.crop_mode_btn.setVisible(True)
-        self.crop_controls_widget.setVisible(False)
+        self.crop_controls.setVisible(False)
         saved_crop_rect = self.viewer.get_saved_crop_rect() if self.viewer else None
         if saved_crop_rect:
             self.state.crop_rect = QRect(saved_crop_rect)
@@ -328,13 +309,13 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self._update_mode_from_state()
         self.status_handler.set_message("Crop operation cancelled", self.status_handler.MEDIUM_TIMEOUT)
 
-    def set_crop_ratio(self) -> None:
+    def set_crop_ratio(self, ratio: Optional[tuple[int, int]]) -> None:
         """
         Sets the aspect ratio for the crop rectangle.
 
         Args:
             self (MainWindow): The instance of the main window.
-            index (int): The index of the selected aspect ratio in the combo box.
+            ratio: The aspect ratio as (width, height) tuple, or None for free aspect.
 
         Returns:
             None
@@ -346,7 +327,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
             - ImageViewer.set_crop_ratio
             - update_main_display
         """
-        self.state.crop_ratio = self.crop_ratio_combo.currentData()
+        self.state.crop_ratio = ratio
         # Always get the current rectangle from the viewer
         current_rect = self.viewer.get_crop_rect() if self.viewer else self.state.crop_rect
         if current_rect and self.state.crop_ratio:
@@ -445,7 +426,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         # Reset crop mode and UI
         self.state.crop_mode = False
         self.crop_mode_btn.setVisible(True)
-        self.crop_controls_widget.setVisible(False)
+        self.crop_controls.setVisible(False)
         self.viewer.set_crop_mode(False)
 
         # Update save button state after crop
@@ -507,7 +488,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         # Handle UI cleanup before state reset (crop mode needs UI update first)
         if self.state.crop_mode:
             self.crop_mode_btn.setVisible(True)
-            self.crop_controls_widget.setVisible(False)
+            self.crop_controls.setVisible(False)
             self.viewer.set_crop_mode(False)
 
         # Reset all mutable state to defaults
@@ -519,7 +500,7 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
             self.viewer.set_crop_rect(None)
 
         # Reset crop ratio combo box to "Free"
-        self.crop_ratio_combo.setCurrentIndex(0)
+        self.crop_controls.reset()
 
         # Reset all channel controllers
         for controller in self.controllers:
