@@ -24,16 +24,7 @@ from typing import Optional, Union
 
 from PyQt5.QtCore import QRect, Qt, QTimer
 from PyQt5.QtGui import QCloseEvent, QKeyEvent
-from PyQt5.QtWidgets import (
-    QApplication,
-    QHBoxLayout,
-    QMainWindow,
-    QMessageBox,
-    QPushButton,
-    QStatusBar,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt5.QtWidgets import QHBoxLayout, QMainWindow, QMessageBox, QPushButton, QStatusBar, QVBoxLayout, QWidget
 
 from ..services.processor import ImageProcessorService
 from .app_state import AppState
@@ -41,12 +32,14 @@ from .config import get_config_dir, get_presets_dir
 from .handlers.autosave import clear_autosave, restore_autosave, save_autosave
 from .handlers.channels import adjust_channel, load_channel, show_single_channel, update_channel_preview
 from .handlers.display import show_combined_image, show_single_channel_image, update_main_display
+from .handlers.grid import on_grid_line_width_changed as grid_on_line_width_changed
+from .handlers.grid import on_grid_type_changed as grid_on_type_changed
+from .handlers.grid import open_grid_settings as grid_open_settings
 from .handlers.image_saving import save_image_with_dialog
 from .handlers.keyboard import handle_key_press
 from .handlers.presets import apply_preset, save_preset
 from .widgets.channel_controller import ChannelController
 from .widgets.crop_controls import CropControlsWidget
-from .widgets.grid_settings_dialog import GridSettingsDialog
 from .widgets.grid_types import (
     GRID_TYPE_3X3,
     GRID_TYPE_DIAGONAL_1_1,
@@ -59,7 +52,6 @@ from .widgets.grid_types import (
     GRID_TYPE_DIAGONAL_THIRDS_H,
     GRID_TYPE_DIAGONAL_THIRDS_V,
     GRID_TYPE_GOLDEN_RATIO,
-    GRID_TYPE_NONE,
 )
 from .widgets.image_viewer import ImageViewer
 from .widgets.preset_panel import PresetPanel
@@ -520,121 +512,43 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self.status_handler.set_message("Application reset to default state", self.status_handler.MEDIUM_TIMEOUT)
 
     def open_grid_settings(self) -> None:
-        """
-        Open the grid settings dialog as an overlay.
+        """Open the grid settings dialog as an overlay.
 
         Returns:
             None
+
+        Cross-references:
+            - handlers.grid.open_grid_settings
         """
-        if self.state.grid_settings_dialog is None:
-            # Create dialog with current settings
-            current_width = self.viewer.grid_overlay.get_line_width()
-
-            # Determine current grid type
-            if self.viewer.grid_overlay.is_enabled():
-                current_type = self.viewer.grid_overlay.get_grid_type()
-            else:
-                current_type = GRID_TYPE_NONE
-
-            self.state.grid_settings_dialog = GridSettingsDialog(
-                current_width=current_width, current_grid_type=current_type, parent=self
-            )
-
-            # Connect signals
-            self.state.grid_settings_dialog.grid_type_changed.connect(self.on_grid_type_changed)
-            self.state.grid_settings_dialog.line_width_changed.connect(self.on_grid_line_width_changed)
-
-        # Position the dialog near the Grid button with screen boundary checks
-        # Get the top-left corner of the button in global coordinates
-        button_pos = self.grid_btn.mapToGlobal(self.grid_btn.rect().topLeft())
-
-        # Get screen geometry to ensure dialog stays within bounds
-        screen = self.screen()
-        if screen:
-            screen_geometry = screen.availableGeometry()
-        else:
-            # Fallback if screen is not available
-            screen_geometry = QApplication.desktop().availableGeometry()  # type: ignore[union-attr]
-
-        dialog_width = self.state.grid_settings_dialog.width()
-        dialog_height = self.state.grid_settings_dialog.height()
-
-        # Default position: to the right and above the button
-        dialog_x = button_pos.x() + self.grid_btn.width() + 10  # To the right of button
-        dialog_y = button_pos.y() - dialog_height  # Above the button
-
-        # Check right boundary - if dialog goes off screen, position it to the left of button
-        if dialog_x + dialog_width > screen_geometry.right():
-            dialog_x = button_pos.x() - dialog_width - 10  # To the left of button
-
-        # Check left boundary - ensure dialog doesn't go off left edge
-        if dialog_x < screen_geometry.left():
-            dialog_x = screen_geometry.left() + 10
-
-        # Check top boundary - if dialog goes off screen, position it below the button
-        if dialog_y < screen_geometry.top():
-            dialog_y = button_pos.y() + self.grid_btn.height() + 10  # Below the button
-
-        # Check bottom boundary - ensure dialog doesn't go off bottom edge
-        if dialog_y + dialog_height > screen_geometry.bottom():
-            dialog_y = screen_geometry.bottom() - dialog_height - 10
-
-        self.state.grid_settings_dialog.move(dialog_x, dialog_y)
-
-        # Show the dialog
-        self.state.grid_settings_dialog.show()
-        self.state.grid_settings_dialog.raise_()
+        grid_open_settings(self)
 
     def on_grid_type_changed(self, grid_type: str) -> None:
-        """
-        Handle grid type selection change.
+        """Handle grid type selection change.
 
         Args:
             grid_type: The selected grid type (grid type constant).
 
         Returns:
             None
+
+        Cross-references:
+            - handlers.grid.on_grid_type_changed
         """
-        if grid_type == GRID_TYPE_NONE:
-            self.viewer.grid_overlay.set_enabled(False)
-            self.status_handler.set_message("Grid overlay disabled", self.status_handler.SHORT_TIMEOUT)
-        else:
-            message = self.GRID_TYPE_STATUS_MESSAGES.get(grid_type)
-            if message is None:
-                self.viewer.grid_overlay.set_enabled(False)
-                self.status_handler.set_message("Unsupported grid type selected", self.status_handler.SHORT_TIMEOUT)
-                self.viewer.viewport().update()  # type: ignore[union-attr]
-                return
-
-            self.viewer.grid_overlay.set_enabled(True)
-            try:
-                self.viewer.grid_overlay.set_grid_type(grid_type)
-            except ValueError:
-                self.viewer.grid_overlay.set_enabled(False)
-                self.status_handler.set_message("Unsupported grid type selected", self.status_handler.SHORT_TIMEOUT)
-                self.viewer.viewport().update()  # type: ignore[union-attr]
-                return
-            self.status_handler.set_message(message, self.status_handler.SHORT_TIMEOUT)
-
-        # Refresh the display
-        self.viewer.viewport().update()  # type: ignore[union-attr]
+        grid_on_type_changed(self, grid_type)
 
     def on_grid_line_width_changed(self, width: int) -> None:
-        """
-        Handle grid line width change.
+        """Handle grid line width change.
 
         Args:
             width: The new line width in pixels.
 
         Returns:
             None
-        """
-        # Update grid line width (shared between viewer and crop handler)
-        self.viewer.grid_overlay.set_line_width(width)
 
-        # Refresh the display
-        self.viewer.viewport().update()  # type: ignore[union-attr]
-        self.status_handler.set_message(f"Grid line width: {width}px", self.status_handler.SHORT_TIMEOUT)
+        Cross-references:
+            - handlers.grid.on_grid_line_width_changed
+        """
+        grid_on_line_width_changed(self, width)
 
     def _schedule_autosave(self) -> None:
         """Restart the debounce timer so autosave fires 500 ms after the last slider change."""

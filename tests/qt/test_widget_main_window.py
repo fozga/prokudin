@@ -20,10 +20,10 @@
 from unittest.mock import MagicMock, patch
 
 import pytest
+from PyQt5.QtCore import Qt
 from pytestqt.plugin import QtBot
 
 from src.ui.widgets.channel_controller import ChannelController
-from PyQt5.QtCore import Qt
 
 
 @pytest.mark.widget
@@ -142,5 +142,93 @@ class TestMainWindowPreviewClickIntegration:
         mock_show_channel.assert_called_with(mock_window, 2)
 
 
+@pytest.mark.widget
+class TestMainWindowGridSettingsIntegration:
+    """
+    Test Design Specification: MainWindow — Grid Settings Delegation
+    Module under test: src/ui/main_window.py (open_grid_settings, on_grid_type_changed, on_grid_line_width_changed)
 
+    Contract:
+        MainWindow.open_grid_settings, on_grid_type_changed, and on_grid_line_width_changed
+        are thin delegation stubs that call the corresponding handler functions with self.
+        This test verifies that the real method bodies execute and delegate correctly by
+        calling the actual methods (not lambdas) on a mock MainWindow-like object.
+
+    What is tested:
+        - MainWindow.open_grid_settings calls grid_open_settings(self)
+        - MainWindow.on_grid_type_changed calls grid_on_type_changed(self, grid_type)
+        - MainWindow.on_grid_line_width_changed calls grid_on_line_width_changed(self, width)
+        - Handler functions receive the window object and correct parameters
+
+    What is NOT tested:
+        - Full MainWindow initialization (heavy, causes timeout)
+        - Handler logic itself (covered by unit tests in test_handlers_grid.py)
+        - Dialog positioning or visual rendering
+
+    Equivalence partitions:
+        EP1  open_grid_settings() method delegates to grid_open_settings handler
+        EP2  on_grid_type_changed(grid_type) method delegates with grid_type parameter
+        EP3  on_grid_line_width_changed(width) method delegates with width parameter
+
+    Mocking strategy:
+        - Create mock object with same interface as MainWindow
+        - Bind actual MainWindow method to mock (tests real delegation code)
+        - Patch handler functions to verify they're called
+        - Assert handlers receive mock object as first parameter
+    """
+
+    @patch("src.ui.main_window.grid_open_settings")
+    def test_open_grid_settings_calls_handler(
+        self, mock_handler: MagicMock, qtbot: QtBot
+    ) -> None:
+        """
+        Given MainWindow.open_grid_settings method,
+        When called on a mock MainWindow instance,
+        Then the handler grid_open_settings is called with the mock as self.
+        """
+        from src.ui.main_window import MainWindow
+
+        mock_window = MagicMock(spec=MainWindow)
+        open_grid_settings_method = MainWindow.open_grid_settings
+
+        open_grid_settings_method(mock_window)
+
+        mock_handler.assert_called_once_with(mock_window)
+
+    @patch("src.ui.main_window.grid_on_type_changed")
+    def test_on_grid_type_changed_calls_handler(
+        self, mock_handler: MagicMock, qtbot: QtBot
+    ) -> None:
+        """
+        Given MainWindow.on_grid_type_changed method,
+        When called on a mock MainWindow instance with a grid_type,
+        Then the handler grid_on_type_changed is called with the mock and grid_type.
+        """
+        from src.ui.main_window import MainWindow
+        from src.ui.widgets.grid_types import GRID_TYPE_3X3
+
+        mock_window = MagicMock(spec=MainWindow)
+        on_grid_type_changed_method = MainWindow.on_grid_type_changed
+
+        on_grid_type_changed_method(mock_window, GRID_TYPE_3X3)
+
+        mock_handler.assert_called_once_with(mock_window, GRID_TYPE_3X3)
+
+    @patch("src.ui.main_window.grid_on_line_width_changed")
+    def test_on_grid_line_width_changed_calls_handler(
+        self, mock_handler: MagicMock, qtbot: QtBot
+    ) -> None:
+        """
+        Given MainWindow.on_grid_line_width_changed method,
+        When called on a mock MainWindow instance with a width,
+        Then the handler grid_on_line_width_changed is called with the mock and width.
+        """
+        from src.ui.main_window import MainWindow
+
+        mock_window = MagicMock(spec=MainWindow)
+        on_grid_line_width_changed_method = MainWindow.on_grid_line_width_changed
+
+        on_grid_line_width_changed_method(mock_window, 5)
+
+        mock_handler.assert_called_once_with(mock_window, 5)
 
