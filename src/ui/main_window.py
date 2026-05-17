@@ -20,15 +20,14 @@ Main application window and UI layout for Prokudin.
 Handles state management, user interactions, and connects UI components to processing logic.
 """
 
-from typing import Callable, Union
+from typing import Union
 
 from PyQt5.QtCore import QRect, Qt, QTimer
-from PyQt5.QtGui import QCloseEvent, QKeyEvent, QMouseEvent
+from PyQt5.QtGui import QCloseEvent, QKeyEvent
 from PyQt5.QtWidgets import (
     QApplication,
     QComboBox,
     QHBoxLayout,
-    QLabel,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -249,57 +248,8 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
             controller.value_changed.connect(lambda i=idx: adjust_channel(self, i))
             controller.value_changed.connect(self._schedule_autosave)
 
-            # Fix the mousePressEvent assignment with properly typed functions
-            # Pass controller as an argument to avoid cell-var-from-loop issue
-            def create_click_handler(index: int, ctrl: ChannelController = controller) -> Callable[[QMouseEvent], None]:
-                """
-                Creates a click handler function for channel preview labels.
-
-                This factory function generates a click handler that shows a single channel
-                when its preview label is clicked, while maintaining the original behavior
-                of the QLabel's mousePressEvent.
-
-                Parameters
-                ----------
-                index : int
-                    The index of the channel to display when clicked.
-                ctrl : ChannelController, optional
-                    The channel controller instance to use. Defaults to the global controller.
-
-                Returns
-                -------
-                Callable[[QMouseEvent], None]
-                    A function that handles mouse press events on channel preview labels.
-                """
-
-                def click_handler(event: QMouseEvent) -> None:
-                    """
-                    Handle mouse click events on the channel preview label.
-
-                    This function shows a single channel when the preview label is clicked and then
-                    passes the event to the original mousePressEvent method to maintain expected behavior.
-
-                    Parameters
-                    ----------
-                    event : QMouseEvent
-                        The mouse event that triggered this handler.
-
-                    Returns
-                    -------
-                    None
-                    """
-                    self.status_handler.set_message(
-                        f"Viewing {ctrl.channel_name.capitalize()} channel", self.status_handler.MEDIUM_TIMEOUT
-                    )
-                    show_single_channel(self, index)
-                    # Call the original method to maintain expected behavior
-                    QLabel.mousePressEvent(ctrl.preview_label, event)
-
-                return click_handler
-
-            # Instead of directly assigning to mousePressEvent, connect to a custom event filter
-            # or subclass QLabel - for now, we'll keep the assignment but add a type ignore comment
-            controller.preview_label.mousePressEvent = create_click_handler(idx)  # type: ignore
+            # Connect preview_clicked signal to show single channel
+            controller.preview_clicked.connect(lambda i=idx: self._on_preview_clicked(i))
 
             right_panel.addWidget(controller)
         right_panel.addStretch()
@@ -708,6 +658,19 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
     def _schedule_autosave(self) -> None:
         """Restart the debounce timer so autosave fires 500 ms after the last slider change."""
         self._autosave_timer.start()
+
+    def _on_preview_clicked(self, index: int) -> None:
+        """
+        Handle preview label click event.
+
+        Args:
+            index: Index of the channel whose preview was clicked (0=red, 1=green, 2=blue).
+        """
+        channel_name = self.controllers[index].channel_name
+        self.status_handler.set_message(
+            f"Viewing {channel_name.capitalize()} channel", self.status_handler.MEDIUM_TIMEOUT
+        )
+        show_single_channel(self, index)
 
     def update_save_button_state(self) -> None:
         """Update save and crop button states based on loaded images."""

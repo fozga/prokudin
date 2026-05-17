@@ -27,7 +27,7 @@ from typing import Union
 
 import cv2
 import numpy as np
-from PyQt5.QtCore import QRect, Qt, pyqtSignal
+from PyQt5.QtCore import QEvent, QObject, QRect, Qt, pyqtSignal
 from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import (
     QGridLayout,
@@ -47,6 +47,18 @@ from ..default_state import DefaultState
 from .sliders import ResetSlider
 
 
+class PreviewClickEventFilter(QObject):
+    """Event filter that emits a signal when a widget is clicked."""
+
+    clicked = pyqtSignal()
+
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:  # pylint: disable=C0103
+        """Emit clicked signal on mouse press, then pass event to parent."""
+        if event.type() == QEvent.MouseButtonPress:  # type: ignore[attr-defined]
+            self.clicked.emit()
+        return super().eventFilter(obj, event)
+
+
 class ChannelController(QGroupBox):  # pylint: disable=too-many-instance-attributes
     """
     Widget for controlling a single RGB channel.
@@ -59,10 +71,13 @@ class ChannelController(QGroupBox):  # pylint: disable=too-many-instance-attribu
 
     Emits:
     - value_changed: Signal when any adjustment value changes
+    - preview_clicked: Signal when the preview label is clicked
     """
 
     # Custom signal to notify when any adjustment value changes
     value_changed = pyqtSignal()
+    # Signal emitted when the preview label is clicked
+    preview_clicked = pyqtSignal()
 
     def __init__(self, channel_name: str, color: Qt.GlobalColor, parent: Union[QWidget, None] = None) -> None:
         """
@@ -84,7 +99,7 @@ class ChannelController(QGroupBox):  # pylint: disable=too-many-instance-attribu
         # Set up the UI components
         self._init_ui()
 
-    def _init_ui(self) -> None:
+    def _init_ui(self) -> None:  # pylint: disable=R0915
         """Set up the controller UI layout with widgets."""
         main_layout = QVBoxLayout(self)
 
@@ -105,6 +120,11 @@ class ChannelController(QGroupBox):  # pylint: disable=too-many-instance-attribu
         self.preview_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.preview_label.setStyleSheet("border: 1px solid gray;")
         preview_section.addWidget(self.preview_label)
+
+        # Install event filter to emit preview_clicked signal on click
+        self._preview_event_filter = PreviewClickEventFilter()
+        self._preview_event_filter.clicked.connect(self.preview_clicked.emit)
+        self.preview_label.installEventFilter(self._preview_event_filter)
 
         # Add the preview section to the main layout
         main_layout.addLayout(preview_section)

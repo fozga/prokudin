@@ -874,6 +874,59 @@ class TestChannelControllerPreview:
 
 
 @pytest.mark.widget
+class TestChannelControllerPreviewClick:
+    """
+    Test Design Specification: ChannelController — Preview Label Click Signal
+    Module under test: src/ui/widgets/channel_controller.py
+
+    Widget base class: QGroupBox
+
+    Contract:
+        When the preview_label is clicked, the preview_clicked signal is emitted.
+        The event filter installed on the preview label translates mouse press
+        events into signal emissions.
+
+    Infrastructure:
+        - Requires qtbot fixture (QApplication, widget cleanup).
+        - Requires QT_QPA_PLATFORM=offscreen.
+
+    What is tested:
+        - preview_clicked signal is defined.
+        - Clicking the preview label emits preview_clicked exactly once.
+
+    What is NOT tested:
+        - Visual appearance of the preview label.
+        - Mouse event coordinates or cursor positioning.
+
+    Equivalence partitions:
+        EP1  preview label is clicked → preview_clicked signal emitted
+
+    Boundary values:
+        None (binary condition — clicked or not).
+
+    Mocking strategy:
+        None — testing signal emission only.
+
+    Constraints:
+        - Widget need not be shown() to emit signals.
+        - qtbot.mouseClick requires the widget to be registered with qtbot.addWidget.
+    """
+
+    def test_preview_clicked_emitted_on_label_click(self, qtbot: QtBot) -> None:
+        """
+        Given a ChannelController with a preview label,
+        When the preview label is clicked via qtbot.mouseClick,
+        Then the preview_clicked signal is emitted.
+        """
+        # Arrange
+        widget = ChannelController("red", Qt.red)
+        qtbot.addWidget(widget)
+        # Act + Assert
+        with qtbot.waitSignal(widget.preview_clicked, timeout=1000):
+            qtbot.mouseClick(widget.preview_label, Qt.LeftButton)
+
+
+@pytest.mark.widget
 class TestChannelControllerPreviewCrop:
     """
     Test Design Specification: ChannelController — _set_preview crop path
