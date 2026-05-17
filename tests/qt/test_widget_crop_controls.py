@@ -291,13 +291,13 @@ class TestPublicMethods:
 
     Contract:
         get_selected_ratio() returns currently selected ratio;
-        set_enabled() shows/hides widget;
+        set_visible() shows/hides widget;
         reset() returns combo to "Free" (index 0).
 
     Equivalence partitions:
         EP1  get_selected_ratio() at various combo states
-        EP2  set_enabled(True) shows widget
-        EP3  set_enabled(False) hides widget
+        EP2  set_visible(True) shows widget
+        EP3  set_visible(False) hides widget
         EP4  reset() resets combo to index 0
 
     Boundary values:
@@ -333,24 +333,24 @@ class TestPublicMethods:
         # Assert
         assert ratio == expected
 
-    def test_set_enabled_true_shows_widget(self, qtbot: QtBot) -> None:
-        """Given widget with setVisible(False), when set_enabled(True), then isVisible() is True."""
+    def test_set_visible_true_shows_widget(self, qtbot: QtBot) -> None:
+        """Given widget with setVisible(False), when set_visible(True), then isVisible() is True."""
         # Arrange
         widget = CropControlsWidget()
         qtbot.addWidget(widget)
         widget.setVisible(False)
         # Act
-        widget.set_enabled(True)
+        widget.set_visible(True)
         # Assert
         assert widget.isVisible() is True
 
-    def test_set_enabled_false_hides_widget(self, qtbot: QtBot) -> None:
-        """Given visible widget, when set_enabled(False), then isVisible() is False."""
+    def test_set_visible_false_hides_widget(self, qtbot: QtBot) -> None:
+        """Given visible widget, when set_visible(False), then isVisible() is False."""
         # Arrange
         widget = CropControlsWidget()
         qtbot.addWidget(widget)
         # Act
-        widget.set_enabled(False)
+        widget.set_visible(False)
         # Assert
         assert widget.isVisible() is False
 

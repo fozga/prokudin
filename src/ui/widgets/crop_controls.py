@@ -20,7 +20,7 @@ Crop controls widget for the image viewer.
 Provides aspect ratio selection and accept/cancel crop buttons.
 """
 
-from typing import Optional
+from typing import Any, Optional
 
 from PyQt5.QtCore import pyqtSignal
 from PyQt5.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QWidget
@@ -44,7 +44,11 @@ class CropControlsWidget(QWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         """Initialize crop controls widget."""
         super().__init__(parent)
-        self._ratio_options = [
+        self._init_ui()
+
+    def _init_ui(self) -> None:
+        """Initialize UI components."""
+        ratio_options = [
             ("Free", None),
             ("16:9", (16, 9)),
             ("3:2", (3, 2)),
@@ -56,15 +60,12 @@ class CropControlsWidget(QWidget):
             ("2:3", (2, 3)),
             ("9:16", (9, 16)),
         ]
-        self._init_ui()
-
-    def _init_ui(self) -> None:
-        """Initialize UI components."""
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
 
         self._ratio_combo = QComboBox()
-        self._ratio_combo.addItems([label for label, _ in self._ratio_options])
+        for label, ratio in ratio_options:
+            self._ratio_combo.addItem(label, ratio)
         self._ratio_combo.currentIndexChanged.connect(self._on_ratio_changed)
 
         self._accept_btn = QPushButton("Accept Crop")
@@ -86,14 +87,12 @@ class CropControlsWidget(QWidget):
 
     def get_selected_ratio(self) -> Optional[tuple[int, int]]:
         """Return the currently selected aspect ratio or None for 'Free'."""
-        index = self._ratio_combo.currentIndex()
-        if 0 <= index < len(self._ratio_options):
-            return self._ratio_options[index][1]
-        return None
+        data: Any = self._ratio_combo.currentData()
+        return data if isinstance(data, tuple) or data is None else None
 
-    def set_enabled(self, enabled: bool) -> None:
+    def set_visible(self, visible: bool) -> None:
         """Show or hide the entire widget."""
-        self.setVisible(enabled)
+        self.setVisible(visible)
 
     def reset(self) -> None:
         """Reset the ratio combo box to 'Free' (index 0)."""
