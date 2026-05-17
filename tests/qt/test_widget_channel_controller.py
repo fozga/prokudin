@@ -925,6 +925,9 @@ class TestChannelControllerPreviewClick:
         with qtbot.waitSignal(widget.preview_clicked, timeout=1000):
             qtbot.mouseClick(widget.preview_label, Qt.LeftButton)
 
+
+@pytest.mark.widget
+class TestChannelControllerPreviewCrop:
     """
     Test Design Specification: ChannelController — _set_preview crop path
     Module under test: src/ui/widgets/channel_controller.py

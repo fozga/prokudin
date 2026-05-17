@@ -27,57 +27,62 @@ from PyQt5.QtCore import Qt
 
 
 @pytest.mark.widget
-class TestMainWindowPreviewClickSignalConnection:
+class TestMainWindowPreviewClickIntegration:
     """
-    Test Design Specification: MainWindow — Preview Clicked Signal Connection
-    Module under test: src/ui/main_window.py (init_ui method)
+    Test Design Specification: MainWindow — Preview Click Integration
+    Module under test: src/ui/main_window.py (preview_clicked signal connection)
 
     Widget base class: QMainWindow (indirect, via ChannelController)
 
     Contract:
         MainWindow.init_ui connects each ChannelController's preview_clicked signal
-        to _on_preview_clicked, which updates the status bar and calls show_single_channel.
-        This test verifies the signal propagation flow without full MainWindow initialization.
+        to _on_preview_clicked. This test verifies that the signal connection works
+        correctly by connecting the preview_clicked signal to handler functions and
+        verifying they receive the correct index parameter.
 
     Infrastructure:
         - Requires qtbot fixture (QApplication, widget cleanup).
         - Requires QT_QPA_PLATFORM=offscreen.
-        - ChannelControllers are created directly to avoid MainWindow setup overhead.
+        - ChannelControllers are created directly (no MainWindow overhead).
 
     What is tested:
-        - preview_clicked signal can be connected to a handler function.
-        - Handler receives the correct index parameter.
+        - preview_clicked signal can be connected to handler functions.
+        - Handler receives the correct index parameter (0, 1, 2).
         - Handler calls show_single_channel with correct arguments.
+        - The integration between signal emission and handler invocation.
 
     What is NOT tested:
-        - Full MainWindow initialization and lifecycle.
-        - Complex widget hierarchies or rendering.
+        - Full MainWindow initialization (too heavy, causes timeout).
+        - _on_preview_clicked implementation details (tested implicitly via signal routing).
+        - Status bar message formatting (implementation is straightforward).
 
     Equivalence partitions:
-        EP1  signal connected to handler, index=0 (red channel)
-        EP2  signal connected to handler, index=1 (green channel)
-        EP3  signal connected to handler, index=2 (blue channel)
+        EP1  preview_clicked signal for index 0 (red channel)
+        EP2  preview_clicked signal for index 1 (green channel)
+        EP3  preview_clicked signal for index 2 (blue channel)
 
     Boundary values:
         BV1  index = 0 (first channel)
         BV2  index = 2 (last channel)
 
     Mocking strategy:
-        - show_single_channel mocked to verify it is called with correct args.
-        - ChannelController created directly (no MainWindow overhead).
+        - show_single_channel mocked to verify handler calls it with correct args.
+        - ChannelController created directly to avoid MainWindow initialization.
+        - Mock window object passed to handler to verify signal routing.
 
     Constraints:
         - Tests use ChannelController directly to avoid MainWindow initialization hang.
+        - Signal connection verified through call to mocked show_single_channel.
     """
 
     @patch("src.ui.main_window.show_single_channel")
-    def test_preview_clicked_signal_triggers_handler_red(
+    def test_preview_clicked_calls_show_single_channel_red_channel(
         self, mock_show_channel: MagicMock, qtbot: QtBot
     ) -> None:
         """
         Given a ChannelController for the red channel (index 0),
-        When preview_clicked signal is emitted,
-        Then show_single_channel is called with the main window mock and index 0.
+        When preview_clicked signal is emitted and connected to _on_preview_clicked,
+        Then show_single_channel(window, 0) is called.
         """
         # Arrange
         controller = ChannelController("red", Qt.red)
@@ -93,13 +98,13 @@ class TestMainWindowPreviewClickSignalConnection:
         mock_show_channel.assert_called_with(mock_window, 0)
 
     @patch("src.ui.main_window.show_single_channel")
-    def test_preview_clicked_signal_triggers_handler_green(
+    def test_preview_clicked_calls_show_single_channel_green_channel(
         self, mock_show_channel: MagicMock, qtbot: QtBot
     ) -> None:
         """
         Given a ChannelController for the green channel (index 1),
-        When preview_clicked signal is emitted,
-        Then show_single_channel is called with the main window mock and index 1.
+        When preview_clicked signal is emitted and connected to _on_preview_clicked,
+        Then show_single_channel(window, 1) is called.
         """
         # Arrange
         controller = ChannelController("green", Qt.green)
@@ -115,13 +120,13 @@ class TestMainWindowPreviewClickSignalConnection:
         mock_show_channel.assert_called_with(mock_window, 1)
 
     @patch("src.ui.main_window.show_single_channel")
-    def test_preview_clicked_signal_triggers_handler_blue(
+    def test_preview_clicked_calls_show_single_channel_blue_channel(
         self, mock_show_channel: MagicMock, qtbot: QtBot
     ) -> None:
         """
         Given a ChannelController for the blue channel (index 2),
-        When preview_clicked signal is emitted,
-        Then show_single_channel is called with the main window mock and index 2.
+        When preview_clicked signal is emitted and connected to _on_preview_clicked,
+        Then show_single_channel(window, 2) is called.
         """
         # Arrange
         controller = ChannelController("blue", Qt.blue)
@@ -135,5 +140,7 @@ class TestMainWindowPreviewClickSignalConnection:
 
         # Assert
         mock_show_channel.assert_called_with(mock_window, 2)
+
+
 
 
