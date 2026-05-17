@@ -41,7 +41,7 @@ Keys:
 
 ### File naming and location
 
-- Directory: `main_window.presets_dir`, resolved by `MainWindow._resolve_dirs()`.
+- Directory: `main_window.presets_dir`, resolved by `src.ui.config.get_presets_dir()`.
 - File name: `safe_name + ".json"`, where `safe_name` is derived from `name` by:
   1. Removing all characters not matching `[\w\s-]`.
   2. Trimming whitespace.
