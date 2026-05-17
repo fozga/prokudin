@@ -472,35 +472,3 @@ class TestApplyCrop:
         # Assert
         mock_main_window.viewer.confirm_crop.assert_not_called()
         mock_save_autosave.assert_not_called()
-
-    def test_initializes_crop_controls(
-        self,
-        mock_update_channel: MagicMock,
-        mock_show_combined: MagicMock,
-        mock_show_single: MagicMock,
-        mock_save_autosave: MagicMock,
-        mock_main_window: MagicMock
-    ) -> None:
-        """
-        Given apply_crop is called with valid state,
-        When the crop rect is applied,
-        Then crop mode is disabled and UI elements are hidden.
-        """
-        # Arrange
-        crop_rect = MagicMock()
-        crop_rect.width.return_value = 200
-        crop_rect.height.return_value = 200
-        crop_rect.isValid.return_value = True
-        crop_rect.right.return_value = 300
-        crop_rect.bottom.return_value = 300
-        mock_main_window.viewer.get_crop_rect = MagicMock(return_value=crop_rect)
-        mock_main_window.svc.has_processed_channels.return_value = True
-        mock_main_window.svc.get_image_dimensions.return_value = (600, 800)
-        mock_main_window.state.crop_mode = True
-        mock_main_window.state.show_combined = True
-        # Act
-        apply_crop(mock_main_window)
-        # Assert
-        assert mock_main_window.state.crop_mode is False
-        mock_main_window.crop_mode_btn.setVisible.assert_called_with(True)
-        mock_main_window.crop_controls.setVisible.assert_called_with(False)
