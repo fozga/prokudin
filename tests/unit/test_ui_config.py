@@ -343,8 +343,9 @@ class TestGetPresetsDir:
         # Arrange
         with patch("src.ui.config.find_project_root") as mock_find_root, patch(
             "src.ui.config.first_writable"
-        ) as mock_first_writable:
+        ) as mock_first_writable, patch("src.ui.config.os.path.expanduser") as mock_expanduser:
             mock_find_root.return_value = "/home/user/project"
+            mock_expanduser.return_value = "/home/user/.config/prokudin/presets"
             mock_first_writable.return_value = "/app/presets"
 
             # Act
@@ -353,7 +354,7 @@ class TestGetPresetsDir:
             # Assert
             assert result == "/app/presets"
             mock_first_writable.assert_called_once_with(
-                ["/app/presets", "/home/user/project/presets", os.path.expanduser("~/.config/prokudin/presets")],
+                ["/app/presets", "/home/user/project/presets", "/home/user/.config/prokudin/presets"],
                 "presets",
             )
 
@@ -366,8 +367,9 @@ class TestGetPresetsDir:
         # Arrange
         with patch("src.ui.config.find_project_root") as mock_find_root, patch(
             "src.ui.config.first_writable"
-        ) as mock_first_writable:
+        ) as mock_first_writable, patch("src.ui.config.os.path.expanduser") as mock_expanduser:
             mock_find_root.return_value = "/home/user/project"
+            mock_expanduser.return_value = "/home/user/.config/prokudin/presets"
             mock_first_writable.return_value = "/home/user/project/presets"
 
             # Act
@@ -385,7 +387,7 @@ class TestGetPresetsDir:
         # Arrange
         with patch("src.ui.config.find_project_root") as mock_find_root, patch(
             "src.ui.config.first_writable"
-        ) as mock_first_writable, patch("os.path.expanduser") as mock_expanduser:
+        ) as mock_first_writable, patch("src.ui.config.os.path.expanduser") as mock_expanduser:
             mock_find_root.return_value = "/home/user/project"
             mock_expanduser.return_value = "/home/user/.config/prokudin/presets"
             mock_first_writable.return_value = "/home/user/.config/prokudin/presets"
@@ -456,8 +458,9 @@ class TestGetConfigDir:
         # Arrange
         with patch("src.ui.config.find_project_root") as mock_find_root, patch(
             "src.ui.config.first_writable"
-        ) as mock_first_writable:
+        ) as mock_first_writable, patch("src.ui.config.os.path.expanduser") as mock_expanduser:
             mock_find_root.return_value = "/home/user/project"
+            mock_expanduser.return_value = "/home/user/.config/prokudin"
             mock_first_writable.return_value = "/app/config"
 
             # Act
@@ -466,7 +469,7 @@ class TestGetConfigDir:
             # Assert
             assert result == "/app/config"
             mock_first_writable.assert_called_once_with(
-                ["/app/config", "/home/user/project/config", os.path.expanduser("~/.config/prokudin")],
+                ["/app/config", "/home/user/project/config", "/home/user/.config/prokudin"],
                 "config",
             )
 
@@ -479,8 +482,9 @@ class TestGetConfigDir:
         # Arrange
         with patch("src.ui.config.find_project_root") as mock_find_root, patch(
             "src.ui.config.first_writable"
-        ) as mock_first_writable:
+        ) as mock_first_writable, patch("src.ui.config.os.path.expanduser") as mock_expanduser:
             mock_find_root.return_value = "/home/user/project"
+            mock_expanduser.return_value = "/home/user/.config/prokudin"
             mock_first_writable.return_value = "/home/user/project/config"
 
             # Act
@@ -498,7 +502,7 @@ class TestGetConfigDir:
         # Arrange
         with patch("src.ui.config.find_project_root") as mock_find_root, patch(
             "src.ui.config.first_writable"
-        ) as mock_first_writable, patch("os.path.expanduser") as mock_expanduser:
+        ) as mock_first_writable, patch("src.ui.config.os.path.expanduser") as mock_expanduser:
             mock_find_root.return_value = "/home/user/project"
             mock_expanduser.return_value = "/home/user/.config/prokudin"
             mock_first_writable.return_value = "/home/user/.config/prokudin"
