@@ -25,7 +25,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.ui.handlers.crop import apply_crop, cancel_crop, set_crop_ratio, toggle_crop_mode
+from src.ui.handlers.crop import _get_aspect_crop_rect, apply_crop, cancel_crop, set_crop_ratio, toggle_crop_mode
 
 
 @pytest.fixture
@@ -472,3 +472,408 @@ class TestApplyCrop:
         # Assert
         mock_main_window.viewer.confirm_crop.assert_not_called()
         mock_save_autosave.assert_not_called()
+
+    def test_returns_early_if_saved_rect_invalid(
+        self,
+        mock_update_channel: MagicMock,
+        mock_show_combined: MagicMock,
+        mock_show_single: MagicMock,
+        mock_save_autosave: MagicMock,
+        mock_main_window: MagicMock,
+    ) -> None:
+        """
+        Given the intersected saved rect has isValid() == False,
+        When apply_crop is called,
+        Then the function returns early before confirming the crop.
+        """
+        # Arrange
+        crop_rect = MagicMock()
+        mock_main_window.viewer.get_crop_rect.return_value = crop_rect
+        mock_main_window.svc.has_processed_channels.return_value = True
+        mock_main_window.svc.get_image_dimensions.return_value = (600, 800)
+        invalid_rect = MagicMock()
+        invalid_rect.isValid.return_value = False
+        invalid_rect.width.return_value = 0
+        invalid_rect.height.return_value = 0
+        qrect_instance = MagicMock()
+        qrect_instance.intersected.return_value = invalid_rect
+        # Act
+        with patch("src.ui.handlers.crop.QRect", return_value=qrect_instance):
+            apply_crop(mock_main_window)
+        # Assert
+        mock_main_window.viewer.confirm_crop.assert_not_called()
+        mock_save_autosave.assert_not_called()
+
+    def test_happy_path_combined_display(
+        self,
+        mock_update_channel: MagicMock,
+        mock_show_combined: MagicMock,
+        mock_show_single: MagicMock,
+        mock_save_autosave: MagicMock,
+        mock_main_window: MagicMock,
+    ) -> None:
+        """
+        Given a valid crop rect and show_combined=True,
+        When apply_crop is called,
+        Then crop is confirmed, channel previews update, and combined image is shown.
+        """
+        # Arrange
+        mock_main_window.viewer.get_crop_rect.return_value = MagicMock()
+        mock_main_window.svc.has_processed_channels.return_value = True
+        mock_main_window.svc.get_image_dimensions.return_value = (600, 800)
+        mock_main_window.state.show_combined = True
+        valid_rect = MagicMock()
+        valid_rect.isValid.return_value = True
+        valid_rect.width.return_value = 200
+        valid_rect.height.return_value = 200
+        qrect_instance = MagicMock()
+        qrect_instance.intersected.return_value = valid_rect
+        # Act
+        with patch("src.ui.handlers.crop.QRect", return_value=qrect_instance):
+            apply_crop(mock_main_window)
+        # Assert
+        mock_main_window.viewer.confirm_crop.assert_called_once()
+        mock_main_window.viewer.set_saved_crop_rect.assert_called_once_with(valid_rect)
+        assert mock_update_channel.call_count == 3
+        assert mock_main_window.state.crop_mode is False
+        mock_show_combined.assert_called_once_with(mock_main_window)
+        mock_show_single.assert_not_called()
+        mock_save_autosave.assert_called_once_with(mock_main_window)
+
+    def test_happy_path_single_channel_display(
+        self,
+        mock_update_channel: MagicMock,
+        mock_show_combined: MagicMock,
+        mock_show_single: MagicMock,
+        mock_save_autosave: MagicMock,
+        mock_main_window: MagicMock,
+    ) -> None:
+        """
+        Given a valid crop rect and show_combined=False,
+        When apply_crop is called,
+        Then show_single_channel_image is called instead of show_combined_image.
+        """
+        # Arrange
+        mock_main_window.viewer.get_crop_rect.return_value = MagicMock()
+        mock_main_window.svc.has_processed_channels.return_value = True
+        mock_main_window.svc.get_image_dimensions.return_value = (600, 800)
+        mock_main_window.state.show_combined = False
+        valid_rect = MagicMock()
+        valid_rect.isValid.return_value = True
+        valid_rect.width.return_value = 200
+        valid_rect.height.return_value = 200
+        qrect_instance = MagicMock()
+        qrect_instance.intersected.return_value = valid_rect
+        # Act
+        with patch("src.ui.handlers.crop.QRect", return_value=qrect_instance):
+            apply_crop(mock_main_window)
+        # Assert
+        mock_show_single.assert_called_once_with(mock_main_window)
+        mock_show_combined.assert_not_called()
+
+    def test_happy_path_without_image_dimensions(
+        self,
+        mock_update_channel: MagicMock,
+        mock_show_combined: MagicMock,
+        mock_show_single: MagicMock,
+        mock_save_autosave: MagicMock,
+        mock_main_window: MagicMock,
+    ) -> None:
+        """
+        Given get_image_dimensions returns None,
+        When apply_crop is called,
+        Then the original copied rect is used without intersection clamping.
+        """
+        # Arrange
+        mock_main_window.viewer.get_crop_rect.return_value = MagicMock()
+        mock_main_window.svc.has_processed_channels.return_value = True
+        mock_main_window.svc.get_image_dimensions.return_value = None
+        qrect_instance = MagicMock()
+        qrect_instance.isValid.return_value = True
+        qrect_instance.width.return_value = 200
+        qrect_instance.height.return_value = 200
+        # Act
+        with patch("src.ui.handlers.crop.QRect", return_value=qrect_instance):
+            apply_crop(mock_main_window)
+        # Assert
+        mock_main_window.viewer.confirm_crop.assert_called_once()
+        mock_main_window.viewer.set_saved_crop_rect.assert_called_once_with(qrect_instance)
+        mock_save_autosave.assert_called_once_with(mock_main_window)
+
+
+@patch("src.ui.handlers.crop.update_main_display")
+class TestToggleCropModeExtra:
+    """
+    Test Design Specification: toggle_crop_mode() — additional edge cases.
+    Module under test: src/ui/handlers/crop.py
+
+    Contract (covered here):
+        Branches not exercised by TestToggleCropMode:
+        - saved_crop_rect path (uses saved rect instead of computing default).
+        - get_image_dimensions returns None (no default rect computed).
+
+    Equivalence partitions:
+        EP6  Saved crop rect exists      → state.crop_rect set from QRect(saved).
+        EP7  No saved rect, dims is None → crop_rect stays None, set_crop_rect skipped.
+
+    Constraints:
+        - QRect is patched at the crop module boundary because PyQt5 is mocked
+          globally in tests/unit/conftest.py.
+    """
+
+    def test_uses_saved_crop_rect_when_available(
+        self, mock_update_main_display: MagicMock, mock_main_window: MagicMock
+    ) -> None:
+        """
+        Given a saved crop rect exists on the viewer,
+        When toggle_crop_mode is called,
+        Then state.crop_rect is set from a fresh QRect copy of the saved rect.
+        """
+        # Arrange
+        saved = MagicMock()
+        mock_main_window.viewer.get_saved_crop_rect.return_value = saved
+        copied = MagicMock()
+        # Act
+        with patch("src.ui.handlers.crop.QRect", return_value=copied) as mock_qrect:
+            toggle_crop_mode(mock_main_window)
+        # Assert
+        mock_qrect.assert_called_once_with(saved)
+        assert mock_main_window.state.crop_rect is copied
+
+    def test_dims_none_leaves_crop_rect_unset(
+        self, mock_update_main_display: MagicMock, mock_main_window: MagicMock
+    ) -> None:
+        """
+        Given no saved rect and get_image_dimensions returns None,
+        When toggle_crop_mode is called,
+        Then state.crop_rect remains None and viewer.set_crop_rect is not called.
+        """
+        # Arrange
+        mock_main_window.viewer.get_saved_crop_rect.return_value = None
+        mock_main_window.svc.get_image_dimensions.return_value = None
+        mock_main_window.state.crop_rect = None
+        # Act
+        toggle_crop_mode(mock_main_window)
+        # Assert
+        assert mock_main_window.state.crop_rect is None
+        mock_main_window.viewer.set_crop_rect.assert_not_called()
+
+
+class TestGetAspectCropRect:
+    """
+    Test Design Specification: _get_aspect_crop_rect()
+    Module under test: src/ui/handlers/crop.py
+
+    Contract:
+        Returns the largest rectangle with the given aspect ratio that fits
+        within rect, centred on rect.center(). Returns rect unchanged if rect
+        or ratio is falsy.
+
+    Equivalence partitions:
+        EP1  rect is None / falsy        → returns rect as-is.
+        EP2  ratio is None / falsy       → returns rect as-is.
+        EP3  ratio wider than rect       → height shrinks (width-fits path).
+        EP4  ratio narrower than rect    → width shrinks (height-limited path).
+        EP5  ratio equals rect ratio     → result equals rect dimensions.
+
+    Boundary values:
+        BV1  1:1 ratio on square rect    → identity dimensions.
+        BV2  1:1 ratio on wide rect      → square inscribed and centred.
+        BV3  Zero width rect             → result has zero width.
+        BV4  Zero height rect            → result has zero height.
+
+    Exclusions:
+        - Negative width/height not tested: undefined/invalid for callers.
+
+    Constraints:
+        - PyQt5 mocked globally; QRect is patched at the module boundary so
+          we can verify the (left, top, w, h) tuple passed to its constructor.
+    """
+
+    @staticmethod
+    def _make_rect(width: int, height: int, cx: int = 0, cy: int = 0) -> MagicMock:
+        """Build a rect-like MagicMock returning int values from width/height/center."""
+        rect = MagicMock()
+        rect.width.return_value = width
+        rect.height.return_value = height
+        center = MagicMock()
+        center.x.return_value = cx
+        center.y.return_value = cy
+        rect.center.return_value = center
+        return rect
+
+    def test_returns_rect_when_rect_falsy(self) -> None:
+        """
+        Given rect is None,
+        When _get_aspect_crop_rect is called,
+        Then None is returned unchanged.
+        """
+        # Arrange / Act
+        result = _get_aspect_crop_rect(None, (16, 9))
+        # Assert
+        assert result is None
+
+    def test_returns_rect_when_ratio_falsy(self) -> None:
+        """
+        Given a valid rect and ratio is None,
+        When _get_aspect_crop_rect is called,
+        Then the original rect is returned unchanged.
+        """
+        # Arrange
+        rect = self._make_rect(100, 100)
+        # Act
+        result = _get_aspect_crop_rect(rect, None)
+        # Assert
+        assert result is rect
+
+    def test_square_ratio_on_square_rect_is_identity(self) -> None:
+        """
+        Given a square rect and 1:1 aspect ratio,
+        When _get_aspect_crop_rect is called,
+        Then a 100x100 rect is constructed at the centred position.
+        """
+        # Arrange
+        rect = self._make_rect(100, 100, cx=50, cy=50)
+        # Act
+        with patch("src.ui.handlers.crop.QRect") as mock_qrect:
+            _get_aspect_crop_rect(rect, (1, 1))
+        # Assert
+        mock_qrect.assert_called_once_with(0, 0, 100, 100)
+
+    def test_square_ratio_on_wide_rect_inscribes_square(self) -> None:
+        """
+        Given a 200x100 rect and 1:1 ratio,
+        When _get_aspect_crop_rect is called,
+        Then a 100x100 square is constructed centred on the original rect.
+        """
+        # Arrange
+        rect = self._make_rect(200, 100, cx=100, cy=50)
+        # Act
+        with patch("src.ui.handlers.crop.QRect") as mock_qrect:
+            _get_aspect_crop_rect(rect, (1, 1))
+        # Assert
+        mock_qrect.assert_called_once_with(50, 0, 100, 100)
+
+    def test_wider_target_ratio_keeps_full_width(self) -> None:
+        """
+        Given a 100x100 rect and a 2:1 target ratio (wider),
+        When _get_aspect_crop_rect is called,
+        Then a 100x50 rect is constructed (width kept, height halved).
+        """
+        # Arrange
+        rect = self._make_rect(100, 100, cx=50, cy=50)
+        # Act
+        with patch("src.ui.handlers.crop.QRect") as mock_qrect:
+            _get_aspect_crop_rect(rect, (2, 1))
+        # Assert
+        mock_qrect.assert_called_once_with(0, 25, 100, 50)
+
+    def test_taller_target_ratio_triggers_height_limited_path(self) -> None:
+        """
+        Given a 100x100 rect and a 1:2 ratio (taller, width-fits-not),
+        When _get_aspect_crop_rect is called,
+        Then height is kept at 100 and width is shrunk to 50.
+        """
+        # Arrange
+        rect = self._make_rect(100, 100, cx=50, cy=50)
+        # Act
+        with patch("src.ui.handlers.crop.QRect") as mock_qrect:
+            _get_aspect_crop_rect(rect, (1, 2))
+        # Assert
+        mock_qrect.assert_called_once_with(25, 0, 50, 100)
+
+    def test_zero_width_rect_yields_zero_width(self) -> None:
+        """
+        Given a rect with zero width,
+        When _get_aspect_crop_rect is called with 1:1 ratio,
+        Then a rect of width 0 is constructed.
+        """
+        # Arrange
+        rect = self._make_rect(0, 100, cx=0, cy=50)
+        # Act
+        with patch("src.ui.handlers.crop.QRect") as mock_qrect:
+            _get_aspect_crop_rect(rect, (1, 1))
+        # Assert
+        args, _ = mock_qrect.call_args
+        assert args[2] == 0  # width
+
+    def test_zero_height_rect_yields_zero_height(self) -> None:
+        """
+        Given a rect with zero height,
+        When _get_aspect_crop_rect is called with 1:1 ratio,
+        Then a rect of height 0 is constructed.
+        """
+        # Arrange
+        rect = self._make_rect(100, 0, cx=50, cy=0)
+        # Act
+        with patch("src.ui.handlers.crop.QRect") as mock_qrect:
+            _get_aspect_crop_rect(rect, (1, 1))
+        # Assert
+        args, _ = mock_qrect.call_args
+        assert args[3] == 0  # height
+
+
+@patch("src.ui.handlers.crop.update_main_display")
+class TestSetCropRatioBoundary:
+    """
+    Test Design Specification: set_crop_ratio() — boundary values for tiny rects.
+    Module under test: src/ui/handlers/crop.py
+
+    Contract (covered here):
+        Behaviour when the current rect is at the smallest meaningful size and
+        ratio enforcement is applied.
+
+    Boundary values:
+        BV1  1x1 viewer rect, 1:1 ratio  → 1x1 result (no further shrink).
+        BV2  1x1 viewer rect, 16:9 ratio → height collapses to 0.
+
+    Constraints:
+        - QRect is patched at the crop module boundary; the rect-like input
+          is a configured MagicMock returning int values for width/height/center.
+    """
+
+    @staticmethod
+    def _rect_mock(width: int, height: int) -> MagicMock:
+        """Build a rect-like MagicMock returning int values."""
+        rect = MagicMock()
+        rect.width.return_value = width
+        rect.height.return_value = height
+        center = MagicMock()
+        center.x.return_value = width // 2
+        center.y.return_value = height // 2
+        rect.center.return_value = center
+        return rect
+
+    def test_tiny_rect_square_ratio_preserves_size(
+        self, mock_update_main_display: MagicMock, mock_main_window: MagicMock
+    ) -> None:
+        """
+        Given a 1x1 viewer crop rect and a 1:1 ratio,
+        When set_crop_ratio is called,
+        Then QRect is constructed with width=1, height=1.
+        """
+        # Arrange
+        mock_main_window.viewer.get_crop_rect.return_value = self._rect_mock(1, 1)
+        # Act
+        with patch("src.ui.handlers.crop.QRect") as mock_qrect:
+            set_crop_ratio(mock_main_window, (1, 1))
+        # Assert
+        args, _ = mock_qrect.call_args
+        assert (args[2], args[3]) == (1, 1)
+
+    def test_tiny_rect_wide_ratio_collapses_height(
+        self, mock_update_main_display: MagicMock, mock_main_window: MagicMock
+    ) -> None:
+        """
+        Given a 1x1 viewer crop rect and a 16:9 ratio,
+        When set_crop_ratio is called,
+        Then the constructed rect has height 0 (height-limited collapse).
+        """
+        # Arrange
+        mock_main_window.viewer.get_crop_rect.return_value = self._rect_mock(1, 1)
+        # Act
+        with patch("src.ui.handlers.crop.QRect") as mock_qrect:
+            set_crop_ratio(mock_main_window, (16, 9))
+        # Assert
+        args, _ = mock_qrect.call_args
+        assert args[3] == 0
