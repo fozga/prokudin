@@ -22,7 +22,7 @@ Handles state management, user interactions, and connects UI components to proce
 
 from typing import Optional, Union
 
-from PyQt5.QtCore import QRect, Qt, QTimer
+from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QCloseEvent, QKeyEvent
 from PyQt5.QtWidgets import QHBoxLayout, QMainWindow, QMessageBox, QPushButton, QStatusBar, QVBoxLayout, QWidget
 
@@ -30,8 +30,11 @@ from ..services.processor import ImageProcessorService
 from .app_state import AppState
 from .config import get_config_dir, get_presets_dir
 from .handlers.autosave import clear_autosave, restore_autosave, save_autosave
-from .handlers.channels import adjust_channel, load_channel, show_single_channel, update_channel_preview
-from .handlers.display import show_combined_image, show_single_channel_image, update_main_display
+from .handlers.channels import adjust_channel, load_channel, show_single_channel
+from .handlers.crop import apply_crop as crop_apply_crop
+from .handlers.crop import cancel_crop as crop_cancel_crop
+from .handlers.crop import set_crop_ratio as crop_set_crop_ratio
+from .handlers.crop import toggle_crop_mode as crop_toggle_crop_mode
 from .handlers.grid import on_grid_line_width_changed as grid_on_line_width_changed
 from .handlers.grid import on_grid_type_changed as grid_on_type_changed
 from .handlers.grid import open_grid_settings as grid_open_settings
@@ -239,202 +242,42 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         self.status_handler.update_mode_from_state(loaded_channels, self.state.crop_mode)
 
     def toggle_crop_mode(self) -> None:
-        """Toggle crop mode; initializes default crop rect from image dimensions."""
-        if self.state.crop_mode:
-            return
-        if not self.svc.has_processed_channels():
-            return
-        self.state.crop_mode = True
-        self.crop_mode_btn.setVisible(False)
-        self.crop_controls.setVisible(True)
-        saved_crop_rect = self.viewer.get_saved_crop_rect() if self.viewer else None
-        if saved_crop_rect:
-            self.state.crop_rect = QRect(saved_crop_rect)
-        else:
-            dims = self.svc.get_image_dimensions()
-            if dims:
-                img_h, img_w = dims
-                rect_w = int(img_w * 0.8)
-                rect_h = int(img_h * 0.8)
-                x = (img_w - rect_w) // 2
-                y = (img_h - rect_h) // 2
-                self.state.crop_rect = QRect(x, y, rect_w, rect_h)
-                if self.state.crop_ratio and self.state.crop_rect is not None:
-                    self.state.crop_rect = self._get_aspect_crop_rect(self.state.crop_rect, self.state.crop_ratio)
-        self.viewer.set_crop_mode(self.state.crop_mode)
-        if self.state.crop_rect:
-            self.viewer.set_crop_rect(self.state.crop_rect)
-        update_main_display(self)
-        self._update_mode_from_state()
-        self.status_handler.set_message("Crop mode activated - Select region to crop", self.status_handler.NO_TIMEOUT)
+        """Toggle crop mode; initializes default crop rect from image dimensions.
+
+        Cross-references:
+            - handlers.crop.toggle_crop_mode
+        """
+        crop_toggle_crop_mode(self)
 
     def cancel_crop(self) -> None:
         """
-        Cancels the current crop operation.
-
-        Args:
-            self (MainWindow): The instance of the main window.
-
-        Returns:
-            None
-
-        - Exits crop mode without applying changes.
-        - Restores the last saved crop rectangle if available.
+        Cancel the current crop operation.
 
         Cross-references:
-            - ImageViewer.set_crop_mode
-            - update_main_display
+            - handlers.crop.cancel_crop
         """
-        self.state.crop_mode = False
-        self.crop_mode_btn.setVisible(True)
-        self.crop_controls.setVisible(False)
-        saved_crop_rect = self.viewer.get_saved_crop_rect() if self.viewer else None
-        if saved_crop_rect:
-            self.state.crop_rect = QRect(saved_crop_rect)
-            self.viewer.set_crop_rect(self.state.crop_rect)
-        else:
-            self.state.crop_rect = None
-        self.viewer.set_crop_mode(False)
-        update_main_display(self)
-
-        # Update mode indicator and status message
-        self._update_mode_from_state()
-        self.status_handler.set_message("Crop operation cancelled", self.status_handler.MEDIUM_TIMEOUT)
+        crop_cancel_crop(self)
 
     def set_crop_ratio(self, ratio: Optional[tuple[int, int]]) -> None:
         """
-        Sets the aspect ratio for the crop rectangle.
+        Set the aspect ratio for the crop rectangle.
 
         Args:
-            self (MainWindow): The instance of the main window.
             ratio: The aspect ratio as (width, height) tuple, or None for free aspect.
 
-        Returns:
-            None
-
-        - Adjusts the crop rectangle to maintain the selected aspect ratio.
-        - Updates the viewer to reflect the new ratio.
-
         Cross-references:
-            - ImageViewer.set_crop_ratio
-            - update_main_display
+            - handlers.crop.set_crop_ratio
         """
-        self.state.crop_ratio = ratio
-        # Always get the current rectangle from the viewer
-        current_rect = self.viewer.get_crop_rect() if self.viewer else self.state.crop_rect
-        if current_rect and self.state.crop_ratio:
-            new_rect = self._get_aspect_crop_rect(current_rect, self.state.crop_ratio)
-            self.state.crop_rect = new_rect
-            self.viewer.set_crop_ratio(self.state.crop_ratio)
-            self.viewer.set_crop_rect(new_rect)
-            # Keep viewer._crop_rect and self.state.crop_rect in sync
-        elif current_rect:
-            # Free mode
-            self.viewer.set_crop_ratio(None)
-            self.viewer.set_crop_rect(current_rect)
-            self.state.crop_rect = current_rect
-        update_main_display(self)
-
-    def _get_aspect_crop_rect(self, rect: QRect, ratio: tuple[int, int]) -> QRect:
-        """
-        Returns the largest rectangle with the given aspect ratio that fits within the given rect,
-        centered at the same point as the original rect.
-
-        Args:
-            self (MainWindow): The instance of the main window.
-            rect (QRect): The original rectangle.
-            ratio (tuple): The desired aspect ratio as (width, height).
-
-        Returns:
-            QRect: The adjusted rectangle.
-
-        Cross-references:
-            - set_crop_ratio
-        """
-        if not rect or not ratio:
-            return rect
-        orig_w = rect.width()
-        orig_h = rect.height()
-        center = rect.center()
-        w, h = ratio
-        target_ratio = w / h
-        # Try to maintain width first
-        new_w = orig_w
-        new_h = int(new_w / target_ratio)
-        if new_h > orig_h:
-            new_h = orig_h
-            new_w = int(new_h * target_ratio)
-        # Center the new rect
-        new_left = center.x() - new_w // 2
-        new_top = center.y() - new_h // 2
-        return QRect(new_left, new_top, new_w, new_h)
+        crop_set_crop_ratio(self, ratio)
 
     def apply_crop(self) -> None:
         """
-        Applies the current crop rectangle to the processed images.
-
-        Args:
-            self (MainWindow): The instance of the main window.
-
-        Returns:
-            None
-
-        - Saves the crop rectangle for future use.
-        - Exits crop mode and updates the main display.
+        Apply the current crop rectangle to the processed images.
 
         Cross-references:
-            - ImageViewer._crop_rect, _saved_crop_rect
-            - update_main_display
+            - handlers.crop.apply_crop
         """
-        crop_rect = self.viewer.get_crop_rect() if self.viewer else self.state.crop_rect
-        if not crop_rect or not self.svc.has_processed_channels():
-            return
-
-        crop_rect = self.viewer.get_crop_rect()
-        saved_rect = QRect(crop_rect) if crop_rect is not None else None
-        if saved_rect is None:
-            return
-
-        dims = self.svc.get_image_dimensions()
-        if dims:
-            img_height, img_width = dims
-            valid_rect = QRect(0, 0, img_width, img_height).intersected(saved_rect)
-            saved_rect = valid_rect
-
-        if not saved_rect.isValid() or saved_rect.width() <= 0 or saved_rect.height() <= 0:
-            return
-
-        # Apply crop to the image in the viewer's scene (visual only)
-        self.viewer.confirm_crop()
-
-        # Store the crop rectangle for on-the-fly cropping during display
-        # Don't modify the underlying images - this is the key change!
-        self.viewer.set_saved_crop_rect(saved_rect)
-
-        # Update all channel previews
-        for i in range(3):
-            update_channel_preview(self, i)
-
-        # Reset crop mode and UI
-        self.state.crop_mode = False
-        self.crop_mode_btn.setVisible(True)
-        self.crop_controls.setVisible(False)
-        self.viewer.set_crop_mode(False)
-
-        # Update save button state after crop
-        self.update_save_button_state()
-
-        # Update mode indicator and status message
-        self._update_mode_from_state()
-        self.status_handler.set_message("Crop applied successfully", self.status_handler.MEDIUM_TIMEOUT)
-
-        # Force a full display update
-        if self.state.show_combined:
-            show_combined_image(self)
-        else:
-            show_single_channel_image(self)
-
-        save_autosave(self)
+        crop_apply_crop(self)
 
     def save_images(self) -> None:
         """
