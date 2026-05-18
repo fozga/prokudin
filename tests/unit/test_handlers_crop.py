@@ -485,6 +485,11 @@ class TestApplyCrop:
         Given the intersected saved rect has isValid() == False,
         When apply_crop is called,
         Then the function returns early before confirming the crop.
+
+        Behavioral dependency: relies on production code calling QRect() twice
+        (once to copy crop_rect, once to create bounds rect). Future refactors
+        that change QRect call patterns may need to update this test's
+        side_effect sequence.
         """
         # Arrange
         crop_rect = MagicMock()
@@ -495,12 +500,14 @@ class TestApplyCrop:
         invalid_rect.isValid.return_value = False
         invalid_rect.width.return_value = 0
         invalid_rect.height.return_value = 0
-        qrect_instance = MagicMock()
-        qrect_instance.intersected.return_value = invalid_rect
-        # Act
-        with patch("src.ui.handlers.crop.QRect", return_value=qrect_instance):
+        copied_rect = MagicMock()
+        bounds_rect = MagicMock()
+        bounds_rect.intersected.return_value = invalid_rect
+        # Act + Assert
+        with patch("src.ui.handlers.crop.QRect", side_effect=[copied_rect, bounds_rect]) as mock_qrect:
             apply_crop(mock_main_window)
         # Assert
+        assert mock_qrect.call_count == 2  # QRect(crop_rect) + QRect(0, 0, w, h)
         mock_main_window.viewer.confirm_crop.assert_not_called()
         mock_save_autosave.assert_not_called()
 
@@ -516,22 +523,28 @@ class TestApplyCrop:
         Given a valid crop rect and show_combined=True,
         When apply_crop is called,
         Then crop is confirmed, channel previews update, and combined image is shown.
+
+        Behavioral dependency: production code calls QRect() exactly twice:
+        once to copy crop_rect, once to create and intersect the bounds rect.
+        If future refactors change this call pattern, update side_effect sequence.
         """
         # Arrange
         mock_main_window.viewer.get_crop_rect.return_value = MagicMock()
         mock_main_window.svc.has_processed_channels.return_value = True
         mock_main_window.svc.get_image_dimensions.return_value = (600, 800)
         mock_main_window.state.show_combined = True
+        copied_rect = MagicMock()
+        bounds_rect = MagicMock()
         valid_rect = MagicMock()
         valid_rect.isValid.return_value = True
         valid_rect.width.return_value = 200
         valid_rect.height.return_value = 200
-        qrect_instance = MagicMock()
-        qrect_instance.intersected.return_value = valid_rect
+        bounds_rect.intersected.return_value = valid_rect
         # Act
-        with patch("src.ui.handlers.crop.QRect", return_value=qrect_instance):
+        with patch("src.ui.handlers.crop.QRect", side_effect=[copied_rect, bounds_rect]) as mock_qrect:
             apply_crop(mock_main_window)
         # Assert
+        assert mock_qrect.call_count == 2
         mock_main_window.viewer.confirm_crop.assert_called_once()
         mock_main_window.viewer.set_saved_crop_rect.assert_called_once_with(valid_rect)
         assert mock_update_channel.call_count == 3
@@ -552,22 +565,27 @@ class TestApplyCrop:
         Given a valid crop rect and show_combined=False,
         When apply_crop is called,
         Then show_single_channel_image is called instead of show_combined_image.
+
+        Behavioral dependency: production code calls QRect() exactly twice
+        (copy and bounds rect construction). See test_happy_path_combined_display.
         """
         # Arrange
         mock_main_window.viewer.get_crop_rect.return_value = MagicMock()
         mock_main_window.svc.has_processed_channels.return_value = True
         mock_main_window.svc.get_image_dimensions.return_value = (600, 800)
         mock_main_window.state.show_combined = False
+        copied_rect = MagicMock()
+        bounds_rect = MagicMock()
         valid_rect = MagicMock()
         valid_rect.isValid.return_value = True
         valid_rect.width.return_value = 200
         valid_rect.height.return_value = 200
-        qrect_instance = MagicMock()
-        qrect_instance.intersected.return_value = valid_rect
+        bounds_rect.intersected.return_value = valid_rect
         # Act
-        with patch("src.ui.handlers.crop.QRect", return_value=qrect_instance):
+        with patch("src.ui.handlers.crop.QRect", side_effect=[copied_rect, bounds_rect]) as mock_qrect:
             apply_crop(mock_main_window)
         # Assert
+        assert mock_qrect.call_count == 2
         mock_show_single.assert_called_once_with(mock_main_window)
         mock_show_combined.assert_not_called()
 
@@ -583,6 +601,11 @@ class TestApplyCrop:
         Given get_image_dimensions returns None,
         When apply_crop is called,
         Then the original copied rect is used without intersection clamping.
+
+        Behavioral dependency: production code still calls QRect(crop_rect) even
+        when dimensions are None; the intersected() call is skipped. This test
+        explicitly asserts that QRect was called exactly once to guard against
+        refactors that might remove the redundant copy.
         """
         # Arrange
         mock_main_window.viewer.get_crop_rect.return_value = MagicMock()
@@ -593,9 +616,10 @@ class TestApplyCrop:
         qrect_instance.width.return_value = 200
         qrect_instance.height.return_value = 200
         # Act
-        with patch("src.ui.handlers.crop.QRect", return_value=qrect_instance):
+        with patch("src.ui.handlers.crop.QRect", return_value=qrect_instance) as mock_qrect:
             apply_crop(mock_main_window)
         # Assert
+        assert mock_qrect.call_count == 1  # Only QRect(crop_rect); no bounds rect
         mock_main_window.viewer.confirm_crop.assert_called_once()
         mock_main_window.viewer.set_saved_crop_rect.assert_called_once_with(qrect_instance)
         mock_save_autosave.assert_called_once_with(mock_main_window)
