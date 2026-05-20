@@ -21,6 +21,13 @@ class _MockQt:
         Key_B = 66
         Key_Escape = 16777216
 
+    class GlobalColor:
+        """Integer constants for Qt global colors used in UI tests."""
+
+        red = 1
+        green = 2
+        blue = 4
+
 
 # Apply mock immediately at conftest import time, before pytest-cov traces imports
 _mock_qtcore = MagicMock()
