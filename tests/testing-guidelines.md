@@ -584,6 +584,22 @@ and documentation checks.
 
 ---
 
+## MainWindow test structure
+
+`MainWindow` is exercised at three levels, each with its own shared fixture.
+Choose the lowest level that lets you exercise the behaviour under test.
+
+| Level | Fixture | File | Use when |
+|---|---|---|---|
+| Unit | `mw` | `tests/unit/test_ui_main_window.py` | Testing a single `MainWindow` method against a `MagicMock(spec=MainWindow)`. No `QApplication`. Call the real method via `MainWindow.<method>(mw, ...)`. |
+| Widget | `window` | `tests/qt/test_widget_main_window.py` | Testing UI wiring on a real `MainWindow` with heavy collaborators (services, autosave, dialogs) patched out. |
+| Integration | `real_window` | `tests/integration/test_main_window_integration.py` | End-to-end flows with a fully real `MainWindow`; only autosave restore is suppressed. |
+
+See `tests/qt/qt-testing-guidelines.md` for the widget and integration
+fixtures (Qt infrastructure, mocking strategy, lifecycle).
+
+---
+
 ## Coverage requirements and tooling
 
 ### Code coverage

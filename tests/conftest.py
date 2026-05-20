@@ -32,6 +32,10 @@ def pytest_configure(config: Any) -> None:
         "markers",
         "skip_coverage_enforcement: skip coverage requirement for this module",
     )
+    config.addinivalue_line(
+        "markers",
+        "integration: end-to-end tests that construct a fully real MainWindow",
+    )
 
 
 

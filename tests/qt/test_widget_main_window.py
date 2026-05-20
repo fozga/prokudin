@@ -15,15 +15,98 @@
 # You should have received a copy of the GNU General Public License
 # along with Prokudin.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Widget tests for src/ui/main_window.py."""
+"""Widget tests for src/ui/main_window.MainWindow."""
 
+from contextlib import ExitStack
 from unittest.mock import MagicMock, patch
 
 import pytest
 from PyQt5.QtCore import Qt
 from pytestqt.plugin import QtBot
 
+from src.ui.main_window import MainWindow
 from src.ui.widgets.channel_controller import ChannelController
+
+
+@pytest.fixture
+def window(qtbot: QtBot) -> MainWindow:
+    """Real MainWindow with heavy collaborators patched out for widget tests.
+
+    Constructs a real ``MainWindow`` with ``ImageProcessorService``, autosave
+    persistence, display/save helpers, preset panel filesystem access, and the
+    keyboard dispatcher patched so tests can exercise UI wiring without
+    touching the filesystem, file dialogs, or the image-processing pipeline.
+    Use this fixture for widget tests that need a live ``MainWindow``
+    instance; for delegation tests on a single method, prefer the unit-test
+    ``mw`` fixture.
+    """
+    from PyQt5.QtCore import pyqtSignal
+    from PyQt5.QtWidgets import QWidget
+
+    # Minimal PresetPanel stub (must be a QWidget to work with layouts).
+    class StubPresetPanel(QWidget):
+        """Minimal stub for PresetPanel that provides required signals without filesystem access."""
+
+        preset_selected = pyqtSignal(dict)
+        save_requested = pyqtSignal()
+
+    def mock_preset_panel_class(*args: object, **kwargs: object) -> StubPresetPanel:
+        """Factory for StubPresetPanel to use as patch return value."""
+        return StubPresetPanel()
+
+    patches = [
+        patch("src.ui.main_window.ImageProcessorService"),
+        patch("src.ui.main_window.PresetPanel", side_effect=mock_preset_panel_class),
+        patch("src.ui.main_window.restore_autosave"),
+        patch("src.ui.main_window.save_autosave"),
+        patch("src.ui.main_window.clear_autosave"),
+        patch("src.ui.main_window.save_image_with_dialog"),
+        patch("src.ui.main_window.handle_key_press", return_value=False),
+    ]
+    with ExitStack() as stack:
+        for p in patches:
+            stack.enter_context(p)
+        w = MainWindow()
+        qtbot.addWidget(w)
+        return w
+
+
+@pytest.mark.widget
+class TestMainWindowWidgetScaffoldPlaceholder:
+    """
+    Test Design Specification: MainWindow widget-test scaffold (placeholder)
+    Module under test: src/ui/main_window.py
+
+    Widget base class: QMainWindow
+
+    Contract:
+        Placeholder class so the shared ``window`` fixture is defined at
+        module scope and available to future widget tests. Remove when
+        the first real MainWindow widget test (beyond the existing delegation
+        tests) lands.
+
+    Infrastructure:
+        - Requires qtbot fixture (QApplication, widget cleanup).
+        - Requires QT_QPA_PLATFORM=offscreen.
+
+    What is tested:
+        - The ``window`` fixture is available (no-op placeholder).
+
+    What is NOT tested:
+        - Any MainWindow behaviour beyond fixture availability.
+
+    Mocking strategy:
+        - ImageProcessorService, PresetPanel, autosave entry points, save
+          dialog, and keyboard dispatcher are patched at the
+          ``src.ui.main_window`` import boundary.
+    """
+
+    def test_placeholder_no_op(self) -> None:
+        """Placeholder test: window fixture is available and ready for use."""
+        # Arrange  (no setup needed for placeholder)
+        # Act      (no action needed for placeholder)
+        # Assert
+        assert True
 
 
 @pytest.mark.widget
