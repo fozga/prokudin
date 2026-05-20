@@ -42,13 +42,24 @@ def window(qtbot: QtBot) -> MainWindow:
     """
     from PyQt5.QtCore import pyqtSignal
     from PyQt5.QtWidgets import QWidget
+    from unittest.mock import MagicMock
 
     # Minimal PresetPanel stub (must be a QWidget to work with layouts).
     class StubPresetPanel(QWidget):
-        """Minimal stub for PresetPanel that provides required signals without filesystem access."""
+        """Minimal stub for PresetPanel that provides required signals without filesystem access.
+
+        Provides the preset_selected and save_requested signals that MainWindow
+        connects to, plus a __getattr__ fallback for any other attribute/method
+        access to prevent AttributeError if MainWindow calls methods like
+        reload_presets() or load_thumbnail() during initialization.
+        """
 
         preset_selected = pyqtSignal(dict)
         save_requested = pyqtSignal()
+
+        def __getattr__(self, name: str) -> MagicMock:
+            """Return a MagicMock for any attribute/method not explicitly defined."""
+            return MagicMock()
 
     def mock_preset_panel_class(*args: object, **kwargs: object) -> StubPresetPanel:
         """Factory for StubPresetPanel to use as patch return value."""

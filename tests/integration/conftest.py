@@ -39,9 +39,14 @@ def real_window(
 ) -> Generator["MainWindow", None, None]:  # type: ignore[name-defined]  # noqa: F821
     """Fully real MainWindow for integration tests (no handler mocks).
 
-    Only ``restore_autosave`` is suppressed, and preset/config directories
-    are redirected to tmp_path to avoid slow filesystem operations during
-    initialization.
+    Patches:
+        - ``restore_autosave``: suppressed so the window opens with a clean
+          state instead of replaying the developer's last session.
+        - ``get_presets_dir`` and ``get_config_dir``: redirected to tmp_path
+          to avoid slow filesystem operations during initialization (creating
+          real directories under ~/.config, /app, etc.).
+
+    All other collaborators (ImageProcessorService, handlers, widgets) are real.
     """
     from src.ui.main_window import MainWindow
 

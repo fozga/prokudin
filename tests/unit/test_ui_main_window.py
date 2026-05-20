@@ -40,7 +40,8 @@ from src.ui.widgets.grid_types import (
 # Mirror of ``MainWindow.GRID_TYPE_STATUS_MESSAGES``. Duplicated here because
 # ``tests/unit/conftest.py`` mocks PyQt5 at import time, which makes
 # ``MainWindow`` itself a Mock and prevents the unit-test scaffold from
-# reading the real class attribute.
+# reading the real class attribute. **IMPORTANT**: if MainWindow.GRID_TYPE_STATUS_MESSAGES
+# changes, update this dict to match to ensure test fixtures stay in sync.
 _GRID_TYPE_STATUS_MESSAGES = {
     GRID_TYPE_3X3: "3x3 grid overlay enabled",
     GRID_TYPE_GOLDEN_RATIO: "Golden ratio grid overlay enabled",
@@ -79,7 +80,7 @@ def mw() -> MagicMock:
     m.viewer = MagicMock()
     m.save_btn = MagicMock()
     m.crop_mode_btn = MagicMock()
-    m.crop_controls = MagicMock()
+    m.crop_controls = MagicMock()  # MainWindow attribute name (not crop_controls_widget)
     m.controllers = [MagicMock(), MagicMock(), MagicMock()]
     m._autosave_timer = MagicMock()
     m.GRID_TYPE_STATUS_MESSAGES = _GRID_TYPE_STATUS_MESSAGES
