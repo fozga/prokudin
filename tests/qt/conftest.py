@@ -19,6 +19,7 @@
 
 import pytest
 from PyQt5.QtWidgets import QApplication
+from unittest.mock import patch
 
 
 @pytest.fixture(scope="session")
@@ -26,3 +27,15 @@ def qapp() -> QApplication:
     """Session-scoped QApplication required by all widget tests."""
     app = QApplication.instance() or QApplication([])
     yield app  # type: ignore[misc]
+
+
+@pytest.fixture(scope="session", autouse=True)
+def suppress_dialogs() -> None:
+    """Patch QMessageBox to prevent save/close dialogs from blocking tests.
+
+    Prevents dialogs from appearing during test teardown when widgets are
+    destroyed and closeEvent handlers try to show confirmation dialogs.
+    """
+    with patch("PyQt5.QtWidgets.QMessageBox.question", return_value=0):
+        yield
+
