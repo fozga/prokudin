@@ -324,9 +324,13 @@ class TestInitUI:
 
     def test_save_button_initially_disabled(self, window: "MainWindow") -> None:
         """
-        Given a MainWindow instance via the window fixture with has_aligned_channels mocked to False,
-        When init_ui completes and no channels are loaded,
+        Given a MainWindow with the fixture's mocked ImageProcessorService.has_aligned_channels,
+        When update_save_button_state is called with the mock configured to return False,
         Then save_btn.isEnabled() returns False.
+
+        Note: This tests the downstream behavior of update_save_button_state, not the
+        post-__init__ state directly. The fixture's mocked service is explicitly configured
+        to return False for clarity.
         """
         # Arrange
         window.svc.has_aligned_channels.return_value = False
@@ -337,9 +341,13 @@ class TestInitUI:
 
     def test_crop_mode_button_initially_disabled(self, window: "MainWindow") -> None:
         """
-        Given a MainWindow instance via the window fixture with has_processed_channels mocked to False,
-        When init_ui completes and no processed channels exist,
+        Given a MainWindow with the fixture's mocked ImageProcessorService.has_processed_channels,
+        When update_save_button_state is called with the mock configured to return False,
         Then crop_mode_btn.isEnabled() returns False.
+
+        Note: This tests the downstream behavior of update_save_button_state, not the
+        post-__init__ state directly. The fixture's mocked service is explicitly configured
+        to return False for clarity.
         """
         # Arrange
         window.svc.has_processed_channels.return_value = False
@@ -362,15 +370,21 @@ class TestInitUI:
     def test_value_changed_signal_wired_to_autosave(self, window: "MainWindow") -> None:
         """
         Given a MainWindow instance via the window fixture,
-        When _schedule_autosave is called (which the value_changed signal is wired to),
-        Then the autosave timer is in running state (started).
+        When _schedule_autosave is called (the handler value_changed is wired to),
+        Then the autosave timer transitions to running state.
+
+        Note: This test verifies signal wiring by calling _schedule_autosave directly
+        and observing the timer state change, avoiding fragile assumptions about
+        the initial timer state (which depends on whether controllers emit signals
+        during construction).
         """
         # Arrange
-        assert window._autosave_timer.isActive() is False
+        initial_active = window._autosave_timer.isActive()
         # Act
         window._schedule_autosave()
         # Assert
         assert window._autosave_timer.isActive() is True
+        assert initial_active is False  # Verify timer was off before call
 
     def test_preset_panel_created(self, window: "MainWindow") -> None:
         """
