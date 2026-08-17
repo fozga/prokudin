@@ -493,6 +493,24 @@ Identical procedure to unit tests:
 
 ---
 
+## MainWindow test structure
+
+`MainWindow` is exercised at three levels. The widget and integration
+levels live under `tests/qt/` and `tests/integration/` respectively and
+share fixtures with the unit-level scaffold in `tests/unit/`.
+
+| Level | Fixture | File | Use when |
+|---|---|---|---|
+| Widget | `window` | `tests/qt/test_widget_main_window.py` | Real `MainWindow` with `ImageProcessorService`, autosave entry points, save dialog, and keyboard dispatcher patched at the `src.ui.main_window` import boundary. Use for UI wiring tests (button enablement, signal routing) where you need a live widget but not real services. |
+| Integration | `real_window` | `tests/integration/test_main_window_integration.py` (fixture in `tests/integration/conftest.py`) | Fully real `MainWindow` with only `restore_autosave` suppressed. Module-scoped — do not mutate state across tests in the same module. Use for end-to-end flows. |
+
+Cross-reference: unit-level fixture `mw` lives in
+`tests/unit/test_ui_main_window.py` and provides a
+`MagicMock(spec=MainWindow)` for delegation/business-logic tests that run
+without a `QApplication`.
+
+---
+
 ## Coverage requirements and tooling
 
 ### Code coverage

@@ -52,8 +52,10 @@ def _discover_modules() -> list[str]:
 # These require a live QApplication and are tested with pytest-qt.
 # Move modules here from EXCLUDED_MODULES as Qt tests are added.
 QT_MODULES = {
+    "src.ui.main_window",
     "src.ui.qt_utils",
     "src.ui.widgets.channel_controller",
+    "src.ui.widgets.crop_controls",
     "src.ui.widgets.crop_handler",
     "src.ui.widgets.grid_overlay",
     "src.ui.widgets.grid_settings_dialog",
@@ -65,9 +67,7 @@ QT_MODULES = {
 
 # Modules excluded from ALL coverage enforcement (no tests yet).
 # Remove modules from here as tests are added to either tests/unit/ or tests/qt/.
-EXCLUDED_MODULES = {
-    "src.ui.main_window",
-}
+EXCLUDED_MODULES: set[str] = set()
 
 
 def get_qt_modules() -> list[str]:

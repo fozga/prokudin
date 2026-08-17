@@ -19,6 +19,7 @@
 
 import pytest
 from PyQt5.QtWidgets import QApplication
+from unittest.mock import patch
 
 
 @pytest.fixture(scope="session")
@@ -26,3 +27,28 @@ def qapp() -> QApplication:
     """Session-scoped QApplication required by all widget tests."""
     app = QApplication.instance() or QApplication([])
     yield app  # type: ignore[misc]
+
+
+@pytest.fixture(scope="session", autouse=True)
+def suppress_closevent_dialogs() -> None:
+    """Patch MainWindow.closeEvent to prevent save session dialog during teardown.
+
+    During test teardown, qtbot destroys widgets which triggers closeEvent,
+    normally showing a QMessageBox asking to save session. Patching closeEvent
+    to no-op prevents dialogs from blocking test cleanup without masking other
+    tests' closeEvent behavior.
+    """
+    from src.ui.main_window import MainWindow
+
+    original_close_event = MainWindow.closeEvent
+
+    def patched_close_event(self: MainWindow, event: object) -> None:
+        """Accept close event without prompting (for tests only)."""
+        # During tests, accept the close without showing dialog
+        if event is not None and hasattr(event, "accept"):
+            event.accept()  # type: ignore[union-attr]
+
+    with patch.object(MainWindow, "closeEvent", patched_close_event):
+        yield
+
+
