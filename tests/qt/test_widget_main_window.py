@@ -1084,11 +1084,9 @@ class TestSetCropRatio:
         When set_crop_ratio((16, 9)) is called,
         Then state.crop_rect is adjusted to 16:9 and viewer.set_crop_rect receives it.
         """
-        from src.ui.handlers.crop import _get_aspect_crop_rect
-
         # Arrange
         existing = QRect(40, 20, 320, 160)
-        expected = _get_aspect_crop_rect(existing, (16, 9))
+        expected = QRect(57, 19, 284, 160)
         window.viewer.set_crop_rect(existing)
 
         # Act
