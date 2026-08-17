@@ -62,5 +62,9 @@ def real_window(
         w = MainWindow()
     w.show()
     yield w
-    w.close()
+    # Suppress the "save session?" dialog so teardown never blocks, even when
+    # integration tests have loaded real image channels into the window.
+    from PyQt5.QtWidgets import QMessageBox
+    with patch("PyQt5.QtWidgets.QMessageBox.question", return_value=int(QMessageBox.No)):
+        w.close()
 
