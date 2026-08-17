@@ -381,13 +381,13 @@ class TestLoadDisplayPipeline:
         contrast processing → display update → save-button state update.
         After all channels are loaded the application is ready for cropping.
 
-    Infrastructure:
-        - Requires the module-scoped ``real_window`` fixture from
-          ``tests/integration/conftest.py``.
-        - Requires QT_QPA_PLATFORM=offscreen.
-        - ``src.ui.handlers.image_loading.load_raw_image_from_path`` is patched
-          to return a synthetic 10×10 RGB array, bypassing rawpy so real ARW
-          files are not required.
+        Infrastructure:
+                - Requires the module-scoped ``real_window`` fixture from
+                    ``tests/integration/conftest.py``.
+                - Requires QT_QPA_PLATFORM=offscreen.
+                - ``src.ui.handlers.channels.load_raw_image_from_path`` is patched
+                    to return a synthetic 10×10 RGB array, bypassing rawpy so real ARW
+                    files are not required.
 
     What is tested:
         EP1  All three channels loaded → svc.has_processed_channels() is True
@@ -403,18 +403,30 @@ class TestLoadDisplayPipeline:
         - Crop application and result (covered by crop handler tests).
 
     Mocking strategy:
-        - ``src.ui.handlers.image_loading.load_raw_image_from_path`` patched
+        - ``src.ui.handlers.channels.load_raw_image_from_path`` patched
           to return ``(_SYNTHETIC_RGB, None)`` so ``load_channel_from_path``
-          exercises the full downstream chain without rawpy.
+          uses the stubbed loader instead of rawpy.
 
     Constraints:
-        - Tests in this class are ordered (EP1 → EP2 → EP3) and share the
-          module-scoped ``real_window``; EP2 and EP3 depend on EP1 having
-          loaded all three channels into svc.
+        - Each test loads all three channels independently; no ordering
+          dependency exists between EP1/EP2/EP3.
         - ``real_window.state.show_combined`` may be False from earlier
           TestSignalWiring tests; ``show_single_channel_image`` is used in
           that case, which still sets a non-null pixmap once a channel is loaded.
     """
+
+    @staticmethod
+    def _load_all_channels_with_stubbed_loader(real_window: MainWindow) -> None:
+        """Load all three channels through the real path-based handler using a stubbed raw loader."""
+        from src.ui.handlers.channels import load_channel_from_path
+
+        with patch(
+            "src.ui.handlers.channels.load_raw_image_from_path",
+            return_value=(_SYNTHETIC_RGB.copy(), None),
+        ):
+            load_channel_from_path(real_window, 0, "/fake/red.arw")
+            load_channel_from_path(real_window, 1, "/fake/green.arw")
+            load_channel_from_path(real_window, 2, "/fake/blue.arw")
 
     def test_load_all_channels_results_in_processed_channels_and_non_null_pixmap(
         self, real_window: MainWindow, qtbot: QtBot
@@ -427,16 +439,9 @@ class TestLoadDisplayPipeline:
         pixmap is non-null.
         """
         # Arrange
-        from src.ui.handlers.channels import load_channel_from_path
 
-        with patch(
-            "src.ui.handlers.image_loading.load_raw_image_from_path",
-            return_value=(_SYNTHETIC_RGB.copy(), None),
-        ):
-            # Act: load all three channels through the real handler chain
-            load_channel_from_path(real_window, 0, "/fake/red.arw")
-            load_channel_from_path(real_window, 1, "/fake/green.arw")
-            load_channel_from_path(real_window, 2, "/fake/blue.arw")
+        # Act: load all three channels through the real handler chain
+        self._load_all_channels_with_stubbed_loader(real_window)
 
         # Assert
         assert real_window.svc.has_processed_channels()
@@ -451,8 +456,10 @@ class TestLoadDisplayPipeline:
         When update_save_button_state was propagated through the real service,
         Then save_btn.isEnabled() is True.
         """
-        # Arrange (channels already loaded by EP1 via shared real_window)
-        # Act      (state was set during EP1 load; no additional action needed)
+        # Arrange
+        self._load_all_channels_with_stubbed_loader(real_window)
+
+        # Act      (state was set by real handler chain during Arrange)
         # Assert
         assert real_window.save_btn.isEnabled()
 
@@ -464,7 +471,10 @@ class TestLoadDisplayPipeline:
         When toggle_crop_mode is called,
         Then state.crop_rect is a valid QRect with non-zero width and height.
         """
-        # Arrange: ensure we start outside crop mode
+        # Arrange
+        self._load_all_channels_with_stubbed_loader(real_window)
+
+        # Ensure we start outside crop mode
         if real_window.state.crop_mode:
             real_window.cancel_crop()
 
