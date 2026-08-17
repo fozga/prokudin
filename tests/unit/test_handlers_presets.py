@@ -23,16 +23,10 @@ thumbnail generation, and preset application with signal blocking.
 """
 
 import json
-import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch, call
 
 import pytest
-
-sys.modules["PyQt5"] = MagicMock()
-sys.modules["PyQt5.QtCore"] = MagicMock()
-sys.modules["PyQt5.QtGui"] = MagicMock()
-sys.modules["PyQt5.QtWidgets"] = MagicMock()
 
 from src.ui.handlers.presets import save_preset, apply_preset
 

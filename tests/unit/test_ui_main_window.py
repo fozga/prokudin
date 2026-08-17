@@ -58,28 +58,17 @@ _GRID_TYPE_STATUS_MESSAGES = {
 
 
 def _get_real_mainwindow_method(method_name: str):
-    """Import and retrieve real MainWindow method by temporarily unpatching PyQt5."""
-    # Save the mocked modules
-    mocked_modules = {
-        key: sys.modules.get(key)
-        for key in ["PyQt5", "PyQt5.QtCore", "PyQt5.QtGui", "PyQt5.QtWidgets"]
-    }
+    """Import and retrieve real MainWindow method via the existing PyQt5 mock.
 
-    # Temporarily remove mocks to allow real imports
-    for key in mocked_modules:
-        if key in sys.modules:
-            del sys.modules[key]
+    The conftest PyQt5 mock is already active, so MainWindow can be imported
+    normally: its base class (QMainWindow) resolves to a MagicMock, but all
+    methods defined in the class body are real Python functions and are fully
+    accessible. No temporary un-patching is needed, and this approach works
+    on CI environments where PyQt5 is not installed.
+    """
+    from src.ui.main_window import MainWindow
 
-    try:
-        from src.ui.main_window import MainWindow
-
-        method = getattr(MainWindow, method_name)
-        return method
-    finally:
-        # Restore mocks
-        for key, value in mocked_modules.items():
-            if value is not None:
-                sys.modules[key] = value
+    return getattr(MainWindow, method_name)
 
 
 @pytest.fixture
