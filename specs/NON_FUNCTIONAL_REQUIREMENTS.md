@@ -6,6 +6,8 @@ This document defines a consolidated and comprehensive set of non-functional req
 
 Requirements with soft numeric targets are marked **TBD** for refinement once empirical performance and resource-usage data are available. Requirements marked **(inferred)** are not explicitly stated in the repository but are consistent with the existing design and common practice for desktop image-processing applications.
 
+For release **v0.1.0**, the most critical performance requirements (NFR-1, NFR-2, NFR-3, NFR-4, NFR-7) are now defined with initial numeric targets based on baseline measurements on a reference development machine. These initial targets are intentionally conservative and may be tightened in later releases as more benchmark data is collected.
+
 ---
 
 ## Numbering Convention
@@ -18,17 +20,25 @@ Requirements with soft numeric targets are marked **TBD** for refinement once em
 
 ## 1. Performance
 
+Reference baseline used for v0.1.0 targets (measured 2026-08-18):
+- Machine: Linux 6.8, Intel Core i5-10210U, 31.2 GiB RAM, SSD-backed workspace.
+- Input set: `input/_DSC4370.ARW`, `input/_DSC4371.ARW`, `input/_DSC4372.ARW`.
+- Method: repeated timing runs of production code paths (raw decode/load, 3-channel alignment, adjustment/display refresh path, crop interaction display/geometry path, and export).
+
 **NFR-1 — Channel loading time.**  
-Channel loading (RAW decode via rawpy plus grayscale conversion) for a typical Sony ARW file shall complete within a few seconds on a contemporary mid-range desktop (e.g. quad‑core CPU, 8 GB RAM, SSD). **(TBD — exact threshold)**
+Channel loading (RAW decode via rawpy plus grayscale conversion) for a typical Sony ARW file shall complete in **<= 1.5 seconds per channel** on reference hardware, with observed baseline medians around **0.97 seconds**. This target is an initial v0.1.0 threshold and may be tightened in later releases.
 
 **NFR-2 — Alignment time.**  
-Automatic alignment of three loaded channels (ORB feature extraction, matching, affine estimation, and warping) shall complete within a reasonable time such that the user is not left waiting without feedback. A soft target is under 10 seconds for full‑resolution ARW images on reference hardware. **(TBD)**
+Automatic alignment of three loaded channels (ORB feature extraction, matching, affine estimation, and warping) shall complete in **<= 2.0 seconds** for full-resolution typical ARW images on reference hardware, with observed baseline medians around **0.73 seconds**. This target is an initial v0.1.0 threshold and may be tightened in later releases.
 
 **NFR-3 — Adjustment responsiveness.**  
-Per‑channel adjustment changes (brightness, contrast, intensity) shall be reflected in the main view and thumbnails quickly enough to feel interactive, with a soft target of under 500 ms per visible update on typical image sizes and hardware. **(TBD)**
+Per-channel adjustment changes (brightness, contrast, intensity) shall produce a visible main-view update in **<= 0.6 seconds** for typical image sizes on reference hardware, with observed baseline medians around **0.41 seconds** for the adjustment-plus-display path. This target is an initial v0.1.0 threshold and may be tightened in later releases.
 
 **NFR-4 — Crop interaction responsiveness.**  
-Entering and exiting Crop mode, and dragging or resizing the crop rectangle, shall feel responsive with no significant lag or stuttering on supported hardware for typical image sizes. **(TBD)**
+Crop interaction shall satisfy both of the following on reference hardware for typical image sizes:
+- Enter/exit Crop mode display updates shall complete in **<= 1.0 second per transition cycle**, with observed baseline medians around **0.69 seconds** for crop/full display refresh.
+- Dragging or resizing the crop rectangle shall keep interactive update latency **<= 50 ms per visual update** (targeting smooth interaction), with crop-geometry computations observed to be far below this threshold in baseline runs.
+These targets are initial v0.1.0 thresholds and may be tightened in later releases.
 
 **NFR-5 — Autosave overhead.**  
 Autosave operations (serialising session state and writing `autosave.json`) shall complete within approximately 500 ms of the debounce timer firing and shall not cause noticeable pauses or stutters in the UI during normal interaction. **(TBD)**
@@ -37,7 +47,11 @@ Autosave operations (serialising session state and writing `autosave.json`) shal
 Session restoration on startup (including channel reload, re‑alignment, adjustment reapplication, and crop restoration) shall complete within a time comparable to a fresh three‑channel load and alignment cycle, such that the application is ready for interaction within a few seconds on reference hardware. **(TBD)**
 
 **NFR-7 — Export performance.**  
-Image export (combined and per‑channel outputs) shall complete within a few seconds for typical image resolutions. The UI shall remain responsive; if the operation is synchronous, the Save action shall be protected from re‑entry and a status message shall indicate progress or completion. **(TBD)**
+Export of combined output plus per-channel outputs shall meet the following initial v0.1.0 thresholds on reference hardware for typical full-resolution ARW-derived images:
+- **JPEG:** <= 3 seconds total (baseline median approx. 1.88 seconds).
+- **TIFF:** <= 6 seconds total (baseline median approx. 3.85 seconds).
+- **PNG (compression level 9):** <= 75 seconds total (baseline median approx. 66.1 seconds).
+The UI shall remain responsive where possible; if the operation is synchronous, the Save action shall be protected from re-entry and a status message shall indicate progress or completion. These thresholds are initial v0.1.0 targets and may be tightened in later releases.
 
 **NFR-8 — Behaviour on large images.**  
 When processing larger‑than‑typical images, alignment, cropping, and saving may take longer but the application shall remain responsive, providing status or progress feedback rather than appearing to hang. **(inferred)**
