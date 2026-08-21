@@ -1200,10 +1200,9 @@ class TestAlignmentDOFAndResult:
 
     @staticmethod
     def _make_rgb_image(height: int = 100, width: int = 100, seed: int = 42) -> np.ndarray:
+        """Create a synthetic RGB image for testing."""
         rng = np.random.RandomState(seed)
         return rng.randint(0, 256, (height, width, 3), dtype=np.uint8)
-
-    def test_initial_alignment_dof_is_translation_rotation_scale(self) -> None:
         """Given a freshly created service, when alignment_dof is accessed, then it is TRANSLATION_ROTATION_SCALE."""
         # Arrange & Act
         from src.core.align import AlignmentDOF
