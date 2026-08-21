@@ -66,7 +66,7 @@ class TestApplyAdjustments:
         EP5  Positive contrast only         → pixels stretched away from mid-gray
         EP6  Negative contrast only         → pixels compressed toward mid-gray
         EP7  Combined brightness+contrast   → both applied in order
-        EP8  All-zero input (black)         → contrast has no effect
+        EP8  All-zero input (black)         → positive contrast clips at zero; negative contrast lifts toward mid-gray
         EP9  All-255 input (white)          → may saturate
         EP10 Mid-range input (128)          → both directions testable
 
@@ -158,14 +158,23 @@ class TestApplyAdjustments:
         # Assert
         np.testing.assert_array_equal(result, np.zeros((4, 4), dtype=np.uint8))
 
-    def test_black_image_unaffected_by_contrast_alone(self, gray_black: np.ndarray) -> None:
+    def test_black_image_clips_at_zero_with_positive_contrast(self, gray_black: np.ndarray) -> None:
         """Given: black image with brightness=0, contrast=50
         When: apply_adjustments is applied
-        Then: zero pixels remain zero regardless of contrast multiplier."""
+        Then: values remain zero due to lower-bound clipping."""
         # Act
         result = apply_adjustments(gray_black, brightness=0, contrast=50)
         # Assert
         np.testing.assert_array_equal(result, gray_black)
+
+    def test_black_image_moves_toward_midgray_with_negative_contrast(self, gray_black: np.ndarray) -> None:
+        """Given: black image with brightness=0, contrast=-50
+        When: apply_adjustments is applied
+        Then: values move toward mid-gray under midpoint-centered contrast."""
+        # Act
+        result = apply_adjustments(gray_black, brightness=0, contrast=-50)
+        # Assert - (0 - 128) * 0.5 + 128 = 64
+        np.testing.assert_array_equal(result, np.full((4, 4), 64, dtype=np.uint8))
 
     def test_output_dtype_is_uint8(self, gray_mid: np.ndarray) -> None:
         """Given: grayscale image with brightness=20, contrast=10

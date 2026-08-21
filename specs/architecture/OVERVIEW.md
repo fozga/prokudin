@@ -91,7 +91,7 @@ rule is absolute: **a lower layer never imports from a higher layer.**
 | Module | Responsibility |
 |---|---|
 | `align.py` | `align_images(grayscale_images, rgb_images)` — detects ORB keypoints, matches G and B channels to R using BFMatcher, estimates partial affine transform, and applies `warpAffine` to both grayscale and RGB copies. Raises `AlignmentError` if fewer than 50 matches are found or the transform cannot be estimated. |
-| `image_processing.py` | `apply_adjustments(image, brightness, contrast)` — applies the formula `clip(image × (1 + contrast/100) + brightness, 0, 255)`. `combine_channels(channels, intensities)` — merges three grayscale arrays into a single HxWx3 RGB array, scaling each channel by its intensity percentage. Returns `None` if any channel is missing. |
+| `image_processing.py` | `apply_adjustments(image, brightness, contrast)` — applies the formula `clip((image - 128) × (1 + contrast/100) + 128 + brightness, 0, 255)`. `combine_channels(channels, intensities)` — merges three grayscale arrays into a single HxWx3 RGB array, scaling each channel by its intensity percentage. Returns `None` if any channel is missing. |
 | `crop_geometry.py` | *(Planned — issue #56)* Pure geometry functions for crop rectangle calculations: clamping, ratio enforcement, corner and edge resize arithmetic. No Qt types. |
 | `grid_geometry.py` | *(Planned — issue #57)* Pure coordinate calculations for all 11 grid types. Each function takes `(left, top, width, height)` and returns a list of `(x1, y1, x2, y2)` line segments. No Qt types. |
 

@@ -35,14 +35,14 @@ to the combined image independently of `processed[]`.
 `src/core/image_processing.py`
 
 \[
-\text{output} = \operatorname{clip}\!\left(\text{input} \times \left(1 + \frac{\text{contrast}}{100}\right) + \text{brightness},\ 0,\ 255\right)
+output = clip((input - 128) * (1 + contrast / 100) + 128 + brightness, 0, 255)
 \]
 
 Computation steps:
 
 ```
 img_f = aligned[idx].astype(float32)
-img_f = img_f * (1 + contrast / 100) + brightness
+img_f = (img_f - 128) * (1 + contrast / 100) + 128 + brightness
 processed[idx] = clip(img_f, 0, 255).astype(uint8)
 ```
 
