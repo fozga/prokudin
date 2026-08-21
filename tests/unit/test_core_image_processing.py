@@ -54,7 +54,7 @@ class TestApplyAdjustments:
 
     Contract:
         Applies brightness and contrast adjustments to a grayscale image.
-        Formula: output = clip(pixel * (1 + contrast/100) + brightness, 0, 255).
+        Formula: output = clip((pixel - 128) * (1 + contrast/100) + 128 + brightness, 0, 255).
         Input None returns None (sentinel for missing channel).
         Output is uint8, same shape as input.
 
@@ -63,18 +63,18 @@ class TestApplyAdjustments:
         EP2  Zero adjustments               → identity (output equals input)
         EP3  Positive brightness only       → all pixels shifted up
         EP4  Negative brightness only       → all pixels shifted down
-        EP5  Positive contrast only         → pixels multiplied, above zero increased
-        EP6  Negative contrast only         → pixels multiplied, values reduced
+        EP5  Positive contrast only         → pixels stretched away from mid-gray
+        EP6  Negative contrast only         → pixels compressed toward mid-gray
         EP7  Combined brightness+contrast   → both applied in order
-        EP8  All-zero input (black)         → contrast has no effect
+        EP8  All-zero input (black)         → positive contrast clips at zero; negative contrast lifts toward mid-gray
         EP9  All-255 input (white)          → may saturate
         EP10 Mid-range input (128)          → both directions testable
 
     Boundary values:
         BV1  Brightness = +100 (large positive)
         BV2  Brightness = -100 (large negative)
-        BV3  Contrast = +100 (doubles pixels from mid-point)
-        BV4  Contrast = -50 (halves pixels)
+        BV3  Contrast = +100 (doubles distance from mid-point)
+        BV4  Contrast = -50 (halves distance from mid-point)
         BV5  Output = 255 (upper clip boundary)
         BV6  Output = 0 (lower clip boundary)
 
@@ -125,20 +125,20 @@ class TestApplyAdjustments:
     def test_positive_contrast_multiplies_pixel_values(self, gray_mid: np.ndarray) -> None:
         """Given: grayscale image with brightness=0, contrast=100
         When: apply_adjustments is applied
-        Then: pixel values are multiplied by (1 + contrast/100) and clipped."""
+        Then: distance from mid-gray is scaled; mid-gray itself is unchanged."""
         # Act
         result = apply_adjustments(gray_mid, brightness=0, contrast=100)
-        # Assert - 128 * (1 + 1.0) = 256 → clipped to 255
-        np.testing.assert_array_equal(result, np.full((4, 4), 255, dtype=np.uint8))
+        # Assert - (128 - 128) * 2 + 128 = 128
+        np.testing.assert_array_equal(result, np.full((4, 4), 128, dtype=np.uint8))
 
     def test_negative_contrast_reduces_pixel_values(self, gray_mid: np.ndarray) -> None:
         """Given: grayscale image with brightness=0, contrast=-50
         When: apply_adjustments is applied
-        Then: pixel values are multiplied by (1 - 0.5) = 0.5."""
+        Then: distance from mid-gray is reduced by (1 - 0.5) = 0.5."""
         # Act
         result = apply_adjustments(gray_mid, brightness=0, contrast=-50)
-        # Assert - 128 * 0.5 = 64
-        np.testing.assert_array_equal(result, np.full((4, 4), 64, dtype=np.uint8))
+        # Assert - (128 - 128) * 0.5 + 128 = 128
+        np.testing.assert_array_equal(result, np.full((4, 4), 128, dtype=np.uint8))
 
     def test_high_brightness_clips_to_255(self, gray_white: np.ndarray) -> None:
         """Given: white image with brightness=100
@@ -158,14 +158,23 @@ class TestApplyAdjustments:
         # Assert
         np.testing.assert_array_equal(result, np.zeros((4, 4), dtype=np.uint8))
 
-    def test_black_image_unaffected_by_contrast_alone(self, gray_black: np.ndarray) -> None:
+    def test_black_image_clips_at_zero_with_positive_contrast(self, gray_black: np.ndarray) -> None:
         """Given: black image with brightness=0, contrast=50
         When: apply_adjustments is applied
-        Then: zero pixels remain zero regardless of contrast multiplier."""
+        Then: values remain zero due to lower-bound clipping."""
         # Act
         result = apply_adjustments(gray_black, brightness=0, contrast=50)
         # Assert
         np.testing.assert_array_equal(result, gray_black)
+
+    def test_black_image_moves_toward_midgray_with_negative_contrast(self, gray_black: np.ndarray) -> None:
+        """Given: black image with brightness=0, contrast=-50
+        When: apply_adjustments is applied
+        Then: values move toward mid-gray under midpoint-centered contrast."""
+        # Act
+        result = apply_adjustments(gray_black, brightness=0, contrast=-50)
+        # Assert - (0 - 128) * 0.5 + 128 = 64
+        np.testing.assert_array_equal(result, np.full((4, 4), 64, dtype=np.uint8))
 
     def test_output_dtype_is_uint8(self, gray_mid: np.ndarray) -> None:
         """Given: grayscale image with brightness=20, contrast=10
@@ -190,13 +199,26 @@ class TestApplyAdjustments:
     def test_combined_brightness_and_contrast(self) -> None:
         """Given: image with brightness=10, contrast=10
         When: apply_adjustments is applied to pixels=100
-        Then: formula pixel*(1+contrast/100)+brightness gives 120."""
+        Then: midpoint-centered formula produces the expected output."""
         # Arrange
         img = np.full((2, 2), 100, dtype=np.uint8)
         # Act
         result = apply_adjustments(img, brightness=10, contrast=10)
-        # Assert - 100 * (1 + 0.1) + 10 = 120
-        np.testing.assert_array_equal(result, np.full((2, 2), 120, dtype=np.uint8))
+        # Assert - (100 - 128) * 1.1 + 128 + 10 = 107.2 -> uint8(107)
+        np.testing.assert_array_equal(result, np.full((2, 2), 107, dtype=np.uint8))
+
+    def test_low_contrast_with_high_brightness_preserves_tonal_spread(self) -> None:
+        """Given: a tonal ramp with low contrast and high brightness
+        When: apply_adjustments is applied
+        Then: values stay ordered and preserve a non-zero tonal spread."""
+        # Arrange
+        img = np.array([[0, 64, 128, 255]], dtype=np.uint8)
+        # Act
+        result = apply_adjustments(img, brightness=80, contrast=-80)
+        # Assert - midpoint-centered mapping keeps tonal ordering and spread
+        expected = np.array([[182, 195, 208, 233]], dtype=np.uint8)
+        np.testing.assert_array_equal(result, expected)
+        assert int(result.max()) - int(result.min()) > 0
 
 
 class TestCombineChannels:
