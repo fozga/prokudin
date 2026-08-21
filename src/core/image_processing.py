@@ -31,7 +31,7 @@ def apply_adjustments(
     Args:
         image (numpy.ndarray or None): Input 8-bit grayscale image (shape: HxW).
         brightness (int): [-100, 100] - additive brightness adjustment.
-        contrast (int): [-100, 100] - multiplicative contrast adjustment (percentage).
+        contrast (int): [-100, 100] - contrast adjustment factor around mid-gray.
 
     Returns:
         numpy.ndarray: Adjusted 8-bit image (uint8) or None if input is invalid.
@@ -46,7 +46,8 @@ def apply_adjustments(
         return None
 
     img = image.astype(np.float32)
-    img = img * (1 + contrast / 100) + brightness
+    contrast_factor = 1 + contrast / 100
+    img = (img - 128.0) * contrast_factor + 128.0 + brightness
     return np.clip(img, 0, 255).astype(np.uint8)
 
 
