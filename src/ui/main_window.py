@@ -24,13 +24,24 @@ from typing import Optional, Union
 
 from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QCloseEvent, QKeyEvent
-from PyQt5.QtWidgets import QHBoxLayout, QMainWindow, QMessageBox, QPushButton, QStatusBar, QVBoxLayout, QWidget
+from PyQt5.QtWidgets import (
+    QComboBox,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QMessageBox,
+    QPushButton,
+    QStatusBar,
+    QVBoxLayout,
+    QWidget,
+)
 
+from ..core.align import AlignmentDOF
 from ..services.processor import ImageProcessorService
 from .app_state import AppState
 from .config import get_config_dir, get_presets_dir
 from .handlers.autosave import clear_autosave, restore_autosave, save_autosave
-from .handlers.channels import adjust_channel, load_channel, show_single_channel
+from .handlers.channels import adjust_channel, load_channel, realign_channels, show_single_channel
 from .handlers.crop import apply_crop as crop_apply_crop
 from .handlers.crop import cancel_crop as crop_cancel_crop
 from .handlers.crop import set_crop_ratio as crop_set_crop_ratio
@@ -193,11 +204,29 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         # Center panel for image viewer
         center_panel = QVBoxLayout()
 
+        # Alignment DOF selector
+        self._dof_label = QLabel("Align:")
+        self._dof_combo = QComboBox()
+        self._dof_options = [
+            ("Translation only", AlignmentDOF.TRANSLATION),
+            ("Translation + rotation", AlignmentDOF.TRANSLATION_ROTATION),
+            ("Translation + rotation + scale", AlignmentDOF.TRANSLATION_ROTATION_SCALE),
+            ("Full affine", AlignmentDOF.FULL_AFFINE),
+        ]
+        for label, _dof in self._dof_options:
+            self._dof_combo.addItem(label)
+        # Select the default (TRANSLATION_ROTATION_SCALE is index 2)
+        self._dof_combo.setCurrentIndex(2)
+        self._dof_combo.currentIndexChanged.connect(self._on_dof_changed)
+
         # Create a horizontal layout for the buttons
         buttons_layout = QHBoxLayout()
         buttons_layout.addWidget(self.new_btn)
         buttons_layout.addWidget(self.save_btn)
         buttons_layout.addWidget(self.crop_mode_btn)
+        buttons_layout.addStretch()
+        buttons_layout.addWidget(self._dof_label)
+        buttons_layout.addWidget(self._dof_combo)
 
         # Add the buttons layout to the center panel
         center_panel.addLayout(buttons_layout)
@@ -240,6 +269,20 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         """Update the mode indicator based on the current application state."""
         loaded_channels = sum(1 for img in self.svc.original_images if img is not None)
         self.status_handler.update_mode_from_state(loaded_channels, self.state.crop_mode)
+
+    def _on_dof_changed(self, index: int) -> None:
+        """Handle alignment degrees-of-freedom combo box selection change.
+
+        Updates the service's DOF setting and re-triggers alignment if all three
+        channels are already loaded.
+
+        Args:
+            index: Index into self._dof_options selected by the user.
+        """
+        _label, dof = self._dof_options[index]
+        self.svc.alignment_dof = dof
+        if all(img is not None for img in self.svc.original_images):
+            realign_channels(self)
 
     def toggle_crop_mode(self) -> None:
         """Toggle crop mode; initializes default crop rect from image dimensions.

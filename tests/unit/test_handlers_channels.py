@@ -26,13 +26,17 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+from src.core.align import AlignmentResult, TransformParams
 from src.ui.handlers.channels import (
+    _format_alignment_status,
     _process_channel_image,
+    _show_alignment_status,
+    adjust_channel,
     load_channel,
     load_channel_from_path,
-    adjust_channel,
-    update_channel_preview,
+    realign_channels,
     show_single_channel,
+    update_channel_preview,
 )
 
 
@@ -41,6 +45,12 @@ def mock_main_window() -> MagicMock:
     """Create a mock MainWindow with required attributes."""
     main_window = MagicMock()
     main_window.svc = MagicMock()
+    main_window.svc.last_alignment_result = AlignmentResult(
+        aligned_grayscale=[np.zeros((4, 4), dtype=np.uint8)] * 3,
+        aligned_rgb=[np.zeros((4, 4, 3), dtype=np.uint8)] * 3,
+        method_used="ORB",
+        channel_params=[TransformParams() for _ in range(3)],
+    )
     main_window.state = MagicMock()
     main_window.state.channel_paths = [None, None, None]
     main_window.state.show_combined = True
@@ -649,3 +659,116 @@ class TestShowSingleChannel:
                 show_single_channel(mock_main_window, channel_idx)
                 # Assert
                 assert mock_main_window.state.current_channel == channel_idx
+
+
+class TestShowAlignmentStatus:
+    """
+    Test Design Specification: _show_alignment_status()
+    Module under test: src/ui/handlers/channels.py
+
+    Contract:
+        Reads svc.last_alignment_result and writes a formatted message to the
+        status bar. When last_alignment_result is None a generic success message
+        is shown. When an AlignmentResult is present the message from
+        _format_alignment_status() is used.
+
+    Equivalence partitions:
+        EP1  last_alignment_result is None     → generic success message shown
+        EP2  last_alignment_result is present  → formatted alignment message shown
+
+    Boundary values:
+        BV1  result = None (no alignment yet)
+        BV2  result present, fallback_triggered=False
+
+    Exclusions:
+        - Message content details (tested via _format_alignment_status)
+    """
+
+    def test_shows_success_message_when_result_is_none(self, mock_main_window: MagicMock) -> None:
+        """Given last_alignment_result is None, when _show_alignment_status is called, then a generic success message is displayed."""
+        # Arrange
+        mock_main_window.svc.last_alignment_result = None
+        # Act
+        _show_alignment_status(mock_main_window)
+        # Assert
+        mock_main_window.status_handler.set_message.assert_called_once()
+        msg = mock_main_window.status_handler.set_message.call_args[0][0]
+        assert "loaded" in msg.lower() or "ready" in msg.lower()
+
+    def test_shows_formatted_message_when_result_present(self, mock_main_window: MagicMock) -> None:
+        """Given a real AlignmentResult, when _show_alignment_status is called, then the formatted message is displayed."""
+        # Arrange (fixture already sets a real AlignmentResult)
+        # Act
+        _show_alignment_status(mock_main_window)
+        # Assert
+        mock_main_window.status_handler.set_message.assert_called_once()
+        msg = mock_main_window.status_handler.set_message.call_args[0][0]
+        assert "ORB" in msg
+
+
+class TestRealignChannels:
+    """
+    Test Design Specification: realign_channels()
+    Module under test: src/ui/handlers/channels.py
+
+    Contract:
+        Re-runs _perform_alignment() and _update_processed_image() on the
+        service, then calls adjust_channel() and update_channel_preview() for
+        all three channels, calls _show_alignment_status(), and finally calls
+        update_main_display(). Used when the user changes the alignment DOF
+        selector after all channels are already loaded.
+
+    Equivalence partitions:
+        EP1  Called with all channels loaded → alignment and all updates run
+
+    Boundary values:
+        BV1  Three channels updated (indices 0, 1, 2)
+
+    Exclusions:
+        - Actual alignment computation (svc methods are mocked)
+        - Error paths (assumes service methods succeed)
+
+    Constraints:
+        - svc._perform_alignment and svc._update_processed_image are called
+          via the protected-access pattern (tested by mock verification).
+    """
+
+    def test_calls_perform_alignment(self, mock_main_window: MagicMock) -> None:
+        """Given a mock main window, when realign_channels is called, then svc._perform_alignment is invoked."""
+        # Arrange & Act
+        with patch("src.ui.handlers.channels.update_main_display"):
+            with patch("src.ui.handlers.channels.update_channel_preview"):
+                with patch("src.ui.handlers.channels.adjust_channel"):
+                    realign_channels(mock_main_window)
+        # Assert
+        mock_main_window.svc._perform_alignment.assert_called_once()
+
+    def test_calls_update_processed_image_for_all_channels(self, mock_main_window: MagicMock) -> None:
+        """Given a mock main window, when realign_channels is called, then _update_processed_image is called for channels 0, 1, and 2."""
+        # Arrange & Act
+        with patch("src.ui.handlers.channels.update_main_display"):
+            with patch("src.ui.handlers.channels.update_channel_preview"):
+                with patch("src.ui.handlers.channels.adjust_channel"):
+                    realign_channels(mock_main_window)
+        # Assert
+        assert mock_main_window.svc._update_processed_image.call_count == 3
+
+    def test_calls_adjust_channel_for_all_channels(self, mock_main_window: MagicMock) -> None:
+        """Given a mock main window, when realign_channels is called, then adjust_channel is called for channels 0, 1, and 2."""
+        # Arrange & Act
+        with patch("src.ui.handlers.channels.update_main_display"):
+            with patch("src.ui.handlers.channels.update_channel_preview"):
+                with patch("src.ui.handlers.channels.adjust_channel") as mock_adjust:
+                    realign_channels(mock_main_window)
+        # Assert
+        assert mock_adjust.call_count == 3
+
+    def test_calls_update_main_display(self, mock_main_window: MagicMock) -> None:
+        """Given a mock main window, when realign_channels is called, then update_main_display is called once."""
+        # Arrange & Act
+        with patch("src.ui.handlers.channels.update_main_display") as mock_display:
+            with patch("src.ui.handlers.channels.update_channel_preview"):
+                with patch("src.ui.handlers.channels.adjust_channel"):
+                    realign_channels(mock_main_window)
+        # Assert
+        mock_display.assert_called_once_with(mock_main_window)
