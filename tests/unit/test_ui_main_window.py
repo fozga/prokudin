@@ -563,3 +563,43 @@ class TestResetToDefaults:
 
         # Assert
         mw.status_handler.set_message.assert_called_once()
+
+    def test_service_reset_called(self, mw: MagicMock) -> None:
+        """
+        EP7  svc.reset() is called so channel images are purged from memory.
+
+        Given a mainwindow with a service that has loaded channel data,
+        When reset_to_defaults is called,
+        Then svc.reset() is called before any UI update so no stale image
+        arrays remain accessible after the reset.
+        """
+        # Arrange
+        method = _get_real_mainwindow_method("reset_to_defaults")
+        mw.state.crop_mode = False
+
+        # Act
+        method(mw)
+
+        # Assert
+        mw.svc.reset.assert_called_once()
+
+    def test_service_reset_called_before_state_reset(self, mw: MagicMock) -> None:
+        """
+        EP8  svc.reset() precedes state.reset() in the call sequence.
+
+        Regression guard: the image data must be cleared before AppState is
+        reset so that any state-dependent query on svc during the reset
+        sequence observes an already-empty service.
+        """
+        # Arrange
+        method = _get_real_mainwindow_method("reset_to_defaults")
+        mw.state.crop_mode = False
+        call_order: list[str] = []
+        mw.svc.reset.side_effect = lambda: call_order.append("svc.reset")
+        mw.state.reset = MagicMock(side_effect=lambda: call_order.append("state.reset"))
+
+        # Act
+        method(mw)
+
+        # Assert
+        assert call_order.index("svc.reset") < call_order.index("state.reset")

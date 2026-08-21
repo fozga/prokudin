@@ -326,6 +326,9 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
             self.crop_controls.setVisible(False)
             self.viewer.set_crop_mode(False)
 
+        # Clear all image data from the service layer
+        self.svc.reset()
+
         # Reset all mutable state to defaults
         self.state.reset()
 
