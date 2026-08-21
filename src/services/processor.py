@@ -25,7 +25,7 @@ from typing import List, Optional, Tuple, cast
 import cv2  # type: ignore
 import numpy as np
 
-from ..core.align import align_images
+from ..core.align import AlignmentDOF, AlignmentResult, align_images_with_result
 from ..core.image_processing import apply_adjustments, combine_channels
 
 
@@ -37,7 +37,7 @@ class ChannelAdjustments:  # pylint: disable=too-few-public-methods
     contrast: int = 0
 
 
-class ImageProcessorService:  # pylint: disable=too-few-public-methods
+class ImageProcessorService:  # pylint: disable=too-few-public-methods,too-many-instance-attributes
     """Service for managing image processing state and operations.
 
     Owns all image arrays (original, aligned, processed) and per-channel
@@ -57,6 +57,8 @@ class ImageProcessorService:  # pylint: disable=too-few-public-methods
             ChannelAdjustments(),
             ChannelAdjustments(),
         ]
+        self.alignment_dof: AlignmentDOF = AlignmentDOF.TRANSLATION_ROTATION_SCALE
+        self.last_alignment_result: Optional[AlignmentResult] = None
 
     def load_channel_from_array(self, channel_idx: int, rgb_array: np.ndarray) -> None:
         """Load a channel from an RGB array.
@@ -86,10 +88,11 @@ class ImageProcessorService:  # pylint: disable=too-few-public-methods
         rgb_images = [img for img in self.original_rgb_images if img is not None]
 
         if len(gray_images) == 3 and len(rgb_images) == 3:
-            aligned_gray, aligned_rgb = align_images(gray_images, rgb_images)
-            self.aligned = cast(List[Optional[np.ndarray]], aligned_gray)
-            self.aligned_rgb = cast(List[Optional[np.ndarray]], aligned_rgb)
-            self.processed = [img.copy() for img in aligned_gray]
+            result = align_images_with_result(gray_images, rgb_images, self.alignment_dof)
+            self.last_alignment_result = result
+            self.aligned = cast(List[Optional[np.ndarray]], result.aligned_grayscale)
+            self.aligned_rgb = cast(List[Optional[np.ndarray]], result.aligned_rgb)
+            self.processed = [img.copy() for img in result.aligned_grayscale]
 
     def adjust_channel(self, channel_idx: int, brightness: int, contrast: int) -> None:
         """Adjust brightness and contrast for a channel.
@@ -215,3 +218,4 @@ class ImageProcessorService:  # pylint: disable=too-few-public-methods
             ChannelAdjustments(),
             ChannelAdjustments(),
         ]
+        self.last_alignment_result = None

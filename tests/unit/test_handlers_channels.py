@@ -26,6 +26,7 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
+from src.core.align import AlignmentResult, TransformParams
 from src.ui.handlers.channels import (
     _process_channel_image,
     load_channel,
@@ -41,6 +42,12 @@ def mock_main_window() -> MagicMock:
     """Create a mock MainWindow with required attributes."""
     main_window = MagicMock()
     main_window.svc = MagicMock()
+    main_window.svc.last_alignment_result = AlignmentResult(
+        aligned_grayscale=[np.zeros((4, 4), dtype=np.uint8)] * 3,
+        aligned_rgb=[np.zeros((4, 4, 3), dtype=np.uint8)] * 3,
+        method_used="ORB",
+        channel_params=[TransformParams() for _ in range(3)],
+    )
     main_window.state = MagicMock()
     main_window.state.channel_paths = [None, None, None]
     main_window.state.show_combined = True

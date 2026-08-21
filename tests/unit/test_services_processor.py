@@ -22,6 +22,7 @@ from unittest.mock import patch, MagicMock
 import numpy as np
 import pytest
 
+from src.core.align import AlignmentResult, TransformParams
 from src.services.processor import ChannelAdjustments, ImageProcessorService
 
 
@@ -254,7 +255,7 @@ class TestLoadChannelFromArray:
         assert svc.aligned[0] is None
         assert svc.aligned[1] is None
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     def test_load_three_channels_triggers_alignment(self, mock_align: MagicMock) -> None:
         """Given: align_images mocked to return aligned gray and RGB arrays
         When: all 3 channels are loaded sequentially
@@ -270,7 +271,7 @@ class TestLoadChannelFromArray:
             np.dstack([gray_aligned[1]] * 3),
             np.dstack([gray_aligned[2]] * 3),
         ]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
 
         svc = ImageProcessorService()
         rgb1 = self._make_rgb_image(seed=1)
@@ -334,7 +335,7 @@ class TestAdjustChannel:
         rng = np.random.RandomState(seed)
         return rng.randint(0, 256, (height, width, 3), dtype=np.uint8)
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     @patch("src.services.processor.apply_adjustments")
     def test_adjust_channel_updates_adjustment_values(
         self, mock_apply: MagicMock, mock_align: MagicMock
@@ -349,7 +350,7 @@ class TestAdjustChannel:
             np.ones((100, 100), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
         mock_apply.return_value = np.ones((100, 100), dtype=np.uint8) * 75
 
         svc = ImageProcessorService()
@@ -361,7 +362,7 @@ class TestAdjustChannel:
         assert svc.adjustments[0].brightness == 10
         assert svc.adjustments[0].contrast == -5
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     @patch("src.services.processor.apply_adjustments")
     def test_adjust_channel_calls_apply_adjustments(
         self, mock_apply: MagicMock, mock_align: MagicMock
@@ -376,7 +377,7 @@ class TestAdjustChannel:
             np.ones((100, 100), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
         adjusted = np.ones((100, 100), dtype=np.uint8) * 75
         mock_apply.return_value = adjusted
 
@@ -391,7 +392,7 @@ class TestAdjustChannel:
         assert call_args[0][1] == 20  # brightness
         assert call_args[0][2] == 10  # contrast
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     @patch("src.services.processor.apply_adjustments")
     def test_adjust_channel_updates_processed_image(
         self, mock_apply: MagicMock, mock_align: MagicMock
@@ -406,7 +407,7 @@ class TestAdjustChannel:
             np.ones((100, 100), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
         adjusted = np.ones((100, 100), dtype=np.uint8) * 75
         mock_apply.return_value = adjusted
 
@@ -467,7 +468,7 @@ class TestGetChannelPreview:
         result = svc.get_channel_preview(0)
         assert result is None
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     def test_get_channel_preview_returns_processed_image(self, mock_align: MagicMock) -> None:
         """Given: all 3 channels loaded with mocked align_images
         When: get_channel_preview is called for channel 1
@@ -479,7 +480,7 @@ class TestGetChannelPreview:
             np.ones((100, 100), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
 
         svc = ImageProcessorService()
         for i in range(3):
@@ -544,7 +545,7 @@ class TestGetChannel:
         result = svc.get_channel(0)
         assert result is None
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     def test_get_channel_without_crop_returns_full_image(self, mock_align: MagicMock) -> None:
         """Given: all 3 channels loaded with mocked align_images
         When: get_channel is called without crop for channel 2
@@ -556,7 +557,7 @@ class TestGetChannel:
             np.ones((100, 100), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
 
         svc = ImageProcessorService()
         for i in range(3):
@@ -566,7 +567,7 @@ class TestGetChannel:
         # Assert
         np.testing.assert_array_equal(result, svc.processed[2])
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     def test_get_channel_with_crop_returns_cropped_region(self, mock_align: MagicMock) -> None:
         """Given: all 3 channels loaded with mocked align_images
         When: get_channel is called with crop=(10, 20, 30, 40)
@@ -579,7 +580,7 @@ class TestGetChannel:
         ]
         gray_aligned = [img.astype(np.uint8) for img in gray_aligned]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
 
         svc = ImageProcessorService()
         for i in range(3):
@@ -592,7 +593,7 @@ class TestGetChannel:
         expected = svc.processed[0][20:60, 10:40]
         np.testing.assert_array_equal(result, expected)
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     def test_get_channel_crop_creates_copy(self, mock_align: MagicMock) -> None:
         """Given: all 3 channels loaded with mocked align_images
         When: get_channel is called with a crop region
@@ -602,7 +603,7 @@ class TestGetChannel:
             np.ones((100, 100), dtype=np.uint8) * i for i in range(1, 4)
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
 
         svc = ImageProcessorService()
         for i in range(3):
@@ -614,7 +615,7 @@ class TestGetChannel:
         # Assert
         assert result.base is None or result.base is not svc.processed[0]
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     def test_get_channel_without_crop_returns_independent_copy(self, mock_align: MagicMock) -> None:
         """Given: all 3 channels loaded without crop argument
         When: get_channel is called and the result is mutated
@@ -626,7 +627,7 @@ class TestGetChannel:
             np.ones((100, 100), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
 
         svc = ImageProcessorService()
         for i in range(3):
@@ -697,7 +698,7 @@ class TestGetCombined:
         result = svc.get_combined()
         assert result is None
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     @patch("src.services.processor.combine_channels")
     def test_get_combined_without_crop_calls_combine_channels(
         self, mock_combine: MagicMock, mock_align: MagicMock
@@ -712,7 +713,7 @@ class TestGetCombined:
             np.ones((100, 100), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
         combined_rgb = np.ones((100, 100, 3), dtype=np.uint8) * 100
         mock_combine.return_value = combined_rgb
 
@@ -726,7 +727,7 @@ class TestGetCombined:
         mock_combine.assert_called_once()
         np.testing.assert_array_equal(result, combined_rgb)
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     @patch("src.services.processor.combine_channels")
     def test_get_combined_with_intensities(
         self, mock_combine: MagicMock, mock_align: MagicMock
@@ -741,7 +742,7 @@ class TestGetCombined:
             np.ones((100, 100), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
         combined_rgb = np.ones((100, 100, 3), dtype=np.uint8) * 100
         mock_combine.return_value = combined_rgb
 
@@ -756,7 +757,7 @@ class TestGetCombined:
         call_args = mock_combine.call_args
         assert call_args[0][1] == intensities
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     @patch("src.services.processor.combine_channels")
     def test_get_combined_uses_default_intensities(
         self, mock_combine: MagicMock, mock_align: MagicMock
@@ -771,7 +772,7 @@ class TestGetCombined:
             np.ones((100, 100), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
         combined_rgb = np.ones((100, 100, 3), dtype=np.uint8) * 100
         mock_combine.return_value = combined_rgb
 
@@ -787,7 +788,7 @@ class TestGetCombined:
         assert call_args[0][1] == [100, 100, 100]
         np.testing.assert_array_equal(result, combined_rgb)
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     @patch("src.services.processor.combine_channels")
     def test_get_combined_with_crop(
         self, mock_combine: MagicMock, mock_align: MagicMock
@@ -803,7 +804,7 @@ class TestGetCombined:
         ]
         gray_aligned = [img.astype(np.uint8) for img in gray_aligned]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
         combined_rgb = np.arange(30000, dtype=np.uint32).reshape(100, 100, 3) % 256
         combined_rgb = combined_rgb.astype(np.uint8)
         mock_combine.return_value = combined_rgb
@@ -819,7 +820,7 @@ class TestGetCombined:
         expected = combined_rgb[20:60, 10:40]
         np.testing.assert_array_equal(result, expected)
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     @patch("src.services.processor.combine_channels")
     def test_get_combined_returns_none_when_combine_channels_returns_none(
         self, mock_combine: MagicMock, mock_align: MagicMock
@@ -834,7 +835,7 @@ class TestGetCombined:
             np.ones((100, 100), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
         mock_combine.return_value = None
 
         svc = ImageProcessorService()
@@ -890,7 +891,7 @@ class TestHasAlignedChannels:
         svc = ImageProcessorService()
         assert svc.has_aligned_channels() is False
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     def test_has_aligned_channels_true_after_load(self, mock_align: MagicMock) -> None:
         """Given: all 3 channels loaded with mocked align_images
         When: has_aligned_channels is called
@@ -902,7 +903,7 @@ class TestHasAlignedChannels:
             np.ones((100, 100), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
 
         svc = ImageProcessorService()
         # Act
@@ -957,7 +958,7 @@ class TestHasProcessedChannels:
         svc = ImageProcessorService()
         assert svc.has_processed_channels() is False
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     def test_has_processed_channels_true_after_single_channel_load(self, mock_align: MagicMock) -> None:
         """Given: one channel loaded with mocked align_images
         When: has_processed_channels is called
@@ -969,7 +970,7 @@ class TestHasProcessedChannels:
             np.ones((100, 100), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
 
         svc = ImageProcessorService()
         # Act
@@ -1026,7 +1027,7 @@ class TestGetImageDimensions:
         result = svc.get_image_dimensions()
         assert result is None
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     def test_get_image_dimensions_after_load(self, mock_align: MagicMock) -> None:
         """Given: all 3 channels loaded with dimensions 50x75
         When: get_image_dimensions is called
@@ -1038,7 +1039,7 @@ class TestGetImageDimensions:
             np.ones((50, 75), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
 
         svc = ImageProcessorService()
         rgb = self._make_rgb_image(height=50, width=75)
@@ -1088,7 +1089,7 @@ class TestReset:
         rng = np.random.RandomState(seed)
         return rng.randint(0, 256, (height, width, 3), dtype=np.uint8)
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     def test_reset_clears_all_images(self, mock_align: MagicMock) -> None:
         """Given: all 3 channels loaded with image data
         When: reset is called
@@ -1100,7 +1101,7 @@ class TestReset:
             np.ones((100, 100), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
 
         svc = ImageProcessorService()
         for i in range(3):
@@ -1114,7 +1115,7 @@ class TestReset:
         assert all(img is None for img in svc.original_rgb_images)
         assert all(img is None for img in svc.aligned_rgb)
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     def test_reset_resets_adjustments(self, mock_align: MagicMock) -> None:
         """Given: channels loaded with adjustments modified
         When: reset is called
@@ -1126,7 +1127,7 @@ class TestReset:
             np.ones((100, 100), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
 
         svc = ImageProcessorService()
         for i in range(3):
@@ -1142,7 +1143,7 @@ class TestReset:
             assert adj.brightness == 0
             assert adj.contrast == 0
 
-    @patch("src.services.processor.align_images")
+    @patch("src.services.processor.align_images_with_result")
     def test_reset_allows_reuse(self, mock_align: MagicMock) -> None:
         """Given: channels loaded and reset called
         When: new channels are loaded with different dimensions
@@ -1154,7 +1155,7 @@ class TestReset:
             np.ones((100, 100), dtype=np.uint8) * 150,
         ]
         rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
-        mock_align.return_value = (gray_aligned, rgb_aligned)
+        mock_align.return_value = AlignmentResult(aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB")
 
         svc = ImageProcessorService()
         for i in range(3):
@@ -1168,3 +1169,88 @@ class TestReset:
         # Assert
         assert svc.original_rgb_images[0] is not None
         assert svc.original_images[0] is not None
+
+
+class TestAlignmentDOFAndResult:
+    """
+    Test Design Specification: alignment_dof and last_alignment_result fields
+    Module under test: src/services/processor.py
+
+    Contract:
+        ImageProcessorService exposes:
+        - alignment_dof: AlignmentDOF, default TRANSLATION_ROTATION_SCALE. Controls
+          which DOF are passed to align_images_with_result on the next alignment run.
+        - last_alignment_result: Optional[AlignmentResult], None until at least one
+          alignment has been performed. Updated after every _perform_alignment call.
+          reset() sets it back to None.
+
+    Equivalence partitions:
+        EP1  Initial state            → alignment_dof = TRANSLATION_ROTATION_SCALE
+        EP2  Initial state            → last_alignment_result is None
+        EP3  After all 3 channels     → last_alignment_result is populated
+        EP4  After reset              → last_alignment_result is None again
+
+    Boundary values:
+        BV1  default DOF value
+        BV2  last_alignment_result before any alignment
+
+    Exclusions:
+        - DOF values other than default (DOF-specific alignment behaviour tested in test_core_align.py)
+    """
+
+    @staticmethod
+    def _make_rgb_image(height: int = 100, width: int = 100, seed: int = 42) -> np.ndarray:
+        rng = np.random.RandomState(seed)
+        return rng.randint(0, 256, (height, width, 3), dtype=np.uint8)
+
+    def test_initial_alignment_dof_is_translation_rotation_scale(self) -> None:
+        """Given a freshly created service, when alignment_dof is accessed, then it is TRANSLATION_ROTATION_SCALE."""
+        # Arrange & Act
+        from src.core.align import AlignmentDOF
+        svc = ImageProcessorService()
+        # Assert
+        assert svc.alignment_dof == AlignmentDOF.TRANSLATION_ROTATION_SCALE
+
+    def test_last_alignment_result_is_none_initially(self) -> None:
+        """Given a freshly created service, when last_alignment_result is accessed, then it is None."""
+        svc = ImageProcessorService()
+        assert svc.last_alignment_result is None
+
+    @patch("src.services.processor.align_images_with_result")
+    def test_last_alignment_result_populated_after_three_channels(self, mock_align: MagicMock) -> None:
+        """Given all 3 channels loaded with a mocked alignment, when last_alignment_result is accessed, then it is set."""
+        # Arrange
+        gray_aligned = [np.ones((100, 100), dtype=np.uint8) * i for i in (50, 100, 150)]
+        rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
+        expected_result = AlignmentResult(
+            aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB"
+        )
+        mock_align.return_value = expected_result
+
+        svc = ImageProcessorService()
+        for i in range(3):
+            svc.load_channel_from_array(i, self._make_rgb_image(seed=i))
+
+        # Assert
+        assert svc.last_alignment_result is expected_result
+
+    @patch("src.services.processor.align_images_with_result")
+    def test_reset_clears_last_alignment_result(self, mock_align: MagicMock) -> None:
+        """Given all 3 channels loaded and alignment stored, when reset is called, then last_alignment_result is None."""
+        # Arrange
+        gray_aligned = [np.ones((100, 100), dtype=np.uint8) * i for i in (50, 100, 150)]
+        rgb_aligned = [np.dstack([g] * 3) for g in gray_aligned]
+        mock_align.return_value = AlignmentResult(
+            aligned_grayscale=gray_aligned, aligned_rgb=rgb_aligned, method_used="ORB"
+        )
+
+        svc = ImageProcessorService()
+        for i in range(3):
+            svc.load_channel_from_array(i, self._make_rgb_image(seed=i))
+        assert svc.last_alignment_result is not None
+
+        # Act
+        svc.reset()
+
+        # Assert
+        assert svc.last_alignment_result is None
