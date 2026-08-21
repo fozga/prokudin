@@ -662,6 +662,7 @@ class TestRestrictMatrixToDOF:
     """
 
     def _make_partial_affine(self, angle_deg: float, scale: float, tx: float, ty: float) -> np.ndarray:
+        """Build a 2×3 partial-affine matrix from angle, uniform scale, and translation."""
         r = math.radians(angle_deg)
         c, s = math.cos(r) * scale, math.sin(r) * scale
         return np.array([[c, -s, tx], [s, c, ty]], dtype=np.float32)
@@ -737,6 +738,7 @@ class TestAlignImagesWithResult:
 
     @pytest.fixture
     def feature_images(self, sample_grayscale_image: np.ndarray, sample_rgb_image: np.ndarray) -> tuple:
+        """Return three identical feature-rich grayscale and RGB image lists."""
         grays = [sample_grayscale_image.copy() for _ in range(3)]
         rgbs = [sample_rgb_image.copy() for _ in range(3)]
         return grays, rgbs

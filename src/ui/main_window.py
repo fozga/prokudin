@@ -41,7 +41,7 @@ from ..services.processor import ImageProcessorService
 from .app_state import AppState
 from .config import get_config_dir, get_presets_dir
 from .handlers.autosave import clear_autosave, restore_autosave, save_autosave
-from .handlers.channels import adjust_channel, load_channel, show_single_channel
+from .handlers.channels import adjust_channel, load_channel, realign_channels, show_single_channel
 from .handlers.crop import apply_crop as crop_apply_crop
 from .handlers.crop import cancel_crop as crop_cancel_crop
 from .handlers.crop import set_crop_ratio as crop_set_crop_ratio
@@ -282,8 +282,6 @@ class MainWindow(QMainWindow):  # pylint: disable=too-many-instance-attributes
         _label, dof = self._dof_options[index]
         self.svc.alignment_dof = dof
         if all(img is not None for img in self.svc.original_images):
-            from .handlers.channels import realign_channels  # pylint: disable=import-outside-toplevel
-
             realign_channels(self)
 
     def toggle_crop_mode(self) -> None:

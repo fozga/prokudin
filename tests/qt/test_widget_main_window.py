@@ -1686,3 +1686,120 @@ class TestKeyPressEvent:
         # Assert
         mock_super_key_press.assert_called_once()
 
+
+@pytest.mark.widget
+class TestDOFSelector:
+    """
+    Test Design Specification: MainWindow DOF selector (_dof_combo / _on_dof_changed)
+    Module under test: src/ui/main_window.py
+
+    Widget base class: QMainWindow (parent of MainWindow)
+
+    Contract:
+        A QComboBox labelled "Align:" is added to the toolbar with four items
+        corresponding to AlignmentDOF members. The default selection is index 2
+        (TRANSLATION_ROTATION_SCALE). Changing the selection calls
+        _on_dof_changed(), which:
+        - Updates svc.alignment_dof to the matching AlignmentDOF value.
+        - Calls realign_channels() only when all three original_images slots are
+          non-None; skips the call when any slot is None.
+
+    Infrastructure:
+        - Requires qtbot fixture and QT_QPA_PLATFORM=offscreen.
+        - ImageProcessorService is patched by the window fixture.
+        - realign_channels is patched in these tests to avoid a real alignment run.
+
+    Equivalence partitions:
+        EP1  Combo created with four items.
+        EP2  Default index is 2 (TRANSLATION_ROTATION_SCALE).
+        EP3  Changing index updates svc.alignment_dof.
+        EP4  All three images loaded → realign_channels called.
+        EP5  Fewer than three images loaded → realign_channels not called.
+
+    Boundary values:
+        BV1  Index 0 → AlignmentDOF.TRANSLATION.
+        BV2  Index 3 → AlignmentDOF.FULL_AFFINE.
+        BV3  original_images = [None, None, None] → no realign.
+        BV4  original_images all non-None → realign triggered.
+
+    Constraints:
+        - realign_channels is patched to prevent filesystem / OpenCV access.
+        - window fixture patches ImageProcessorService so svc is a MagicMock.
+    """
+
+    def test_combo_has_four_items(self, window: "MainWindow") -> None:
+        """
+        Given a MainWindow instance,
+        When init_ui completes,
+        Then _dof_combo contains exactly four items.
+        """
+        # Arrange (window created by fixture)
+        # Act / Assert
+        assert window._dof_combo.count() == 4
+
+    def test_default_selection_is_index_two(self, window: "MainWindow") -> None:
+        """
+        Given a MainWindow instance,
+        When init_ui completes,
+        Then _dof_combo current index is 2 (TRANSLATION_ROTATION_SCALE).
+        """
+        # Arrange (window created by fixture)
+        # Act / Assert
+        assert window._dof_combo.currentIndex() == 2
+
+    def test_changing_index_updates_alignment_dof(self, window: "MainWindow", qtbot: QtBot) -> None:
+        """
+        Given a MainWindow with a mocked svc,
+        When _dof_combo index is changed to 0,
+        Then svc.alignment_dof is set to AlignmentDOF.TRANSLATION.
+        """
+        from src.core.align import AlignmentDOF
+
+        # Arrange
+        window.svc.original_images = [None, None, None]
+
+        # Act
+        with patch("src.ui.main_window.realign_channels"):
+            window._dof_combo.setCurrentIndex(0)
+
+        # Assert
+        assert window.svc.alignment_dof == AlignmentDOF.TRANSLATION
+
+    def test_all_channels_loaded_triggers_realign(self, window: "MainWindow", qtbot: QtBot) -> None:
+        """
+        Given all three original_images slots are non-None,
+        When _dof_combo index changes,
+        Then realign_channels is called once.
+        """
+        import numpy as np
+
+        # Arrange
+        window.svc.original_images = [
+            np.zeros((4, 4), dtype=np.uint8),
+            np.zeros((4, 4), dtype=np.uint8),
+            np.zeros((4, 4), dtype=np.uint8),
+        ]
+
+        # Act
+        with patch("src.ui.main_window.realign_channels") as mock_realign:
+            window._on_dof_changed(1)
+
+        # Assert
+        mock_realign.assert_called_once_with(window)
+
+    def test_missing_channel_skips_realign(self, window: "MainWindow", qtbot: QtBot) -> None:
+        """
+        Given at least one original_images slot is None,
+        When _dof_combo index changes,
+        Then realign_channels is not called.
+        """
+        # Arrange
+        window.svc.original_images = [None, None, None]
+
+        # Act
+        with patch("src.ui.main_window.realign_channels") as mock_realign:
+            window._on_dof_changed(3)
+
+        # Assert
+        mock_realign.assert_not_called()
+
